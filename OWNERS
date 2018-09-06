@@ -1,4 +1,10 @@
-# See the OWNERS docs: https://git.k8s.io/community/contributors/guide/owners.md
+# See the OWNERS docs: https://go.k8s.io/owners
 
 approvers:
-  - steering-committee
+  - lavalamp
+  - apelisse
+  - jennybuckley
+reviewers:
+  - lavalamp
+  - apelisse
+  - jennybuckley
