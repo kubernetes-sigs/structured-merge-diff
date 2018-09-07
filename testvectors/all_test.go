@@ -26,13 +26,13 @@ func TestAll(t *testing.T) {
 
 type implementation struct{}
 
-func (implementation) Test(t *testing.T, v *Vector) {
+func (implementation) Test(t *testing.T, v *Vector, s SchemaDefinition) {
 	t.Parallel()
 	t.Skip("not implemented yet")
 
 	var implementationUnderTest inTreeImplementation
-	tmp := implementationUnderTest.diff(v.Schema, v.NewObject, v.LastObject)
-	got := implementationUnderTest.merge(v.Schema, v.LiveObject, tmp)
+	tmp := implementationUnderTest.diff(s, v.NewObject, v.LastObject)
+	got := implementationUnderTest.merge(s, v.LiveObject, tmp)
 
 	if got != v.ExpectedObject {
 		t.Errorf("%v: did not get expected object", v.Name)
@@ -42,6 +42,6 @@ func (implementation) Test(t *testing.T, v *Vector) {
 // TODO: delete this. It's here as an illustration of the approach and isn't
 // necessary after we publish the necessary functions.
 type inTreeImplementation interface {
-	diff(s Schema, a, b YAMLObject) YAMLObject
-	merge(s Schema, a, b YAMLObject) YAMLObject
+	diff(s SchemaDefinition, a, b YAMLObject) YAMLObject
+	merge(s SchemaDefinition, a, b YAMLObject) YAMLObject
 }

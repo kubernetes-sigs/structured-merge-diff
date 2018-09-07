@@ -16,46 +16,53 @@ limitations under the License.
 
 package testvectors
 
-// TODO: Use our actual schema type.
-var primitiveInlineListSchema = Schema(`
+import (
+	"fmt"
+
+	"gopkg.in/yaml.v2"
+)
+
+func init() {
+	Schemas["listordering-primitiveInlineList"] = SchemaDefinition(`
 type:
   inlineList:
     elementType:
       inlineScalar: string
-  primitiveAssociative: true`)
+  primitiveAssociative: true
+`)
 
-func init() {
-	Vectors = append(
-		Vectors,
-		&Vector{
-			Name:   "list insert 1",
-			Schema: primitiveInlineListSchema,
-			LiveObject: YAMLObject(`
-items:
-- a
-- b
-- c
-- d`),
-			LastObject: YAMLObject(`
-items:
-- a
-- b
-- c
-`),
-			NewObject: YAMLObject(`
-items:
-- a
-- b
-- e
-- c
-`),
-			ExpectedObject: YAMLObject(`
-items:
-- a
-- b
-- e
-- c
-- d`),
-		},
-	)
+	var tests []*Vector
+	err := yaml.Unmarshal([]byte(`
+- name: list insert 1
+  schemaName: listordering-primitiveInlineList
+  lastObject: |
+      items:
+      - a
+      - b
+      - c
+  liveObject: |
+      items:
+      - a
+      - b
+      - c
+      - d
+  newObject: |
+      items:
+      - a
+      - b
+      - e
+      - c
+  expectedObject: |
+      items:
+      - a
+      - b
+      - e
+      - c
+      - d
+`), &tests)
+	if err != nil {
+		panic(fmt.Sprintf("test cases defined wrong: %v", err))
+	}
+
+	AppendTestVectors(tests...)
 }
