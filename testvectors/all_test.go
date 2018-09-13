@@ -27,7 +27,6 @@ func TestAll(t *testing.T) {
 type implementation struct{}
 
 func (implementation) Test(t *testing.T, v *Vector, s SchemaDefinition) {
-	t.Parallel()
 	t.Skip("not implemented yet")
 
 	var implementationUnderTest inTreeImplementation

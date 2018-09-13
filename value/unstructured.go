@@ -54,8 +54,6 @@ func FromUnstructured(in interface{}) (Value, error) {
 		return Value{Null: true}, nil
 	}
 	switch t := in.(type) {
-	default:
-		return Value{}, fmt.Errorf("type unimplemented: %t", in)
 	case map[interface{}]interface{}:
 		m := Map{}
 		for rawKey, rawVal := range t {
@@ -141,6 +139,8 @@ func FromUnstructured(in interface{}) (Value, error) {
 		return StringValue(t), nil
 	case bool:
 		return BooleanValue(t), nil
+	default:
+		return Value{}, fmt.Errorf("type unimplemented: %t", in)
 	}
 }
 
