@@ -75,7 +75,8 @@ var Schemas = map[string]SchemaDefinition{}
 // you can run the same vectors through a system that does the three-way merge
 // directly, or through a system that does a separate diff and merge.
 type Implementation interface {
-	// Test must not modify v. Test should call t.Parallel().
+	// Test must not modify v. Test must be self-contained as it will be
+	// run in parallel.
 	Test(t *testing.T, v *Vector, s SchemaDefinition)
 }
 
@@ -88,6 +89,7 @@ func RunAllVectors(t *testing.T, impl Implementation) {
 			t.Fatalf("Test %v references schema %v, but it is not defined", v.Name, v.SchemaName)
 		}
 		t.Run(v.Name, func(t *testing.T) {
+			t.Parallel()
 			impl.Test(t, v, s)
 		})
 	}

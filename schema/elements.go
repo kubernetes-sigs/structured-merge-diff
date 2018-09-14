@@ -27,32 +27,6 @@ type TypeSpecifier struct {
 	Schema Schema  `yaml:"schema,omitempty"`
 }
 
-// FindNamedType returns the referenced TypeDef, if it exists, or (nil, false)
-// if it doesn't.
-func (s Schema) FindNamedType(name string) (TypeDef, bool) {
-	for _, t := range s.Types {
-		if t.Name == name {
-			return t, true
-		}
-	}
-	return TypeDef{}, false
-}
-
-// Resolve returns the atom referenced, whether it is inline or
-// named. Returns Atom{}, false if the type can't be resolved. Allows callers
-// to not care about the difference between a (possibly inlined) reference and
-// a definition.
-func (s Schema) Resolve(tr TypeRef) (Atom, bool) {
-	if tr.NamedType != nil {
-		t, ok := s.FindNamedType(*tr.NamedType)
-		if !ok {
-			return Atom{}, false
-		}
-		return t.Atom, true
-	}
-	return tr.Inlined, true
-}
-
 // TypeDef represents a node in a schema.
 type TypeDef struct {
 	// Top level types should be named. Every type must have a unique name.
@@ -188,3 +162,29 @@ type Map struct {
 // Untyped is used for fields that allow arbitrary content. (Think: plugin
 // objects.)
 type Untyped struct{}
+
+// FindNamedType returns the referenced TypeDef, if it exists, or (nil, false)
+// if it doesn't.
+func (s Schema) FindNamedType(name string) (TypeDef, bool) {
+	for _, t := range s.Types {
+		if t.Name == name {
+			return t, true
+		}
+	}
+	return TypeDef{}, false
+}
+
+// Resolve returns the atom referenced, whether it is inline or
+// named. Returns Atom{}, false if the type can't be resolved. Allows callers
+// to not care about the difference between a (possibly inlined) reference and
+// a definition.
+func (s Schema) Resolve(tr TypeRef) (Atom, bool) {
+	if tr.NamedType != nil {
+		t, ok := s.FindNamedType(*tr.NamedType)
+		if !ok {
+			return Atom{}, false
+		}
+		return t.Atom, true
+	}
+	return tr.Inlined, true
+}
