@@ -192,41 +192,44 @@ func TestSetIntersectionDifference(t *testing.T) {
 		MakePathOrDie("bar", "c2"),
 	)
 
-	i := NewSet(
-		MakePathOrDie("a1"),
-		MakePathOrDie("foo", 1),
-		MakePathOrDie("b1", KeyByFields("name", value.StringValue("first"))),
-	)
+	t.Run("intersection", func(t *testing.T) {
+		i := NewSet(
+			MakePathOrDie("a1"),
+			MakePathOrDie("foo", 1),
+			MakePathOrDie("b1", KeyByFields("name", value.StringValue("first"))),
+		)
 
-	got := s1.Intersection(s2)
+		got := s1.Intersection(s2)
+		if !got.Equals(i) {
+			t.Errorf("expected: \n%v\n, got \n%v\n", i, got)
+		}
+	})
 
-	if !got.Equals(i) {
-		t.Errorf("s1 intersect s2: expected: \n%v\n, got \n%v\n", i, got)
-	}
+	t.Run("s1 - s2", func(t *testing.T) {
+		sDiffS2 := NewSet(
+			MakePathOrDie("a0"),
+			MakePathOrDie("foo", 0),
+			MakePathOrDie("b0", KeyByFields("name", value.StringValue("first"))),
+			MakePathOrDie("bar", "c0"),
+		)
 
-	sDiffS2 := NewSet(
-		MakePathOrDie("a0"),
-		MakePathOrDie("foo", 0),
-		MakePathOrDie("b0", KeyByFields("name", value.StringValue("first"))),
-		MakePathOrDie("bar", "c0"),
-	)
+		got := s1.Difference(s2)
+		if !got.Equals(sDiffS2) {
+			t.Errorf("expected: \n%v\n, got \n%v\n", sDiffS2, got)
+		}
+	})
 
-	got = s1.Difference(s2)
+	t.Run("s2 - s1", func(t *testing.T) {
+		s2DiffS := NewSet(
+			MakePathOrDie("a2"),
+			MakePathOrDie("foo", 2),
+			MakePathOrDie("b2", KeyByFields("name", value.StringValue("first"))),
+			MakePathOrDie("bar", "c2"),
+		)
 
-	if !got.Equals(sDiffS2) {
-		t.Errorf("s1 - s2: expected: \n%v\n, got \n%v\n", sDiffS2, got)
-	}
-
-	s2DiffS := NewSet(
-		MakePathOrDie("a2"),
-		MakePathOrDie("foo", 2),
-		MakePathOrDie("b2", KeyByFields("name", value.StringValue("first"))),
-		MakePathOrDie("bar", "c2"),
-	)
-
-	got = s2.Difference(s1)
-
-	if !got.Equals(s2DiffS) {
-		t.Errorf("s2 - s1: expected: \n%v\n, got \n%v\n", s2DiffS, got)
-	}
+		got := s2.Difference(s1)
+		if !got.Equals(s2DiffS) {
+			t.Errorf("expected: \n%v\n, got \n%v\n", s2DiffS, got)
+		}
+	})
 }

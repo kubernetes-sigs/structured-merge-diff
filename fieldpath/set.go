@@ -175,9 +175,6 @@ func (s *SetNodeMap) Descend(pe PathElement) *Set {
 
 // Size returns the sum of the number of members of all subsets.
 func (s *SetNodeMap) Size() int {
-	if s.members == nil {
-		return 0
-	}
 	count := 0
 	for _, v := range s.members {
 		count += v.set.Size()
