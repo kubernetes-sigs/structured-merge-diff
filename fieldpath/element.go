@@ -171,3 +171,10 @@ func (s *PathElementSet) Equals(s2 *PathElementSet) bool {
 	}
 	return true
 }
+
+// Iterate calls f for each PathElement in the set.
+func (s *PathElementSet) Iterate(f func(PathElement)) {
+	for _, pe := range s.members {
+		f(pe)
+	}
+}
