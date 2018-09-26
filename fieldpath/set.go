@@ -30,6 +30,15 @@ type Set struct {
 	Children SetNodeMap
 }
 
+// NewSet makes a set from a list of paths.
+func NewSet(paths ...Path) *Set {
+	s := &Set{}
+	for _, p := range paths {
+		s.Insert(p)
+	}
+	return s
+}
+
 // Insert adds the field identified by `p` to the set. Important: parent fields
 // are NOT added to the set; if that is desired, they must be added separately.
 func (s *Set) Insert(p Path) {
@@ -45,6 +54,14 @@ func (s *Set) Insert(p Path) {
 		}
 		s = s.Children.Descend(p[0])
 		p = p[1:]
+	}
+}
+
+// Union returns a Set containing the elements of s and s2.
+func (s *Set) Union(s2 *Set) *Set {
+	return &Set{
+		Members:  *s.Members.Union(&s2.Members),
+		Children: *s.Children.Union(&s2.Children),
 	}
 }
 
@@ -65,6 +82,11 @@ func (s *Set) Has(p Path) bool {
 		}
 		p = p[1:]
 	}
+}
+
+// Equals returns true if s and s2 have exactly the same members.
+func (s *Set) Equals(s2 *Set) bool {
+	return s.Members.Equals(&s2.Members) && s.Children.Equals(&s2.Children)
 }
 
 // setNode is a pair of PathElement / Set, for the purpose of expressing
@@ -107,4 +129,42 @@ func (s *SetNodeMap) Get(pe PathElement) (*Set, bool) {
 		return n.set, true
 	}
 	return nil, false
+}
+
+// Equals returns true if s and s2 have the same structure (same nested
+// child sets).
+func (s *SetNodeMap) Equals(s2 *SetNodeMap) bool {
+	if len(s.members) != len(s2.members) {
+		return false
+	}
+	for k, v := range s.members {
+		v2, ok := s2.members[k]
+		if !ok {
+			return false
+		}
+		if !v.set.Equals(v2.set) {
+			return false
+		}
+	}
+	return true
+}
+
+// Union returns a SetNodeMap with members that appear in either s or s2.
+func (s *SetNodeMap) Union(s2 *SetNodeMap) *SetNodeMap {
+	out := &SetNodeMap{}
+	for k, sn := range s.members {
+		if sn2, ok := s2.members[k]; ok {
+			*out.Descend(sn.pathElement) = *sn.set.Union(sn2.set)
+		} else {
+			*out.Descend(sn.pathElement) = *sn.set
+		}
+	}
+	for k, sn2 := range s2.members {
+		if sn, ok := s.members[k]; ok {
+			// already handled
+		} else {
+			*out.Descend(sn.pathElement) = *sn2.set
+		}
+	}
+	return out
 }
