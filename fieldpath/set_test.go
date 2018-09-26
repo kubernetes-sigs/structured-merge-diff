@@ -22,16 +22,17 @@ import (
 	"github.com/kubernetes-sigs/structured-merge-diff/value"
 )
 
-func TestSet(t *testing.T) {
-	s1 := &Set{}
-	s1.Insert(MakePathOrDie("foo", 0, "bar", "baz"))
-	s1.Insert(MakePathOrDie("foo", 0, "bar"))
-	s1.Insert(MakePathOrDie("foo", 0))
-	s1.Insert(MakePathOrDie("foo", 1, "bar", "baz"))
-	s1.Insert(MakePathOrDie("foo", 1, "bar"))
-	s1.Insert(MakePathOrDie("qux", KeyByFields("name", value.StringValue("first"))))
-	s1.Insert(MakePathOrDie("qux", KeyByFields("name", value.StringValue("first")), "bar"))
-	s1.Insert(MakePathOrDie("qux", KeyByFields("name", value.StringValue("second")), "bar"))
+func TestSetInsertHas(t *testing.T) {
+	s1 := NewSet(
+		MakePathOrDie("foo", 0, "bar", "baz"),
+		MakePathOrDie("foo", 0, "bar"),
+		MakePathOrDie("foo", 0),
+		MakePathOrDie("foo", 1, "bar", "baz"),
+		MakePathOrDie("foo", 1, "bar"),
+		MakePathOrDie("qux", KeyByFields("name", value.StringValue("first"))),
+		MakePathOrDie("qux", KeyByFields("name", value.StringValue("first")), "bar"),
+		MakePathOrDie("qux", KeyByFields("name", value.StringValue("second")), "bar"),
+	)
 
 	table := []struct {
 		set              *Set
@@ -55,5 +56,91 @@ func TestSet(t *testing.T) {
 		if e, a := tt.expectMembership, got; e != a {
 			t.Errorf("%v: wanted %v, got %v", tt.check.String(), e, a)
 		}
+	}
+}
+
+func TestSetEquals(t *testing.T) {
+	table := []struct {
+		a     *Set
+		b     *Set
+		equal bool
+	}{
+		{
+			a:     NewSet(MakePathOrDie("foo")),
+			b:     NewSet(MakePathOrDie("bar")),
+			equal: false,
+		},
+		{
+			a:     NewSet(MakePathOrDie("foo")),
+			b:     NewSet(MakePathOrDie("foo")),
+			equal: true,
+		},
+		{
+			a:     NewSet(MakePathOrDie(1, "foo")),
+			b:     NewSet(MakePathOrDie(0, "foo")),
+			equal: false,
+		},
+		{
+			a:     NewSet(MakePathOrDie(1, "foo")),
+			b:     NewSet(MakePathOrDie(1, "foo", "bar")),
+			equal: false,
+		},
+		{
+			a: NewSet(
+				MakePathOrDie("foo", 0),
+				MakePathOrDie("foo"),
+				MakePathOrDie("bar", "baz"),
+				MakePathOrDie("qux", KeyByFields("name", value.StringValue("first"))),
+			),
+			b: NewSet(
+				MakePathOrDie("foo", 1),
+				MakePathOrDie("bar", "baz"),
+				MakePathOrDie("bar"),
+				MakePathOrDie("qux", KeyByFields("name", value.StringValue("second"))),
+			),
+			equal: false,
+		},
+	}
+
+	for _, tt := range table {
+		if e, a := tt.equal, tt.a.Equals(tt.b); e != a {
+			t.Errorf("expected %v, got %v for:\na=\n%v\nb=\n%v", e, a, tt.a, tt.b)
+		}
+	}
+}
+
+func TestSetUnion(t *testing.T) {
+	// Even though this is not a table driven test, since the thing under
+	// test is recursive, we should be able to craft a single input that is
+	// sufficient to check all code paths.
+
+	s1 := NewSet(
+		MakePathOrDie("foo", 0),
+		MakePathOrDie("foo"),
+		MakePathOrDie("bar", "baz"),
+		MakePathOrDie("qux", KeyByFields("name", value.StringValue("first"))),
+	)
+
+	s2 := NewSet(
+		MakePathOrDie("foo", 1),
+		MakePathOrDie("bar", "baz"),
+		MakePathOrDie("bar"),
+		MakePathOrDie("qux", KeyByFields("name", value.StringValue("second"))),
+	)
+
+	u := NewSet(
+		MakePathOrDie("foo", 0),
+		MakePathOrDie("foo", 1),
+		MakePathOrDie("foo"),
+		MakePathOrDie("bar", "baz"),
+		MakePathOrDie("bar"),
+		MakePathOrDie("qux", KeyByFields("name", value.StringValue("first"))),
+		MakePathOrDie("qux", KeyByFields("name", value.StringValue("second"))),
+	)
+
+	got := s1.Union(s2)
+
+	if !got.Equals(u) {
+		t.Errorf("exected: %v, got %v", u, got)
 	}
 }

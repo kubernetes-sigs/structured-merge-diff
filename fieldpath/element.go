@@ -107,6 +107,46 @@ func (s *PathElementSet) Insert(pe PathElement) {
 	}
 }
 
+// Union returns a set containing elements that appear in either s or s2.
+func (s *PathElementSet) Union(s2 *PathElementSet) *PathElementSet {
+	out := &PathElementSet{
+		members: map[string]PathElement{},
+	}
+	for k, v := range s.members {
+		out.members[k] = v
+	}
+	for k, v := range s2.members {
+		out.members[k] = v
+	}
+	return out
+}
+
+// Intersection returns a set containing elements which appear in both s and s2.
+func (s *PathElementSet) Intersection(s2 *PathElementSet) *PathElementSet {
+	out := &PathElementSet{
+		members: map[string]PathElement{},
+	}
+	for k, v := range s.members {
+		if _, ok := s2.members[k]; ok {
+			out.members[k] = v
+		}
+	}
+	return out
+}
+
+// Difference returns a set containing elements which appear in s but not in s2.
+func (s *PathElementSet) Difference(s2 *PathElementSet) *PathElementSet {
+	out := &PathElementSet{
+		members: map[string]PathElement{},
+	}
+	for k, v := range s.members {
+		if _, ok := s2.members[k]; !ok {
+			out.members[k] = v
+		}
+	}
+	return out
+}
+
 // Size retuns the number of elements in the set.
 func (s *PathElementSet) Size() int { return len(s.members) }
 
@@ -117,4 +157,17 @@ func (s *PathElementSet) Has(pe PathElement) bool {
 	}
 	_, ok := s.members[pe.String()]
 	return ok
+}
+
+// Equals returns true if s and s2 have exactly the same members.
+func (s *PathElementSet) Equals(s2 *PathElementSet) bool {
+	if len(s.members) != len(s2.members) {
+		return false
+	}
+	for k := range s.members {
+		if _, ok := s2.members[k]; !ok {
+			return false
+		}
+	}
+	return true
 }
