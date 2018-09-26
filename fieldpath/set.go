@@ -16,7 +16,9 @@ limitations under the License.
 
 package fieldpath
 
-import ()
+import (
+	"strings"
+)
 
 // Set identifies a set of fields.
 type Set struct {
@@ -57,12 +59,43 @@ func (s *Set) Insert(p Path) {
 	}
 }
 
-// Union returns a Set containing the elements of s and s2.
+// Union returns a Set containing elements which appear in either s or s2.
 func (s *Set) Union(s2 *Set) *Set {
 	return &Set{
 		Members:  *s.Members.Union(&s2.Members),
 		Children: *s.Children.Union(&s2.Children),
 	}
+}
+
+// Intersection returns a Set containing elements which appear in both s and s2.
+func (s *Set) Intersection(s2 *Set) *Set {
+	return &Set{
+		Members:  *s.Members.Intersection(&s2.Members),
+		Children: *s.Children.Intersection(&s2.Children),
+	}
+}
+
+// Difference returns a Set containing elements which appear in s but not in s2.
+func (s *Set) Difference(s2 *Set) *Set {
+	return &Set{
+		Members:  *s.Members.Difference(&s2.Members),
+		Children: *s.Children.Difference(&s2.Children),
+	}
+}
+
+// Size returns the number of members of the set.
+func (s *Set) Size() int {
+	return s.Members.Size() + s.Children.Size()
+}
+
+// Empty returns true if there are no members of the set. It is a separate
+// function from Size since it's common to check whether size > 0, and
+// potentially much faster to return as soon as a single element is found.
+func (s *Set) Empty() bool {
+	if s.Members.Size() > 0 {
+		return false
+	}
+	return s.Children.Empty()
 }
 
 // Has returns true if the field referenced by `p` is a member of the set.
@@ -87,6 +120,27 @@ func (s *Set) Has(p Path) bool {
 // Equals returns true if s and s2 have exactly the same members.
 func (s *Set) Equals(s2 *Set) bool {
 	return s.Members.Equals(&s2.Members) && s.Children.Equals(&s2.Children)
+}
+
+// String returns the set one element per line.
+func (s *Set) String() string {
+	elements := []string{}
+	s.Iterate(func(p Path) {
+		elements = append(elements, p.String())
+	})
+	return strings.Join(elements, "\n")
+}
+
+// Iterate calls f once for each field that is a member of the set (preorder
+// DFS). The path passed to f will be reused so make a copy if you wish to keep
+// it.
+func (s *Set) Iterate(f func(Path)) {
+	s.iteratePrefix(Path{}, f)
+}
+
+func (s *Set) iteratePrefix(prefix Path, f func(Path)) {
+	s.Members.Iterate(func(pe PathElement) { f(append(prefix, pe)) })
+	s.Children.iteratePrefix(prefix, f)
 }
 
 // setNode is a pair of PathElement / Set, for the purpose of expressing
@@ -117,6 +171,28 @@ func (s *SetNodeMap) Descend(pe PathElement) *Set {
 		}
 		return ss
 	}
+}
+
+// Size returns the sum of the number of members of all subsets.
+func (s *SetNodeMap) Size() int {
+	if s.members == nil {
+		return 0
+	}
+	count := 0
+	for _, v := range s.members {
+		count += v.set.Size()
+	}
+	return count
+}
+
+// Empty returns false if there's at least one member in some child set.
+func (s *SetNodeMap) Empty() bool {
+	for _, n := range s.members {
+		if !n.set.Empty() {
+			return false
+		}
+	}
+	return true
 }
 
 // Get returns (the associated set, true) or (nil, false) if there is none.
@@ -167,4 +243,41 @@ func (s *SetNodeMap) Union(s2 *SetNodeMap) *SetNodeMap {
 		}
 	}
 	return out
+}
+
+// Intersection returns a SetNodeMap with members that appear in both s and s2.
+func (s *SetNodeMap) Intersection(s2 *SetNodeMap) *SetNodeMap {
+	out := &SetNodeMap{}
+	for k, sn := range s.members {
+		if sn2, ok := s2.members[k]; ok {
+			i := *sn.set.Intersection(sn2.set)
+			if !i.Empty() {
+				*out.Descend(sn.pathElement) = i
+			}
+		}
+	}
+	return out
+}
+
+// Difference returns a SetNodeMap with members that appear in s but not in s2.
+func (s *SetNodeMap) Difference(s2 *SetNodeMap) *SetNodeMap {
+	out := &SetNodeMap{}
+	for k, sn := range s.members {
+		if sn2, ok := s2.members[k]; ok {
+			diff := *sn.set.Difference(sn2.set)
+			// We aren't permitted to add nodes with no elements.
+			if !diff.Empty() {
+				*out.Descend(sn.pathElement) = diff
+			}
+		} else {
+			*out.Descend(sn.pathElement) = *sn.set
+		}
+	}
+	return out
+}
+
+func (s *SetNodeMap) iteratePrefix(prefix Path, f func(Path)) {
+	for _, n := range s.members {
+		n.set.iteratePrefix(append(prefix, n.pathElement), f)
+	}
 }

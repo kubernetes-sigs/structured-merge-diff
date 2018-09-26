@@ -87,6 +87,28 @@ func TestSetEquals(t *testing.T) {
 		},
 		{
 			a: NewSet(
+				MakePathOrDie(0),
+				MakePathOrDie(1),
+			),
+			b: NewSet(
+				MakePathOrDie(1),
+				MakePathOrDie(0),
+			),
+			equal: true,
+		},
+		{
+			a: NewSet(
+				MakePathOrDie("foo", 0),
+				MakePathOrDie("foo", 1),
+			),
+			b: NewSet(
+				MakePathOrDie("foo", 1),
+				MakePathOrDie("foo", 0),
+			),
+			equal: true,
+		},
+		{
+			a: NewSet(
 				MakePathOrDie("foo", 0),
 				MakePathOrDie("foo"),
 				MakePathOrDie("bar", "baz"),
@@ -141,6 +163,70 @@ func TestSetUnion(t *testing.T) {
 	got := s1.Union(s2)
 
 	if !got.Equals(u) {
-		t.Errorf("exected: %v, got %v", u, got)
+		t.Errorf("union: expected: \n%v\n, got \n%v\n", u, got)
+	}
+}
+
+func TestSetIntersectionDifference(t *testing.T) {
+	// Even though this is not a table driven test, since the thing under
+	// test is recursive, we should be able to craft a single input that is
+	// sufficient to check all code paths.
+
+	s1 := NewSet(
+		MakePathOrDie("a0"),
+		MakePathOrDie("a1"),
+		MakePathOrDie("foo", 0),
+		MakePathOrDie("foo", 1),
+		MakePathOrDie("b0", KeyByFields("name", value.StringValue("first"))),
+		MakePathOrDie("b1", KeyByFields("name", value.StringValue("first"))),
+		MakePathOrDie("bar", "c0"),
+	)
+
+	s2 := NewSet(
+		MakePathOrDie("a1"),
+		MakePathOrDie("a2"),
+		MakePathOrDie("foo", 1),
+		MakePathOrDie("foo", 2),
+		MakePathOrDie("b1", KeyByFields("name", value.StringValue("first"))),
+		MakePathOrDie("b2", KeyByFields("name", value.StringValue("first"))),
+		MakePathOrDie("bar", "c2"),
+	)
+
+	i := NewSet(
+		MakePathOrDie("a1"),
+		MakePathOrDie("foo", 1),
+		MakePathOrDie("b1", KeyByFields("name", value.StringValue("first"))),
+	)
+
+	got := s1.Intersection(s2)
+
+	if !got.Equals(i) {
+		t.Errorf("s1 intersect s2: expected: \n%v\n, got \n%v\n", i, got)
+	}
+
+	sDiffS2 := NewSet(
+		MakePathOrDie("a0"),
+		MakePathOrDie("foo", 0),
+		MakePathOrDie("b0", KeyByFields("name", value.StringValue("first"))),
+		MakePathOrDie("bar", "c0"),
+	)
+
+	got = s1.Difference(s2)
+
+	if !got.Equals(sDiffS2) {
+		t.Errorf("s1 - s2: expected: \n%v\n, got \n%v\n", sDiffS2, got)
+	}
+
+	s2DiffS := NewSet(
+		MakePathOrDie("a2"),
+		MakePathOrDie("foo", 2),
+		MakePathOrDie("b2", KeyByFields("name", value.StringValue("first"))),
+		MakePathOrDie("bar", "c2"),
+	)
+
+	got = s2.Difference(s1)
+
+	if !got.Equals(s2DiffS) {
+		t.Errorf("s2 - s1: expected: \n%v\n, got \n%v\n", s2DiffS, got)
 	}
 }
