@@ -17,6 +17,7 @@ limitations under the License.
 package typed
 
 import (
+	"github.com/kubernetes-sigs/structured-merge-diff/fieldpath"
 	"github.com/kubernetes-sigs/structured-merge-diff/schema"
 	"github.com/kubernetes-sigs/structured-merge-diff/value"
 )
@@ -41,6 +42,21 @@ func AsTyped(v value.Value, s *schema.Schema, typeName string) (TypedValue, erro
 		return TypedValue{}, err
 	}
 	return tv, nil
+}
+
+// Validate returns an error with a list of every spec violation.
+func (tv TypedValue) Validate() error {
+	v := validation{
+		path:    fieldpath.Path{},
+		value:   tv.value,
+		schema:  tv.schema,
+		typeRef: tv.typeRef,
+	}
+	errs := v.validate()
+	if len(errs) == 0 {
+		return nil
+	}
+	return errs
 }
 
 // AsTypeUnvalidated is just like WithType, but doesn't validate that the
