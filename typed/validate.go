@@ -26,13 +26,31 @@ import (
 	"github.com/kubernetes-sigs/structured-merge-diff/value"
 )
 
+// ValidationError reports an error about a particular field
 type ValidationError struct {
-	Path  fieldpath.Path
-	Error string
+	Path         fieldpath.Path
+	ErrorMessage string
 }
 
-func (ve ValidationError) FormatMessage() string {
-	return fmt.Sprintf("%s: %v", ve.Path, ve.Error)
+// Error returns a human readable error message.
+func (ve ValidationError) Error() string {
+	return fmt.Sprintf("%s: %v", ve.Path, ve.ErrorMessage)
+}
+
+// ValidationErrors accumulates multiple validation error messages.
+type ValidationErrors []ValidationError
+
+// Error returns a human readable error message reporting each error in the
+// list.
+func (errs ValidationErrors) Error() string {
+	if len(errs) == 1 {
+		return errs[0].String()
+	}
+	messages := []string{"errors:"}
+	for _, e := range list {
+		messages = append(messages, "  "+e.Error())
+	}
+	return strings.Join(messages, "\n")
 }
 
 // Validate returns an error with a list of every spec violation.
@@ -43,15 +61,11 @@ func (tv TypedValue) Validate() error {
 		schema:  tv.schema,
 		typeRef: tv.typeRef,
 	}
-	list := v.validate()
-	if len(list) == 0 {
+	errs := v.validate()
+	if len(errs) == 0 {
 		return nil
 	}
-	messages := []string{"errors found:"}
-	for _, e := range list {
-		messages = append(messages, e.FormatMessage())
-	}
-	return errors.New(strings.Join(messages, "\n"))
+	return errs
 }
 
 type validation struct {
@@ -63,15 +77,15 @@ type validation struct {
 
 func (v validation) error(format string, args ...interface{}) ValidationError {
 	return ValidationError{
-		Path:  append(fieldpath.Path{}, v.path...),
-		Error: fmt.Sprintf(format, args...),
+		Path:         append(fieldpath.Path{}, v.path...),
+		ErrorMessage: fmt.Sprintf(format, args...),
 	}
 }
 
-func (v validation) validate() []ValidationError {
+func (v validation) validate() ValidationErrors {
 	a, ok := v.schema.Resolve(v.typeRef)
 	if !ok {
-		return []ValidationError{v.error("no type found matching: %v", *v.typeRef.NamedType)}
+		return ValidationErrors{v.error("no type found matching: %v", *v.typeRef.NamedType)}
 	}
 
 	switch {
@@ -88,29 +102,29 @@ func (v validation) validate() []ValidationError {
 		return nil
 	}
 
-	return []ValidationError{v.error("invalid atom")}
+	return ValidationErrors{v.error("invalid atom")}
 }
 
-func (v validation) doScalar(t schema.Scalar, value value.Value) []ValidationError {
+func (v validation) doScalar(t schema.Scalar, value value.Value) ValidationErrors {
 	switch t {
 	case schema.Numeric:
 		if value.Float == nil && value.Int == nil {
 			// TODO: should the schema separate int and float?
-			return []ValidationError{v.error("expected numeric (int or float)")}
+			return ValidationErrors{v.error("expected numeric (int or float)")}
 		}
 	case schema.String:
 		if value.String == nil {
-			return []ValidationError{v.error("expected string")}
+			return ValidationErrors{v.error("expected string")}
 		}
 	case schema.Boolean:
 		if value.Boolean == nil {
-			return []ValidationError{v.error("expected boolean")}
+			return ValidationErrors{v.error("expected boolean")}
 		}
 	}
 	return nil
 }
 
-func (v validation) doStruct(t schema.Struct, value value.Value) (errs []ValidationError) {
+func (v validation) doStruct(t schema.Struct, value value.Value) (errs ValidationErrors) {
 	switch {
 	case value.Null:
 		// Null is a valid struct.
@@ -118,7 +132,7 @@ func (v validation) doStruct(t schema.Struct, value value.Value) (errs []Validat
 	case value.Map != nil:
 		// OK
 	default:
-		return []ValidationError{v.error("expected struct")}
+		return ValidationErrors{v.error("expected struct")}
 	}
 
 	allowedNames := map[string]struct{}{}
@@ -205,7 +219,7 @@ func listItemToPathElement(list schema.List, index int, child value.Value) (fiel
 	return pe, nil
 }
 
-func (v validation) doList(t schema.List, value value.Value) (errs []ValidationError) {
+func (v validation) doList(t schema.List, value value.Value) (errs ValidationErrori) {
 	switch {
 	case value.Null:
 		// Null is a valid list.
@@ -213,7 +227,7 @@ func (v validation) doList(t schema.List, value value.Value) (errs []ValidationE
 	case value.List != nil:
 		// OK
 	default:
-		return []ValidationError{v.error("expected list")}
+		return ValidationErrori{v.error("expected list")}
 	}
 
 	observedKeys := map[string]struct{}{}
@@ -243,7 +257,7 @@ func (v validation) doList(t schema.List, value value.Value) (errs []ValidationE
 	return errs
 }
 
-func (v validation) doMap(t schema.Map, value value.Value) (errs []ValidationError) {
+func (v validation) doMap(t schema.Map, value value.Value) (errs ValidationErrors) {
 	switch {
 	case value.Null:
 		// Null is a valid map.
@@ -251,7 +265,7 @@ func (v validation) doMap(t schema.Map, value value.Value) (errs []ValidationErr
 	case value.Map != nil:
 		// OK
 	default:
-		return []ValidationError{v.error("expected list")}
+		return ValidationErrors{v.error("expected list, found %v", value.HumanReadable())}
 	}
 
 	for _, item := range value.Map.Items {
