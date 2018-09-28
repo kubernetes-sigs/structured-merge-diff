@@ -57,6 +57,55 @@ func TestSetInsertHas(t *testing.T) {
 			t.Errorf("%v: wanted %v, got %v", tt.check.String(), e, a)
 		}
 	}
+
+	if NewSet().Has(Path{}) {
+		t.Errorf("empty set should not include the empty path")
+	}
+	if NewSet(Path{}).Has(Path{}) {
+		t.Errorf("empty set should not include the empty path")
+	}
+}
+
+func TestSetString(t *testing.T) {
+	p := MakePathOrDie("foo", PathElement{Key: KeyByFields("name", value.StringValue("first"))})
+	s1 := NewSet(p)
+
+	if p.String() != s1.String() {
+		t.Errorf("expected single entry set to just call the path's string, but got %s %s", p, s1)
+	}
+}
+
+func TestSetIterSize(t *testing.T) {
+	s1 := NewSet(
+		MakePathOrDie("foo", 0, "bar", "baz"),
+		MakePathOrDie("foo", 0, "bar", "zot"),
+		MakePathOrDie("foo", 0, "bar"),
+		MakePathOrDie("foo", 0),
+		MakePathOrDie("foo", 1, "bar", "baz"),
+		MakePathOrDie("foo", 1, "bar"),
+		MakePathOrDie("qux", KeyByFields("name", value.StringValue("first"))),
+		MakePathOrDie("qux", KeyByFields("name", value.StringValue("first")), "bar"),
+		MakePathOrDie("qux", KeyByFields("name", value.StringValue("second")), "bar"),
+	)
+
+	s2 := NewSet()
+
+	addedCount := 0
+	s1.Iterate(func(p Path) {
+		if s2.Size() != addedCount {
+			t.Errorf("added %v items to set, but size is %v", addedCount, s2.Size())
+		}
+		if addedCount > 0 != s2.Empty() {
+			t.Errorf("added %v items to set, but s2.Empty() is %v", addedCount, s2.Empty())
+		}
+		s2.Insert(p)
+		addedCount++
+	})
+
+	if !s1.Equals(s2) {
+		// No point in using String() if iterate is broken...
+		t.Errorf("Iterate missed something?\n%#v\n%#v", s1, s2)
+	}
 }
 
 func TestSetEquals(t *testing.T) {
@@ -74,6 +123,11 @@ func TestSetEquals(t *testing.T) {
 			a:     NewSet(MakePathOrDie("foo")),
 			b:     NewSet(MakePathOrDie("foo")),
 			equal: true,
+		},
+		{
+			a:     NewSet(),
+			b:     NewSet(MakePathOrDie(0, "foo")),
+			equal: false,
 		},
 		{
 			a:     NewSet(MakePathOrDie(1, "foo")),

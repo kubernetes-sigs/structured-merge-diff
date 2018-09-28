@@ -65,6 +65,92 @@ var validationCases = []validationTestCase{{
 		`{"key":{"foo":true}}`,
 	},
 }, {
+	name:         "struct grab bag",
+	rootTypeName: "myStruct",
+	schema: `types:
+- name: myStruct
+  struct:
+    fields:
+    - name: numeric
+      type:
+        scalar: numeric
+    - name: string
+      type:
+        scalar: string
+    - name: bool
+      type:
+        scalar: boolean
+    - name: setStr
+      type:
+        list:
+          elementType:
+            scalar: string
+          elementRelationship: associative
+    - name: setBool
+      type:
+        list:
+          elementType:
+            scalar: boolean
+          elementRelationship: associative
+    - name: setNumeric
+      type:
+        list:
+          elementType:
+            scalar: numeric
+          elementRelationship: associative
+`,
+	validObjects: []string{
+		`{"numeric":1}`,
+		`{"numeric":3.14159}`,
+		`{"string":"aoeu"}`,
+		`{"bool":true}`,
+		`{"bool":false}`,
+		`{"setStr":["a","b","c"]}`,
+		`{"setBool":[true,false]}`,
+		`{"setNumeric":[1,2,3,3.14159]}`,
+	},
+	invalidObjects: []string{
+		`{"numeric":null}`,
+		`{"numeric":["foo"]}`,
+		`{"numeric":{"a":1}}`,
+		`{"numeric":"foo"}`,
+		`{"numeric":true}`,
+		`{"string":null}`,
+		`{"string":1}`,
+		`{"string":3.5}`,
+		`{"string":true}`,
+		`{"string":{"a":1}}`,
+		`{"string":["foo"]}`,
+		`{"bool":null}`,
+		`{"bool":1}`,
+		`{"bool":3.5}`,
+		`{"bool":"aoeu"}`,
+		`{"bool":{"a":1}}`,
+		`{"bool":["foo"]}`,
+		`{"setStr":["a","a"]}`,
+		`{"setBool":[true,false,true]}`,
+		`{"setNumeric":[1,2,3,3.14159,1]}`,
+		`{"setStr":[1]}`,
+		`{"setStr":[true]}`,
+		`{"setStr":[1.5]}`,
+		`{"setStr":[null]}`,
+		`{"setStr":[{}]}`,
+		`{"setStr":[[]]}`,
+		`{"setBool":[true,false,true]}`,
+		`{"setBool":[1]}`,
+		`{"setBool":[1.5]}`,
+		`{"setBool":[null]}`,
+		`{"setBool":[{}]}`,
+		`{"setBool":[[]]}`,
+		`{"setBool":["a"]}`,
+		`{"setNumeric":[1,2,3,3.14159,1]}`,
+		`{"setNumeric":[null]}`,
+		`{"setNumeric":[true]}`,
+		`{"setNumeric":["a"]}`,
+		`{"setNumeric":[[]]}`,
+		`{"setNumeric":[{}]}`,
+	},
+}, {
 	name:         "associative list",
 	rootTypeName: "myRoot",
 	schema: `types:
@@ -74,10 +160,7 @@ var validationCases = []validationTestCase{{
     - name: list
       type:
         namedType: myList
-    - name: list2
-      type:
-        namedType: mySet
-    - name: list3
+    - name: atomicList
       type:
         namedType: mySequence
 - name: myList
@@ -88,11 +171,6 @@ var validationCases = []validationTestCase{{
     keys:
     - key
     - id
-- name: mySet
-  list:
-    elementType:
-      scalar: string
-    elementRelationship: associative
 - name: mySequence
   list:
     elementType:
@@ -125,15 +203,17 @@ var validationCases = []validationTestCase{{
 		`{"list":[]}`,
 		`{"list":[{"key":"a","id":1,"value":{"a":"a"}}]}`,
 		`{"list":[{"key":"a","id":1},{"key":"a","id":2},{"key":"b","id":1}]}`,
-		`{"list2":[]}`,
-		`{"list2":["a"]}`,
-		`{"list2":["a","b"]}`,
-		`{"list2":["a","b","c"]}`,
-		`{"list3":["a","a","a"]}`,
+		`{"atomicList":["a","a","a"]}`,
 	},
 	invalidObjects: []string{
 		`{"key":true,"value":1}`,
 		`{"list":{"key":true,"value":1}}`,
+		`{"list":[{"key":true,"value":1}]}`,
+		`{"list":[{"key":[],"value":1}]}`,
+		`{"list":[{"key":{},"value":1}]}`,
+		`{"list":[{"key":1.5,"value":1}]}`,
+		`{"list":[{"key":1,"value":1}]}`,
+		`{"list":[{"key":null,"value":1}]}`,
 		`{"list":[{},{}]}`,
 		`{"list":[{},null]}`,
 		`{"list":[[]]}`,
@@ -144,10 +224,6 @@ var validationCases = []validationTestCase{{
 		`{"list":[{"key":"a","id":1},{"key":"a","id":1}]}`,
 		`{"list":[{"key":"a","id":1,"value":{"a":"a"},"bv":"true","nv":3.14}]}`,
 		`{"list":[{"key":"a","id":1,"value":{"a":"a"},"bv":true,"nv":false}]}`,
-		`{"list2":[null]}`,
-		`{"list2":["a","a"]}`,
-		`{"list2":[1]}`,
-		`{"list2":[true]}`,
 	},
 }}
 

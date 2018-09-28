@@ -182,13 +182,15 @@ func setItemToPathElement(list schema.List, index int, child value.Value) (field
 	pe := fieldpath.PathElement{}
 	switch {
 	case child.Map != nil:
+		// TODO: atomic maps should be acceptable.
 		return pe, errors.New("associative list without keys has an element that's a map type")
 	case child.List != nil:
 		// Should we support a set of lists? For the moment
 		// let's say we don't.
+		// TODO: atomic lists should be acceptable.
 		return pe, errors.New("not supported: associative list with lists as elements")
 	case child.Null:
-		return pe, errors.New("associative list without keys has an element that's map or list typed (explicit null)")
+		return pe, errors.New("associative list without keys has an element that's an explicit null")
 	default:
 		// We are a set type.
 		pe.Value = &child

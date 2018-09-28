@@ -101,7 +101,7 @@ func (s *Set) Empty() bool {
 // Has returns true if the field referenced by `p` is a member of the set.
 func (s *Set) Has(p Path) bool {
 	if len(p) == 0 {
-		// No one ones "the entire object"
+		// No one owns "the entire object"
 		return false
 	}
 	for {
