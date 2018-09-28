@@ -32,6 +32,14 @@ func TestSetInsertHas(t *testing.T) {
 		MakePathOrDie("qux", KeyByFields("name", value.StringValue("first"))),
 		MakePathOrDie("qux", KeyByFields("name", value.StringValue("first")), "bar"),
 		MakePathOrDie("qux", KeyByFields("name", value.StringValue("second")), "bar"),
+		MakePathOrDie("canonicalOrder", KeyByFields(
+			"a", value.StringValue("a"),
+			"b", value.StringValue("a"),
+			"c", value.StringValue("a"),
+			"d", value.StringValue("a"),
+			"e", value.StringValue("a"),
+			"f", value.StringValue("a"),
+		)),
 	)
 
 	table := []struct {
@@ -49,6 +57,14 @@ func TestSetInsertHas(t *testing.T) {
 		{s1, MakePathOrDie("foo", 1), false},
 		{s1, MakePathOrDie("foo", 1, "bar"), true},
 		{s1, MakePathOrDie("foo", 1, "bar", "baz"), true},
+		{s1, MakePathOrDie("canonicalOrder", KeyByFields(
+			"f", value.StringValue("a"),
+			"e", value.StringValue("a"),
+			"d", value.StringValue("a"),
+			"c", value.StringValue("a"),
+			"b", value.StringValue("a"),
+			"a", value.StringValue("a"),
+		)), true},
 	}
 
 	for _, tt := range table {
@@ -95,7 +111,7 @@ func TestSetIterSize(t *testing.T) {
 		if s2.Size() != addedCount {
 			t.Errorf("added %v items to set, but size is %v", addedCount, s2.Size())
 		}
-		if addedCount > 0 != s2.Empty() {
+		if addedCount > 0 == s2.Empty() {
 			t.Errorf("added %v items to set, but s2.Empty() is %v", addedCount, s2.Empty())
 		}
 		s2.Insert(p)
