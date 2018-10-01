@@ -26,6 +26,12 @@ import (
 func TestUnstructured(t *testing.T) {
 	objects := []string{
 		`{}`,
+		// Valid yaml that isn't parsed right due to our use of MapSlice:
+		// `[{}]`,
+		// These two are also valid, and they do parse, but I'm not sure
+		// they construct the right object:
+		// `[]`,
+		// `["a",{},"b",null]`,
 		`foo: bar`,
 		`foo:
   - bar

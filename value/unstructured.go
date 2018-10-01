@@ -25,12 +25,14 @@ import (
 // FromYAML is a helper function for reading a YAML document; it attempts to
 // preserve order of keys within maps/structs. This is as a convenience to
 // humans keeping YAML documents, not because there is a behavior difference.
+//
+// Known bug: objects with top-level arrays don't parse correctly.
 func FromYAML(input []byte) (Value, error) {
 	var decoded interface{}
 
 	// This attempts to enable order sensitivity; note the yaml package is
 	// broken for documents that have root-level arrays, hence the two-step
-	// approach.
+	// approach. TODO: This is a horrific hack. Is it worth it?
 	var ms yaml.MapSlice
 	if err := yaml.Unmarshal(input, &ms); err == nil {
 		decoded = ms
