@@ -46,26 +46,33 @@ func AsTyped(v value.Value, s *schema.Schema, typeName string) (TypedValue, erro
 
 // Validate returns an error with a list of every spec violation.
 func (tv TypedValue) Validate() error {
-	v := validation{
-		path:    fieldpath.Path{},
-		value:   tv.value,
-		schema:  tv.schema,
-		typeRef: tv.typeRef,
+	if errs := tv.walker().validate(); len(errs) != 0 {
+		return errs
 	}
-	errs := v.validate()
-	if len(errs) == 0 {
-		return nil
-	}
-	return errs
+	return nil
 }
 
-// AsTypeUnvalidated is just like WithType, but doesn't validate that the
-// type conforms to the schema, for cases where that has already been checked.
-func AsTypedUnvalidated(v value.Value, s *schema.Schema, typeName string) (TypedValue, error) {
+// ToFieldSet creates a set containing every leaf field mentioned in tv, or
+// validation errors, if any were encountered.
+func (tv TypedValue) ToFieldSet() (*fieldpath.Set, error) {
+	s := fieldpath.NewSet()
+	w := tv.walker()
+	w.leafFieldCallback = func(p fieldpath.Path) { s.Insert(p) }
+	if errs := w.validate(); len(errs) != 0 {
+		return nil, errs
+	}
+	return s, nil
+}
+
+// AsTypeUnvalidated is just like WithType, but doesn't validate that the type
+// conforms to the schema, for cases where that has already been checked or
+// where you're going to call a method that validates as a side-effect (like
+// ToFieldSet).
+func AsTypedUnvalidated(v value.Value, s *schema.Schema, typeName string) TypedValue {
 	tv := TypedValue{
 		value:   v,
 		typeRef: schema.TypeRef{NamedType: &typeName},
 		schema:  s,
 	}
-	return tv, nil
+	return tv
 }

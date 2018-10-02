@@ -53,21 +53,39 @@ func (errs ValidationErrors) Error() string {
 	return strings.Join(messages, "\n")
 }
 
-type validation struct {
+func (tv TypedValue) walker() *validatingObjectWalker {
+	return &validatingObjectWalker{
+		path:    fieldpath.Path{},
+		value:   tv.value,
+		schema:  tv.schema,
+		typeRef: tv.typeRef,
+	}
+}
+
+type validatingObjectWalker struct {
 	path    fieldpath.Path
 	value   value.Value
 	schema  *schema.Schema
 	typeRef schema.TypeRef
+
+	// If set, this is called on "leaf fields":
+	//  * scalars: int/string/float/bool
+	//  * atomic maps and lists
+	//  * untyped fields
+	leafFieldCallback func(fieldpath.Path)
+
+	// internal housekeeping--don't set when constructing.
+	inLeaf bool // Set to true if we're in a "big leaf"--atomic map/list
 }
 
-func (v validation) error(format string, args ...interface{}) ValidationError {
+func (v validatingObjectWalker) error(format string, args ...interface{}) ValidationError {
 	return ValidationError{
 		Path:         append(fieldpath.Path{}, v.path...),
 		ErrorMessage: fmt.Sprintf(format, args...),
 	}
 }
 
-func (v validation) validate() ValidationErrors {
+func (v validatingObjectWalker) validate() ValidationErrors {
 	a, ok := v.schema.Resolve(v.typeRef)
 	if !ok {
 		return ValidationErrors{v.error("no type found matching: %v", *v.typeRef.NamedType)}
@@ -83,14 +101,33 @@ func (v validation) validate() ValidationErrors {
 	case a.Map != nil:
 		return v.doMap(*a.Map, v.value)
 	case a.Untyped != nil:
-		// Untyped sections allow anything.
+		// Untyped sections allow anything, and are considered leaf
+		// fields.
+		v.doLeaf()
 		return nil
 	}
 
 	return ValidationErrors{v.error("invalid atom")}
 }
 
-func (v validation) doScalar(t schema.Scalar, value value.Value) ValidationErrors {
+// doLeaf should be called on leaves before descending into children, if there
+// will be a descent. It modifies v.inLeaf.
+func (v *validatingObjectWalker) doLeaf() {
+	if v.inLeaf {
+		// We're in a "big leaf", an atomic map or list. Ignore
+		// subsequent leaves.
+		return
+	}
+	v.inLeaf = true
+
+	if v.leafFieldCallback != nil {
+		// At the moment, this is only used to build fieldsets; we can
+		// add more than the path in here if needed.
+		v.leafFieldCallback(v.path)
+	}
+}
+
+func (v validatingObjectWalker) doScalar(t schema.Scalar, value value.Value) ValidationErrors {
 	switch t {
 	case schema.Numeric:
 		if value.Float == nil && value.Int == nil {
@@ -106,10 +143,14 @@ func (v validation) doScalar(t schema.Scalar, value value.Value) ValidationError
 			return ValidationErrors{v.error("expected boolean, got %v", value.HumanReadable())}
 		}
 	}
+
+	// All scalars are leaf fields.
+	v.doLeaf()
+
 	return nil
 }
 
-func (v validation) doStruct(t schema.Struct, value value.Value) (errs ValidationErrors) {
+func (v validatingObjectWalker) doStruct(t schema.Struct, value value.Value) (errs ValidationErrors) {
 	switch {
 	case value.Null:
 		// Null is a valid struct.
@@ -120,8 +161,12 @@ func (v validation) doStruct(t schema.Struct, value value.Value) (errs Validatio
 		return ValidationErrors{v.error("expected struct, got %v", value.HumanReadable())}
 	}
 
-	allowedNames := map[string]struct{}{}
+	if t.Atomic {
+		v.doLeaf()
+	}
+
 	m := *value.Map
+	allowedNames := map[string]struct{}{}
 	for i := range t.Fields {
 		// I don't want to use the loop variable since a reference
 		// might outlive the loop iteration (in an error message).
@@ -212,7 +257,7 @@ func listItemToPathElement(list schema.List, index int, child value.Value) (fiel
 	return fieldpath.PathElement{Index: &index}, nil
 }
 
-func (v validation) doList(t schema.List, value value.Value) (errs ValidationErrors) {
+func (v validatingObjectWalker) doList(t schema.List, value value.Value) (errs ValidationErrors) {
 	switch {
 	case value.Null:
 		// Null is a valid list.
@@ -221,6 +266,10 @@ func (v validation) doList(t schema.List, value value.Value) (errs ValidationErr
 		// OK
 	default:
 		return ValidationErrors{v.error("expected list")}
+	}
+
+	if t.ElementRelationship == schema.Atomic {
+		v.doLeaf()
 	}
 
 	observedKeys := map[string]struct{}{}
@@ -250,7 +299,7 @@ func (v validation) doList(t schema.List, value value.Value) (errs ValidationErr
 	return errs
 }
 
-func (v validation) doMap(t schema.Map, value value.Value) (errs ValidationErrors) {
+func (v validatingObjectWalker) doMap(t schema.Map, value value.Value) (errs ValidationErrors) {
 	switch {
 	case value.Null:
 		// Null is a valid map.
@@ -259,6 +308,10 @@ func (v validation) doMap(t schema.Map, value value.Value) (errs ValidationError
 		// OK
 	default:
 		return ValidationErrors{v.error("expected list, found %v", value.HumanReadable())}
+	}
+
+	if t.Atomic {
+		v.doLeaf()
 	}
 
 	for _, item := range value.Map.Items {
