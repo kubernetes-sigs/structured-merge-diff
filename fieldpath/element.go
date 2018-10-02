@@ -18,6 +18,7 @@ package fieldpath
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/kubernetes-sigs/structured-merge-diff/value"
@@ -56,6 +57,9 @@ func (e PathElement) String() string {
 		for i, k := range e.Key {
 			strs[i] = fmt.Sprintf("%v=%v", k.Name, k.Value.HumanReadable())
 		}
+		// The order must be canonical, since we use the string value
+		// in a set structure.
+		sort.Strings(strs)
 		return "[" + strings.Join(strs, ",") + "]"
 	case e.Value != nil:
 		return fmt.Sprintf("[=%v]", e.Value.HumanReadable())
