@@ -101,10 +101,7 @@ func (v validatingObjectWalker) validate() ValidationErrors {
 	case a.Map != nil:
 		return v.doMap(*a.Map, v.value)
 	case a.Untyped != nil:
-		// Untyped sections allow anything, and are considered leaf
-		// fields.
-		v.doLeaf()
-		return nil
+		return v.doUntyped(*a.Untyped, v.value)
 	}
 
 	return ValidationErrors{v.error("invalid atom")}
@@ -161,7 +158,7 @@ func (v validatingObjectWalker) doStruct(t schema.Struct, value value.Value) (er
 		return ValidationErrors{v.error("expected struct, got %v", value.HumanReadable())}
 	}
 
-	if t.Atomic {
+	if t.ElementRelationship == schema.Atomic {
 		v.doLeaf()
 	}
 
@@ -310,7 +307,7 @@ func (v validatingObjectWalker) doMap(t schema.Map, value value.Value) (errs Val
 		return ValidationErrors{v.error("expected list, found %v", value.HumanReadable())}
 	}
 
-	if t.Atomic {
+	if t.ElementRelationship == schema.Atomic {
 		v.doLeaf()
 	}
 
@@ -324,4 +321,13 @@ func (v validatingObjectWalker) doMap(t schema.Map, value value.Value) (errs Val
 	}
 
 	return errs
+}
+
+func (v validatingObjectWalker) doUntyped(t schema.Untyped, value value.Value) (errs ValidationErrors) {
+	if t.ElementRelationship == "" || t.ElementRelationship == schema.Atomic {
+		// Untyped sections allow anything, and are considered leaf
+		// fields.
+		v.doLeaf()
+	}
+	return nil
 }
