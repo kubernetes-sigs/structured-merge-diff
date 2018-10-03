@@ -54,12 +54,28 @@ type Atom struct {
 
 // Scalar (AKA "primitive") has a single value which is either numeric, string,
 // or boolean.
+// TODO: split numeric into float/int? Something even more fine-grained?
 type Scalar string
 
 const (
 	Numeric = Scalar("numeric")
 	String  = Scalar("string")
 	Boolean = Scalar("boolean")
+)
+
+// ElementRelationship is an enum of the different possible relationships
+// between the elements of container types.
+type ElementRelationship string
+
+const (
+	// Associative only applies to lists (see the documentation there).
+	Associative = ElementRelationship("associative")
+	// Atomic makes container types (lists, maps, structs, untyped) behave
+	// as scalars / leaf fields (default for untyped data).
+	Atomic = ElementRelationship("atomic")
+	// Separable means the items of the container type have no particular
+	// relationship (default behavior for maps and structs).
+	Separable = ElementRelationship("separable")
 )
 
 // Struct is a list of fields. Each field has a name and a type. Some fields
@@ -75,8 +91,16 @@ type Struct struct {
 	// list may be referenced in exactly 0 or 1 places in the below list.
 	// Unions []Union `yaml:"unions,omitempty"`
 
-	// Atomic structs must not have individual items merged.
-	Atomic bool `yaml:"atomic,omitempty"`
+	// ElementRelationship states the relationship between the struct's items.
+	// * `separable` (or unset) implies that each element is 100% independent.
+	// * `atomic` implies that all elements depend on each other, and this
+	//   is effectively a scalar / leaf field; it doesn't make sense for
+	//   separate actors to set the elements. Example: an RGB color struct;
+	//   it would never make sense to "own" only one component of the
+	//   color.
+	// The default behavior for structs is `separable`; it's permitted to
+	// leave this unset to get the default behavior.
+	ElementRelationship ElementRelationship `yaml:"elementRelationship,omitempty"`
 }
 
 // StructField pairs a field name with a field type.
@@ -118,32 +142,27 @@ type UnionField struct {
 }
 */
 
-// ListElementRelationship is an enum of the different possible relationships
-// between list elements.
-type ListElementRelationship string
-
-const (
-	Associative = ListElementRelationship("associative")
-	Atomic      = ListElementRelationship("atomic")
-)
-
 // List has zero or more elements of some type.
 type List struct {
 	ElementType TypeRef `yaml:"elementType,omitempty"`
 
 	// ElementRelationship states the relationship between the list's elements
 	// and must have one of these values:
-	// * Atomic: the list is treated as a single entity, like a scalar.
-	// * Associative:
+	// * `atomic`: the list is treated as a single entity, like a scalar.
+	// * `associative`:
 	//   - If the list element is a scalar, the list is treated as a set.
 	//   - If the list element is a struct, the list is treated as a map.
 	//   - The list element must not be a map or a list itself.
-	ElementRelationship ListElementRelationship `yaml:"elementRelationship,omitempty"`
+	// There is no default for this value for lists; all schemas must
+	// explicitly state the element relationship for all lists.
+	ElementRelationship ElementRelationship `yaml:"elementRelationship,omitempty"`
 
-	// Iff ElementRelationship is Associative, and the element type is
+	// Iff ElementRelationship is `associative`, and the element type is
 	// struct, then Keys must have non-zero length, and it lists the fields
 	// of the element's struct type which are to be used as the keys of the
 	// list.
+	//
+	// TODO: change this to "non-atomic struct" above and make the code reflect this.
 	//
 	// Each key must refer to a single field name (no nesting, not JSONPath).
 	Keys []string `yaml:"keys,omitempty"`
@@ -158,13 +177,32 @@ type List struct {
 type Map struct {
 	ElementType TypeRef `yaml:"elementType,omitempty"`
 
-	// Atomic maps must not have individual items merged.
-	Atomic bool `yaml:"atomic,omitempty"`
+	// ElementRelationship states the relationship between the map's items.
+	// * `separable` implies that each element is 100% independent.
+	// * `atomic` implies that all elements depend on each other, and this
+	//   is effectively a scalar / leaf field; it doesn't make sense for
+	//   separate actors to set the elements.
+	//   TODO: find a simple example.
+	// The default behavior for maps is `separable`; it's permitted to
+	// leave this unset to get the default behavior.
+	ElementRelationship ElementRelationship `yaml:"elementRelationship,omitempty"`
 }
 
 // Untyped is used for fields that allow arbitrary content. (Think: plugin
 // objects.)
-type Untyped struct{}
+type Untyped struct {
+	// ElementRelationship states the relationship between the items, if
+	// container-typed data happens to be present here.
+	// * `atomic` implies that all elements depend on each other, and this
+	//   is effectively a scalar / leaf field; it doesn't make sense for
+	//   separate actors to set the elements.
+	// TODO: support "guess" (guesses at associative list keys)
+	// TODO: support "lookup" (calls a lookup function to figure out the
+	//       schema based on the data)
+	// The default behavior for untyped data is `atomic`; it's permitted to
+	// leave this unset to get the default behavior.
+	ElementRelationship ElementRelationship `yaml:"elementRelationship,omitempty"`
+}
 
 // FindNamedType returns the referenced TypeDef, if it exists, or (nil, false)
 // if it doesn't.

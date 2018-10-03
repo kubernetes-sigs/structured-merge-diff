@@ -93,18 +93,15 @@ func (v validatingObjectWalker) validate() ValidationErrors {
 
 	switch {
 	case a.Scalar != nil:
-		return v.doScalar(*a.Scalar, v.value)
+		return v.doScalar(*a.Scalar)
 	case a.Struct != nil:
-		return v.doStruct(*a.Struct, v.value)
+		return v.doStruct(*a.Struct)
 	case a.List != nil:
-		return v.doList(*a.List, v.value)
+		return v.doList(*a.List)
 	case a.Map != nil:
-		return v.doMap(*a.Map, v.value)
+		return v.doMap(*a.Map)
 	case a.Untyped != nil:
-		// Untyped sections allow anything, and are considered leaf
-		// fields.
-		v.doLeaf()
-		return nil
+		return v.doUntyped(*a.Untyped)
 	}
 
 	return ValidationErrors{v.error("invalid atom")}
@@ -127,20 +124,20 @@ func (v *validatingObjectWalker) doLeaf() {
 	}
 }
 
-func (v validatingObjectWalker) doScalar(t schema.Scalar, value value.Value) ValidationErrors {
+func (v validatingObjectWalker) doScalar(t schema.Scalar) ValidationErrors {
 	switch t {
 	case schema.Numeric:
-		if value.Float == nil && value.Int == nil {
+		if v.value.Float == nil && v.value.Int == nil {
 			// TODO: should the schema separate int and float?
-			return ValidationErrors{v.error("expected numeric (int or float), got %v", value.HumanReadable())}
+			return ValidationErrors{v.error("expected numeric (int or float), got %v", v.value.HumanReadable())}
 		}
 	case schema.String:
-		if value.String == nil {
-			return ValidationErrors{v.error("expected string, got %v", value.HumanReadable())}
+		if v.value.String == nil {
+			return ValidationErrors{v.error("expected string, got %v", v.value.HumanReadable())}
 		}
 	case schema.Boolean:
-		if value.Boolean == nil {
-			return ValidationErrors{v.error("expected boolean, got %v", value.HumanReadable())}
+		if v.value.Boolean == nil {
+			return ValidationErrors{v.error("expected boolean, got %v", v.value.HumanReadable())}
 		}
 	}
 
@@ -150,22 +147,25 @@ func (v validatingObjectWalker) doScalar(t schema.Scalar, value value.Value) Val
 	return nil
 }
 
-func (v validatingObjectWalker) doStruct(t schema.Struct, value value.Value) (errs ValidationErrors) {
+func (v validatingObjectWalker) doStruct(t schema.Struct) (errs ValidationErrors) {
 	switch {
-	case value.Null:
+	case v.value.Null:
 		// Null is a valid struct.
-		return nil
-	case value.Map != nil:
+	case v.value.Map != nil:
 		// OK
 	default:
-		return ValidationErrors{v.error("expected struct, got %v", value.HumanReadable())}
+		return ValidationErrors{v.error("expected struct, got %v", v.value.HumanReadable())}
 	}
 
-	if t.Atomic {
+	if t.ElementRelationship == schema.Atomic {
 		v.doLeaf()
 	}
 
-	m := *value.Map
+	if v.value.Map == nil {
+		return nil
+	}
+
+	m := *v.value.Map
 	allowedNames := map[string]struct{}{}
 	for i := range t.Fields {
 		// I don't want to use the loop variable since a reference
@@ -257,12 +257,11 @@ func listItemToPathElement(list schema.List, index int, child value.Value) (fiel
 	return fieldpath.PathElement{Index: &index}, nil
 }
 
-func (v validatingObjectWalker) doList(t schema.List, value value.Value) (errs ValidationErrors) {
+func (v validatingObjectWalker) doList(t schema.List) (errs ValidationErrors) {
 	switch {
-	case value.Null:
+	case v.value.Null:
 		// Null is a valid list.
-		return nil
-	case value.List != nil:
+	case v.value.List != nil:
 		// OK
 	default:
 		return ValidationErrors{v.error("expected list")}
@@ -272,9 +271,12 @@ func (v validatingObjectWalker) doList(t schema.List, value value.Value) (errs V
 		v.doLeaf()
 	}
 
-	observedKeys := map[string]struct{}{}
+	if v.value.List == nil {
+		return nil
+	}
 
-	list := *value.List
+	observedKeys := map[string]struct{}{}
+	list := *v.value.List
 	for i, child := range list.Items {
 		pe, err := listItemToPathElement(t, i, child)
 		if err != nil {
@@ -299,22 +301,25 @@ func (v validatingObjectWalker) doList(t schema.List, value value.Value) (errs V
 	return errs
 }
 
-func (v validatingObjectWalker) doMap(t schema.Map, value value.Value) (errs ValidationErrors) {
+func (v validatingObjectWalker) doMap(t schema.Map) (errs ValidationErrors) {
 	switch {
-	case value.Null:
+	case v.value.Null:
 		// Null is a valid map.
-		return nil
-	case value.Map != nil:
+	case v.value.Map != nil:
 		// OK
 	default:
-		return ValidationErrors{v.error("expected list, found %v", value.HumanReadable())}
+		return ValidationErrors{v.error("expected list, found %v", v.value.HumanReadable())}
 	}
 
-	if t.Atomic {
+	if t.ElementRelationship == schema.Atomic {
 		v.doLeaf()
 	}
 
-	for _, item := range value.Map.Items {
+	if v.value.Map == nil {
+		return nil
+	}
+
+	for _, item := range v.value.Map.Items {
 		v2 := v
 		name := item.Name
 		v2.path = append(v.path, fieldpath.PathElement{FieldName: &name})
@@ -324,4 +329,13 @@ func (v validatingObjectWalker) doMap(t schema.Map, value value.Value) (errs Val
 	}
 
 	return errs
+}
+
+func (v validatingObjectWalker) doUntyped(t schema.Untyped) (errs ValidationErrors) {
+	if t.ElementRelationship == "" || t.ElementRelationship == schema.Atomic {
+		// Untyped sections allow anything, and are considered leaf
+		// fields.
+		v.doLeaf()
+	}
+	return nil
 }

@@ -105,6 +105,39 @@ var fieldsetCases = []fieldsetTestCase{{
           elementType:
             scalar: numeric
           elementRelationship: associative
+    - name: color
+      type:
+        struct:
+          fields:
+          - name: R
+            type:
+              scalar: numeric
+          - name: G
+            type:
+              scalar: numeric
+          - name: B
+            type:
+              scalar: numeric
+          elementRelationship: atomic
+    - name: arbitraryWavelengthColor
+      type:
+        map:
+          elementType:
+            scalar: numeric
+          elementRelationship: atomic
+    - name: args
+      type:
+        list:
+          elementType:
+            struct:
+              fields:
+              - name: key
+                type:
+                  scalar: string
+              - name: value
+                type:
+                  scalar: string
+          elementRelationship: atomic
 `,
 	pairs: []objSetPair{
 		{`{"numeric":1}`, _NS(_P("numeric"))},
@@ -127,6 +160,16 @@ var fieldsetCases = []fieldsetTestCase{{
 			_P("setNumeric", _IV(3)),
 			_P("setNumeric", _FV(3.14159)),
 		)},
+		{`{"color":{}}`, _NS(_P("color"))},
+		{`{"color":null}`, _NS(_P("color"))},
+		{`{"color":{"R":255,"G":0,"B":0}}`, _NS(_P("color"))},
+		{`{"arbitraryWavelengthColor":{}}`, _NS(_P("arbitraryWavelengthColor"))},
+		{`{"arbitraryWavelengthColor":null}`, _NS(_P("arbitraryWavelengthColor"))},
+		{`{"arbitraryWavelengthColor":{"IR":255}}`, _NS(_P("arbitraryWavelengthColor"))},
+		{`{"args":[]}`, _NS(_P("args"))},
+		{`{"args":null}`, _NS(_P("args"))},
+		{`{"args":[null]}`, _NS(_P("args"))},
+		{`{"args":[{"key":"a","value":"b"},{"key":"c","value":"d"}]}`, _NS(_P("args"))},
 	},
 }, {
 	name:         "associative list",
@@ -200,7 +243,7 @@ func (tt fieldsetTestCase) test(t *testing.T) {
 	var s schema.Schema
 	err := yaml.Unmarshal([]byte(tt.schema), &s)
 	if err != nil {
-		t.Fatalf("unable to unmarshal schema")
+		t.Fatalf("unable to unmarshal schema: %v", err)
 	}
 
 	for i, v := range tt.pairs {
