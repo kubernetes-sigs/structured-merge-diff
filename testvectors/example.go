@@ -16,13 +16,8 @@ limitations under the License.
 
 package testvectors
 
-import (
-	"fmt"
-
-	"gopkg.in/yaml.v2"
-)
-
 func init() {
+
 	Schemas["listordering-primitiveInlineList"] = SchemaDefinition(`
 type:
   inlineList:
@@ -31,38 +26,31 @@ type:
   primitiveAssociative: true
 `)
 
-	var tests []*Vector
-	err := yaml.Unmarshal([]byte(`
-- name: list insert 1
-  schemaName: listordering-primitiveInlineList
-  lastObject: |
-      items:
-      - a
-      - b
-      - c
-  liveObject: |
-      items:
-      - a
-      - b
-      - c
-      - d
-  newObject: |
-      items:
-      - a
-      - b
-      - e
-      - c
-  expectedObject: |
-      items:
-      - a
-      - b
-      - e
-      - c
-      - d
-`), &tests)
-	if err != nil {
-		panic(fmt.Sprintf("test cases defined wrong: %v", err))
+	exampleSequence := &Sequence{
+		Name:       "example",
+		SchemaName: "listordering-primitiveInlineList",
+		InitialState: `items:
+		- a
+		- b
+		- c
+		- d`,
+		ExpectedState: `items:
+		- a
+		- b
+		- e
+		- c
+		- d`,
 	}
 
-	AppendTestVectors(tests...)
+	exampleSequence.AppendTestVectors(&TestVector{
+		VectorName: "SetExpectedState",
+		ReturnObject: `items:
+		- a
+		- b
+		- e
+		- c
+		- d`,
+	})
+
+	AppendTestSequences(exampleSequence)
 }
