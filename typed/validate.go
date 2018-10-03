@@ -17,41 +17,12 @@ limitations under the License.
 package typed
 
 import (
-	"errors"
 	"fmt"
-	"strings"
 
 	"sigs.k8s.io/structured-merge-diff/fieldpath"
 	"sigs.k8s.io/structured-merge-diff/schema"
 	"sigs.k8s.io/structured-merge-diff/value"
 )
-
-// ValidationError reports an error about a particular field
-type ValidationError struct {
-	Path         fieldpath.Path
-	ErrorMessage string
-}
-
-// Error returns a human readable error message.
-func (ve ValidationError) Error() string {
-	return fmt.Sprintf("%s: %v", ve.Path, ve.ErrorMessage)
-}
-
-// ValidationErrors accumulates multiple validation error messages.
-type ValidationErrors []ValidationError
-
-// Error returns a human readable error message reporting each error in the
-// list.
-func (errs ValidationErrors) Error() string {
-	if len(errs) == 1 {
-		return errs[0].Error()
-	}
-	messages := []string{"errors:"}
-	for _, e := range errs {
-		messages = append(messages, "  "+e.Error())
-	}
-	return strings.Join(messages, "\n")
-}
 
 func (tv TypedValue) walker() *validatingObjectWalker {
 	return &validatingObjectWalker{
@@ -154,19 +125,6 @@ func (v validatingObjectWalker) doScalar(t schema.Scalar) ValidationErrors {
 	return nil
 }
 
-// Returns the map, or an error. Reminder: nil is a valid map and might be returned.
-// Same as mapValue except for the error message.
-func structValue(val value.Value) (*value.Map, error) {
-	switch {
-	case val.Null:
-		return nil, nil
-	case val.Map != nil:
-		return val.Map, nil
-	default:
-		return nil, fmt.Errorf("expected struct, got %v", val.HumanReadable())
-	}
-}
-
 func (v validatingObjectWalker) visitStructFields(t schema.Struct, m *value.Map) (errs ValidationErrors) {
 	allowedNames := map[string]struct{}{}
 	for i := range t.Fields {
@@ -218,80 +176,6 @@ func (v validatingObjectWalker) doStruct(t schema.Struct) (errs ValidationErrors
 	return errs
 }
 
-func keyedAssociativeListItemToPathElement(list schema.List, index int, child value.Value) (fieldpath.PathElement, error) {
-	pe := fieldpath.PathElement{}
-	if child.Null {
-		// For now, the keys are required which means that null entries
-		// are illegal.
-		return pe, errors.New("associative list with keys may not have a null element")
-	}
-	if child.Map == nil {
-		return pe, errors.New("associative list with keys may not have non-map elements")
-	}
-	for _, fieldName := range list.Keys {
-		var fieldValue value.Value
-		field, ok := child.Map.Get(fieldName)
-		if ok {
-			fieldValue = field.Value
-		} else {
-			// Treat keys as required.
-			return pe, errors.New("associative list with keys has an element that omits key field " + fieldName)
-		}
-		pe.Key = append(pe.Key, value.Field{
-			Name:  fieldName,
-			Value: fieldValue,
-		})
-	}
-	return pe, nil
-}
-
-func setItemToPathElement(list schema.List, index int, child value.Value) (fieldpath.PathElement, error) {
-	pe := fieldpath.PathElement{}
-	switch {
-	case child.Map != nil:
-		// TODO: atomic maps should be acceptable.
-		return pe, errors.New("associative list without keys has an element that's a map type")
-	case child.List != nil:
-		// Should we support a set of lists? For the moment
-		// let's say we don't.
-		// TODO: atomic lists should be acceptable.
-		return pe, errors.New("not supported: associative list with lists as elements")
-	case child.Null:
-		return pe, errors.New("associative list without keys has an element that's an explicit null")
-	default:
-		// We are a set type.
-		pe.Value = &child
-		return pe, nil
-	}
-}
-
-func listItemToPathElement(list schema.List, index int, child value.Value) (fieldpath.PathElement, error) {
-	if list.ElementRelationship == schema.Associative {
-		if len(list.Keys) > 0 {
-			return keyedAssociativeListItemToPathElement(list, index, child)
-		}
-
-		// If there's no keys, then we must be a set of primitives.
-		return setItemToPathElement(list, index, child)
-	}
-
-	// Use the index as a key for atomic lists.
-	return fieldpath.PathElement{Index: &index}, nil
-}
-
-// Returns the list, or an error. Reminder: nil is a valid list and might be returned.
-func listValue(val value.Value) (*value.List, error) {
-	switch {
-	case val.Null:
-		// Null is a valid list.
-		return nil, nil
-	case val.List != nil:
-		return val.List, nil
-	default:
-		return nil, fmt.Errorf("expected list, got %v", val.HumanReadable())
-	}
-}
-
 func (v validatingObjectWalker) visitListItems(t schema.List, list *value.List) (errs ValidationErrors) {
 	observedKeys := map[string]struct{}{}
 	for i, child := range list.Items {
@@ -334,18 +218,6 @@ func (v validatingObjectWalker) doList(t schema.List) (errs ValidationErrors) {
 	errs = v.visitListItems(t, list)
 
 	return errs
-}
-
-// Returns the map, or an error. Reminder: nil is a valid map and might be returned.
-func mapValue(val value.Value) (*value.Map, error) {
-	switch {
-	case val.Null:
-		return nil, nil
-	case val.Map != nil:
-		return val.Map, nil
-	default:
-		return nil, fmt.Errorf("expected map, got %v", val.HumanReadable())
-	}
 }
 
 func (v validatingObjectWalker) visitMapItems(t schema.Map, m *value.Map) (errs ValidationErrors) {
