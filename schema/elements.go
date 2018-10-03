@@ -74,6 +74,9 @@ type Struct struct {
 	// one or more fields in the above list. A given field from the above
 	// list may be referenced in exactly 0 or 1 places in the below list.
 	// Unions []Union `yaml:"unions,omitempty"`
+
+	// Atomic structs must not have individual items merged.
+	Atomic bool `yaml:"atomic,omitempty"`
 }
 
 // StructField pairs a field name with a field type.
