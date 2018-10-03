@@ -160,21 +160,7 @@ func (v validatingObjectWalker) structValue(val value.Value) (*value.Map, Valida
 	}
 }
 
-func (v validatingObjectWalker) doStruct(t schema.Struct) (errs ValidationErrors) {
-	m, errs := v.structValue(v.value)
-	if len(errs) > 0 {
-		return errs
-	}
-
-	if t.ElementRelationship == schema.Atomic {
-		v.doLeaf()
-	}
-
-	if m == nil {
-		// nil is a valid map!
-		return nil
-	}
-
+func (v validatingObjectWalker) visitStructFields(t schema.Struct, m *value.Map) (errs ValidationErrors) {
 	allowedNames := map[string]struct{}{}
 	for i := range t.Fields {
 		// I don't want to use the loop variable since a reference
@@ -199,6 +185,26 @@ func (v validatingObjectWalker) doStruct(t schema.Struct) (errs ValidationErrors
 			errs = append(errs, v.error("field %v is not mentioned in the schema", f.Name))
 		}
 	}
+
+	return errs
+}
+
+func (v validatingObjectWalker) doStruct(t schema.Struct) (errs ValidationErrors) {
+	m, errs := v.structValue(v.value)
+	if len(errs) > 0 {
+		return errs
+	}
+
+	if t.ElementRelationship == schema.Atomic {
+		v.doLeaf()
+	}
+
+	if m == nil {
+		// nil is a valid map!
+		return nil
+	}
+
+	errs = v.visitStructFields(t, m)
 
 	// TODO: Check unions.
 
@@ -279,20 +285,7 @@ func (v validatingObjectWalker) listValue(val value.Value) (*value.List, Validat
 	}
 }
 
-func (v validatingObjectWalker) doList(t schema.List) (errs ValidationErrors) {
-	list, errs := v.listValue(v.value)
-	if len(errs) > 0 {
-		return errs
-	}
-
-	if t.ElementRelationship == schema.Atomic {
-		v.doLeaf()
-	}
-
-	if list == nil {
-		return nil
-	}
-
+func (v validatingObjectWalker) visitListItems(t schema.List, list *value.List) (errs ValidationErrors) {
 	observedKeys := map[string]struct{}{}
 	for i, child := range list.Items {
 		pe, err := listItemToPathElement(t, i, child)
@@ -314,6 +307,24 @@ func (v validatingObjectWalker) doList(t schema.List) (errs ValidationErrors) {
 		v2.typeRef = t.ElementType
 		errs = append(errs, v2.validate()...)
 	}
+	return errs
+}
+
+func (v validatingObjectWalker) doList(t schema.List) (errs ValidationErrors) {
+	list, errs := v.listValue(v.value)
+	if len(errs) > 0 {
+		return errs
+	}
+
+	if t.ElementRelationship == schema.Atomic {
+		v.doLeaf()
+	}
+
+	if list == nil {
+		return nil
+	}
+
+	errs = v.visitListItems(t, list)
 
 	return errs
 }
@@ -330,6 +341,18 @@ func (v validatingObjectWalker) mapValue(val value.Value) (*value.Map, Validatio
 	}
 }
 
+func (v validatingObjectWalker) visitMapItems(t schema.Map, m *value.Map) (errs ValidationErrors) {
+	for _, item := range m.Items {
+		v2 := v
+		name := item.Name
+		v2.path = append(v.path, fieldpath.PathElement{FieldName: &name})
+		v2.value = item.Value
+		v2.typeRef = t.ElementType
+		errs = append(errs, v2.validate()...)
+	}
+	return errs
+}
+
 func (v validatingObjectWalker) doMap(t schema.Map) (errs ValidationErrors) {
 	m, errs := v.mapValue(v.value)
 	if len(errs) > 0 {
@@ -344,14 +367,7 @@ func (v validatingObjectWalker) doMap(t schema.Map) (errs ValidationErrors) {
 		return nil
 	}
 
-	for _, item := range m.Items {
-		v2 := v
-		name := item.Name
-		v2.path = append(v.path, fieldpath.PathElement{FieldName: &name})
-		v2.value = item.Value
-		v2.typeRef = t.ElementType
-		errs = append(errs, v2.validate()...)
-	}
+	errs = v.visitMapItems(t, m)
 
 	return errs
 }
