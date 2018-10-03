@@ -78,17 +78,24 @@ type validatingObjectWalker struct {
 	inLeaf bool // Set to true if we're in a "big leaf"--atomic map/list
 }
 
-func (v validatingObjectWalker) errorf(format string, args ...interface{}) ValidationError {
-	return ValidationError{
+func (v validatingObjectWalker) errorf(format string, args ...interface{}) ValidationErrors {
+	return ValidationErrors{{
 		Path:         append(fieldpath.Path{}, v.path...),
 		ErrorMessage: fmt.Sprintf(format, args...),
-	}
+	}}
+}
+
+func (v validatingObjectWalker) error(err error) ValidationErrors {
+	return ValidationErrors{{
+		Path:         append(fieldpath.Path{}, v.path...),
+		ErrorMessage: err.Error(),
+	}}
 }
 
 func (v validatingObjectWalker) validate() ValidationErrors {
 	a, ok := v.schema.Resolve(v.typeRef)
 	if !ok {
-		return ValidationErrors{v.errorf("schema error: no type found matching: %v", *v.typeRef.NamedType)}
+		return v.errorf("schema error: no type found matching: %v", *v.typeRef.NamedType)
 	}
 
 	switch {
@@ -104,7 +111,7 @@ func (v validatingObjectWalker) validate() ValidationErrors {
 		return v.doUntyped(*a.Untyped)
 	}
 
-	return ValidationErrors{v.errorf("schema error: invalid atom")}
+	return v.errorf("schema error: invalid atom")
 }
 
 // doLeaf should be called on leaves before descending into children, if there
@@ -129,15 +136,15 @@ func (v validatingObjectWalker) doScalar(t schema.Scalar) ValidationErrors {
 	case schema.Numeric:
 		if v.value.Float == nil && v.value.Int == nil {
 			// TODO: should the schema separate int and float?
-			return ValidationErrors{v.errorf("expected numeric (int or float), got %v", v.value.HumanReadable())}
+			return v.errorf("expected numeric (int or float), got %v", v.value.HumanReadable())
 		}
 	case schema.String:
 		if v.value.String == nil {
-			return ValidationErrors{v.errorf("expected string, got %v", v.value.HumanReadable())}
+			return v.errorf("expected string, got %v", v.value.HumanReadable())
 		}
 	case schema.Boolean:
 		if v.value.Boolean == nil {
-			return ValidationErrors{v.errorf("expected boolean, got %v", v.value.HumanReadable())}
+			return v.errorf("expected boolean, got %v", v.value.HumanReadable())
 		}
 	}
 
@@ -149,14 +156,14 @@ func (v validatingObjectWalker) doScalar(t schema.Scalar) ValidationErrors {
 
 // Returns the map, or an error. Reminder: nil is a valid map and might be returned.
 // Same as mapValue except for the error message.
-func (v validatingObjectWalker) structValue(val value.Value) (*value.Map, ValidationErrors) {
+func structValue(val value.Value) (*value.Map, error) {
 	switch {
 	case val.Null:
 		return nil, nil
 	case val.Map != nil:
 		return val.Map, nil
 	default:
-		return nil, ValidationErrors{v.errorf("expected struct, got %v", val.HumanReadable())}
+		return nil, fmt.Errorf("expected struct, got %v", val.HumanReadable())
 	}
 }
 
@@ -182,7 +189,7 @@ func (v validatingObjectWalker) visitStructFields(t schema.Struct, m *value.Map)
 	// All fields may be optional, but unknown fields are not allowed.
 	for _, f := range m.Items {
 		if _, allowed := allowedNames[f.Name]; !allowed {
-			errs = append(errs, v.errorf("field %v is not mentioned in the schema", f.Name))
+			errs = append(errs, v.errorf("field %v is not mentioned in the schema", f.Name)...)
 		}
 	}
 
@@ -190,9 +197,9 @@ func (v validatingObjectWalker) visitStructFields(t schema.Struct, m *value.Map)
 }
 
 func (v validatingObjectWalker) doStruct(t schema.Struct) (errs ValidationErrors) {
-	m, errs := v.structValue(v.value)
-	if len(errs) > 0 {
-		return errs
+	m, err := structValue(v.value)
+	if err != nil {
+		return v.error(err)
 	}
 
 	if t.ElementRelationship == schema.Atomic {
@@ -273,7 +280,7 @@ func listItemToPathElement(list schema.List, index int, child value.Value) (fiel
 }
 
 // Returns the list, or an error. Reminder: nil is a valid list and might be returned.
-func (v validatingObjectWalker) listValue(val value.Value) (*value.List, ValidationErrors) {
+func listValue(val value.Value) (*value.List, error) {
 	switch {
 	case val.Null:
 		// Null is a valid list.
@@ -281,7 +288,7 @@ func (v validatingObjectWalker) listValue(val value.Value) (*value.List, Validat
 	case val.List != nil:
 		return val.List, nil
 	default:
-		return nil, ValidationErrors{v.errorf("expected list, got %v", val.HumanReadable())}
+		return nil, fmt.Errorf("expected list, got %v", val.HumanReadable())
 	}
 }
 
@@ -290,7 +297,7 @@ func (v validatingObjectWalker) visitListItems(t schema.List, list *value.List) 
 	for i, child := range list.Items {
 		pe, err := listItemToPathElement(t, i, child)
 		if err != nil {
-			errs = append(errs, v.errorf("element %v: %v", i, err.Error()))
+			errs = append(errs, v.errorf("element %v: %v", i, err.Error())...)
 			// If we can't construct the path element, we can't
 			// even report errors deeper in the schema, so bail on
 			// this element.
@@ -298,7 +305,7 @@ func (v validatingObjectWalker) visitListItems(t schema.List, list *value.List) 
 		}
 		keyStr := pe.String()
 		if _, found := observedKeys[keyStr]; found {
-			errs = append(errs, v.errorf("duplicate entries for key %v", keyStr))
+			errs = append(errs, v.errorf("duplicate entries for key %v", keyStr)...)
 		}
 		observedKeys[keyStr] = struct{}{}
 		v2 := v
@@ -311,9 +318,9 @@ func (v validatingObjectWalker) visitListItems(t schema.List, list *value.List) 
 }
 
 func (v validatingObjectWalker) doList(t schema.List) (errs ValidationErrors) {
-	list, errs := v.listValue(v.value)
-	if len(errs) > 0 {
-		return errs
+	list, err := listValue(v.value)
+	if err != nil {
+		return v.error(err)
 	}
 
 	if t.ElementRelationship == schema.Atomic {
@@ -330,14 +337,14 @@ func (v validatingObjectWalker) doList(t schema.List) (errs ValidationErrors) {
 }
 
 // Returns the map, or an error. Reminder: nil is a valid map and might be returned.
-func (v validatingObjectWalker) mapValue(val value.Value) (*value.Map, ValidationErrors) {
+func mapValue(val value.Value) (*value.Map, error) {
 	switch {
 	case val.Null:
 		return nil, nil
 	case val.Map != nil:
 		return val.Map, nil
 	default:
-		return nil, ValidationErrors{v.errorf("expected map, got %v", val.HumanReadable())}
+		return nil, fmt.Errorf("expected map, got %v", val.HumanReadable())
 	}
 }
 
@@ -354,9 +361,9 @@ func (v validatingObjectWalker) visitMapItems(t schema.Map, m *value.Map) (errs 
 }
 
 func (v validatingObjectWalker) doMap(t schema.Map) (errs ValidationErrors) {
-	m, errs := v.mapValue(v.value)
-	if len(errs) > 0 {
-		return errs
+	m, err := mapValue(v.value)
+	if err != nil {
+		return v.error(err)
 	}
 
 	if t.ElementRelationship == schema.Atomic {
