@@ -88,7 +88,7 @@ func (v validatingObjectWalker) error(format string, args ...interface{}) Valida
 func (v validatingObjectWalker) validate() ValidationErrors {
 	a, ok := v.schema.Resolve(v.typeRef)
 	if !ok {
-		return ValidationErrors{v.error("no type found matching: %v", *v.typeRef.NamedType)}
+		return ValidationErrors{v.error("schema error: no type found matching: %v", *v.typeRef.NamedType)}
 	}
 
 	switch {
@@ -104,7 +104,7 @@ func (v validatingObjectWalker) validate() ValidationErrors {
 		return v.doUntyped(*a.Untyped)
 	}
 
-	return ValidationErrors{v.error("invalid atom")}
+	return ValidationErrors{v.error("schema error: invalid atom")}
 }
 
 // doLeaf should be called on leaves before descending into children, if there
@@ -147,25 +147,34 @@ func (v validatingObjectWalker) doScalar(t schema.Scalar) ValidationErrors {
 	return nil
 }
 
-func (v validatingObjectWalker) doStruct(t schema.Struct) (errs ValidationErrors) {
+// Returns the map, or an error. Reminder: nil is a valid map and might be returned.
+// Same as mapValue except for the error message.
+func (v validatingObjectWalker) structValue(val value.Value) (*value.Map, ValidationErrors) {
 	switch {
-	case v.value.Null:
-		// Null is a valid struct.
-	case v.value.Map != nil:
-		// OK
+	case val.Null:
+		return nil, nil
+	case val.Map != nil:
+		return val.Map, nil
 	default:
-		return ValidationErrors{v.error("expected struct, got %v", v.value.HumanReadable())}
+		return nil, ValidationErrors{v.error("expected struct, got %v", val.HumanReadable())}
+	}
+}
+
+func (v validatingObjectWalker) doStruct(t schema.Struct) (errs ValidationErrors) {
+	m, errs := v.structValue(v.value)
+	if len(errs) > 0 {
+		return errs
 	}
 
 	if t.ElementRelationship == schema.Atomic {
 		v.doLeaf()
 	}
 
-	if v.value.Map == nil {
+	if m == nil {
+		// nil is a valid map!
 		return nil
 	}
 
-	m := *v.value.Map
 	allowedNames := map[string]struct{}{}
 	for i := range t.Fields {
 		// I don't want to use the loop variable since a reference
@@ -191,7 +200,7 @@ func (v validatingObjectWalker) doStruct(t schema.Struct) (errs ValidationErrors
 		}
 	}
 
-	// Check unions
+	// TODO: Check unions.
 
 	return errs
 }
@@ -257,26 +266,34 @@ func listItemToPathElement(list schema.List, index int, child value.Value) (fiel
 	return fieldpath.PathElement{Index: &index}, nil
 }
 
-func (v validatingObjectWalker) doList(t schema.List) (errs ValidationErrors) {
+// Returns the list, or an error. Reminder: nil is a valid list and might be returned.
+func (v validatingObjectWalker) listValue(val value.Value) (*value.List, ValidationErrors) {
 	switch {
-	case v.value.Null:
+	case val.Null:
 		// Null is a valid list.
-	case v.value.List != nil:
-		// OK
+		return nil, nil
+	case val.List != nil:
+		return val.List, nil
 	default:
-		return ValidationErrors{v.error("expected list")}
+		return nil, ValidationErrors{v.error("expected list, got %v", val.HumanReadable())}
+	}
+}
+
+func (v validatingObjectWalker) doList(t schema.List) (errs ValidationErrors) {
+	list, errs := v.listValue(v.value)
+	if len(errs) > 0 {
+		return errs
 	}
 
 	if t.ElementRelationship == schema.Atomic {
 		v.doLeaf()
 	}
 
-	if v.value.List == nil {
+	if list == nil {
 		return nil
 	}
 
 	observedKeys := map[string]struct{}{}
-	list := *v.value.List
 	for i, child := range list.Items {
 		pe, err := listItemToPathElement(t, i, child)
 		if err != nil {
@@ -301,25 +318,33 @@ func (v validatingObjectWalker) doList(t schema.List) (errs ValidationErrors) {
 	return errs
 }
 
-func (v validatingObjectWalker) doMap(t schema.Map) (errs ValidationErrors) {
+// Returns the map, or an error. Reminder: nil is a valid map and might be returned.
+func (v validatingObjectWalker) mapValue(val value.Value) (*value.Map, ValidationErrors) {
 	switch {
-	case v.value.Null:
-		// Null is a valid map.
-	case v.value.Map != nil:
-		// OK
+	case val.Null:
+		return nil, nil
+	case val.Map != nil:
+		return val.Map, nil
 	default:
-		return ValidationErrors{v.error("expected list, found %v", v.value.HumanReadable())}
+		return nil, ValidationErrors{v.error("expected map, got %v", val.HumanReadable())}
+	}
+}
+
+func (v validatingObjectWalker) doMap(t schema.Map) (errs ValidationErrors) {
+	m, errs := v.mapValue(v.value)
+	if len(errs) > 0 {
+		return errs
 	}
 
 	if t.ElementRelationship == schema.Atomic {
 		v.doLeaf()
 	}
 
-	if v.value.Map == nil {
+	if m == nil {
 		return nil
 	}
 
-	for _, item := range v.value.Map.Items {
+	for _, item := range m.Items {
 		v2 := v
 		name := item.Name
 		v2.path = append(v.path, fieldpath.PathElement{FieldName: &name})
