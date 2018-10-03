@@ -162,6 +162,8 @@ type List struct {
 	// of the element's struct type which are to be used as the keys of the
 	// list.
 	//
+	// TODO: change this to "non-atomic struct" above and make the code reflect this.
+	//
 	// Each key must refer to a single field name (no nesting, not JSONPath).
 	Keys []string `yaml:"keys,omitempty"`
 }

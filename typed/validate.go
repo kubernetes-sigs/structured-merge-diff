@@ -151,7 +151,6 @@ func (v validatingObjectWalker) doStruct(t schema.Struct) (errs ValidationErrors
 	switch {
 	case v.value.Null:
 		// Null is a valid struct.
-		return nil
 	case v.value.Map != nil:
 		// OK
 	default:
@@ -160,6 +159,10 @@ func (v validatingObjectWalker) doStruct(t schema.Struct) (errs ValidationErrors
 
 	if t.ElementRelationship == schema.Atomic {
 		v.doLeaf()
+	}
+
+	if v.value.Map == nil {
+		return nil
 	}
 
 	m := *v.value.Map
@@ -258,7 +261,6 @@ func (v validatingObjectWalker) doList(t schema.List) (errs ValidationErrors) {
 	switch {
 	case v.value.Null:
 		// Null is a valid list.
-		return nil
 	case v.value.List != nil:
 		// OK
 	default:
@@ -269,8 +271,11 @@ func (v validatingObjectWalker) doList(t schema.List) (errs ValidationErrors) {
 		v.doLeaf()
 	}
 
-	observedKeys := map[string]struct{}{}
+	if v.value.List == nil {
+		return nil
+	}
 
+	observedKeys := map[string]struct{}{}
 	list := *v.value.List
 	for i, child := range list.Items {
 		pe, err := listItemToPathElement(t, i, child)
@@ -300,7 +305,6 @@ func (v validatingObjectWalker) doMap(t schema.Map) (errs ValidationErrors) {
 	switch {
 	case v.value.Null:
 		// Null is a valid map.
-		return nil
 	case v.value.Map != nil:
 		// OK
 	default:
@@ -309,6 +313,10 @@ func (v validatingObjectWalker) doMap(t schema.Map) (errs ValidationErrors) {
 
 	if t.ElementRelationship == schema.Atomic {
 		v.doLeaf()
+	}
+
+	if v.value.Map == nil {
+		return nil
 	}
 
 	for _, item := range v.value.Map.Items {
