@@ -78,6 +78,13 @@ func (ef errorFormatter) error(err error) ValidationErrors {
 	}}
 }
 
+func (ef errorFormatter) prefixError(prefix string, err error) ValidationErrors {
+	return ValidationErrors{{
+		Path:         append(fieldpath.Path{}, ef.path...),
+		ErrorMessage: prefix + err.Error(),
+	}}
+}
+
 type atomHandler interface {
 	doScalar(schema.Scalar) ValidationErrors
 	doStruct(schema.Struct) ValidationErrors
@@ -108,6 +115,25 @@ func resolveSchema(s *schema.Schema, tr schema.TypeRef, ah atomHandler) Validati
 	}
 
 	return ah.errorf("schema error: invalid atom")
+}
+
+func validateScalar(t schema.Scalar, v value.Value) error {
+	switch t {
+	case schema.Numeric:
+		if v.Float == nil && v.Int == nil {
+			// TODO: should the schema separate int and float?
+			return fmt.Errorf("expected numeric (int or float), got %v", v.HumanReadable())
+		}
+	case schema.String:
+		if v.String == nil {
+			return fmt.Errorf("expected string, got %v", v.HumanReadable())
+		}
+	case schema.Boolean:
+		if v.Boolean == nil {
+			return fmt.Errorf("expected boolean, got %v", v.HumanReadable())
+		}
+	}
+	return nil
 }
 
 // Returns the list, or an error. Reminder: nil is a valid list and might be returned.

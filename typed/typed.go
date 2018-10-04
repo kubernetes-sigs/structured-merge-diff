@@ -17,6 +17,8 @@ limitations under the License.
 package typed
 
 import (
+	"reflect"
+
 	"sigs.k8s.io/structured-merge-diff/fieldpath"
 	"sigs.k8s.io/structured-merge-diff/schema"
 	"sigs.k8s.io/structured-merge-diff/value"
@@ -62,6 +64,52 @@ func (tv TypedValue) ToFieldSet() (*fieldpath.Set, error) {
 		return nil, errs
 	}
 	return s, nil
+}
+
+// Merge returns the result of merging tv and pso ("partially specified
+// object") together. Of note:
+//  * No fields can be removed by this operation.
+//  * If both tv and pso specify a given leaf field, the result will keep pso's
+//    value.
+//  * Container typed elements will have their items ordered:
+//    * like tv, if pso doesn't change anything in the container
+//    * like pso, if pso does change something in the container.
+// tv and pso must both be of the same type (their Schema and TypeRef must
+// match), or an error will be returned. Validation errors will be returned if
+// the objects don't conform to the schema.
+func (tv TypedValue) Merge(pso TypedValue) (TypedValue, error) {
+	if tv.schema != pso.schema {
+		return TypedValue{}, errorFormatter{}.
+			errorf("expected objects with types from the same schema")
+	}
+	if !reflect.DeepEqual(tv.typeRef, pso.typeRef) {
+		return TypedValue{}, errorFormatter{}.
+			errorf("expected objects of the same type, but got %v and %v", tv.typeRef, pso.typeRef)
+	}
+
+	mw := mergingWalker{
+		lhs:     &tv.value,
+		rhs:     &pso.value,
+		schema:  tv.schema,
+		typeRef: tv.typeRef,
+
+		rule: ruleKeepRHS,
+	}
+	errs := mw.merge()
+	if len(errs) > 0 {
+		return TypedValue{}, errs
+	}
+
+	out := TypedValue{
+		schema:  tv.schema,
+		typeRef: tv.typeRef,
+	}
+	if mw.out == nil {
+		out.value = value.Value{Null: true}
+	} else {
+		out.value = *mw.out
+	}
+	return out, nil
 }
 
 // AsTypeUnvalidated is just like WithType, but doesn't validate that the type

@@ -68,20 +68,8 @@ func (v *validatingObjectWalker) doLeaf() {
 }
 
 func (v validatingObjectWalker) doScalar(t schema.Scalar) ValidationErrors {
-	switch t {
-	case schema.Numeric:
-		if v.value.Float == nil && v.value.Int == nil {
-			// TODO: should the schema separate int and float?
-			return v.errorf("expected numeric (int or float), got %v", v.value.HumanReadable())
-		}
-	case schema.String:
-		if v.value.String == nil {
-			return v.errorf("expected string, got %v", v.value.HumanReadable())
-		}
-	case schema.Boolean:
-		if v.value.Boolean == nil {
-			return v.errorf("expected boolean, got %v", v.value.HumanReadable())
-		}
+	if err := validateScalar(t, v.value); err != nil {
+		return v.error(err)
 	}
 
 	// All scalars are leaf fields.
