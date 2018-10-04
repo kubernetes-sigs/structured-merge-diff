@@ -53,6 +53,63 @@ func (errs ValidationErrors) Error() string {
 	return strings.Join(messages, "\n")
 }
 
+// errorFormatter makes it easy to keep a list of validation errors. They
+// should all be packed into a single error object before leaving the package
+// boundary, since it's weird to have functions not return a plain error type.
+type errorFormatter struct {
+	path fieldpath.Path
+}
+
+func (ef *errorFormatter) descend(pe fieldpath.PathElement) {
+	ef.path = append(ef.path, pe)
+}
+
+func (ef errorFormatter) errorf(format string, args ...interface{}) ValidationErrors {
+	return ValidationErrors{{
+		Path:         append(fieldpath.Path{}, ef.path...),
+		ErrorMessage: fmt.Sprintf(format, args...),
+	}}
+}
+
+func (ef errorFormatter) error(err error) ValidationErrors {
+	return ValidationErrors{{
+		Path:         append(fieldpath.Path{}, ef.path...),
+		ErrorMessage: err.Error(),
+	}}
+}
+
+type atomHandler interface {
+	doScalar(schema.Scalar) ValidationErrors
+	doStruct(schema.Struct) ValidationErrors
+	doList(schema.List) ValidationErrors
+	doMap(schema.Map) ValidationErrors
+	doUntyped(schema.Untyped) ValidationErrors
+
+	errorf(msg string, args ...interface{}) ValidationErrors
+}
+
+func resolveSchema(s *schema.Schema, tr schema.TypeRef, ah atomHandler) ValidationErrors {
+	a, ok := s.Resolve(tr)
+	if !ok {
+		return ah.errorf("schema error: no type found matching: %v", *tr.NamedType)
+	}
+
+	switch {
+	case a.Scalar != nil:
+		return ah.doScalar(*a.Scalar)
+	case a.Struct != nil:
+		return ah.doStruct(*a.Struct)
+	case a.List != nil:
+		return ah.doList(*a.List)
+	case a.Map != nil:
+		return ah.doMap(*a.Map)
+	case a.Untyped != nil:
+		return ah.doUntyped(*a.Untyped)
+	}
+
+	return ah.errorf("schema error: invalid atom")
+}
+
 // Returns the list, or an error. Reminder: nil is a valid list and might be returned.
 func listValue(val value.Value) (*value.List, error) {
 	switch {

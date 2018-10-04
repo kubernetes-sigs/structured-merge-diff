@@ -17,8 +17,6 @@ limitations under the License.
 package typed
 
 import (
-	"fmt"
-
 	"sigs.k8s.io/structured-merge-diff/fieldpath"
 	"sigs.k8s.io/structured-merge-diff/schema"
 	"sigs.k8s.io/structured-merge-diff/value"
@@ -26,7 +24,6 @@ import (
 
 func (tv TypedValue) walker() *validatingObjectWalker {
 	return &validatingObjectWalker{
-		path:    fieldpath.Path{},
 		value:   tv.value,
 		schema:  tv.schema,
 		typeRef: tv.typeRef,
@@ -34,7 +31,7 @@ func (tv TypedValue) walker() *validatingObjectWalker {
 }
 
 type validatingObjectWalker struct {
-	path    fieldpath.Path
+	errorFormatter
 	value   value.Value
 	schema  *schema.Schema
 	typeRef schema.TypeRef
@@ -49,40 +46,8 @@ type validatingObjectWalker struct {
 	inLeaf bool // Set to true if we're in a "big leaf"--atomic map/list
 }
 
-func (v validatingObjectWalker) errorf(format string, args ...interface{}) ValidationErrors {
-	return ValidationErrors{{
-		Path:         append(fieldpath.Path{}, v.path...),
-		ErrorMessage: fmt.Sprintf(format, args...),
-	}}
-}
-
-func (v validatingObjectWalker) error(err error) ValidationErrors {
-	return ValidationErrors{{
-		Path:         append(fieldpath.Path{}, v.path...),
-		ErrorMessage: err.Error(),
-	}}
-}
-
 func (v validatingObjectWalker) validate() ValidationErrors {
-	a, ok := v.schema.Resolve(v.typeRef)
-	if !ok {
-		return v.errorf("schema error: no type found matching: %v", *v.typeRef.NamedType)
-	}
-
-	switch {
-	case a.Scalar != nil:
-		return v.doScalar(*a.Scalar)
-	case a.Struct != nil:
-		return v.doStruct(*a.Struct)
-	case a.List != nil:
-		return v.doList(*a.List)
-	case a.Map != nil:
-		return v.doMap(*a.Map)
-	case a.Untyped != nil:
-		return v.doUntyped(*a.Untyped)
-	}
-
-	return v.errorf("schema error: invalid atom")
+	return resolveSchema(v.schema, v.typeRef, v)
 }
 
 // doLeaf should be called on leaves before descending into children, if there
@@ -138,7 +103,7 @@ func (v validatingObjectWalker) visitStructFields(t schema.Struct, m *value.Map)
 			continue
 		}
 		v2 := v
-		v2.path = append(v.path, fieldpath.PathElement{FieldName: &f.Name})
+		v2.errorFormatter.descend(fieldpath.PathElement{FieldName: &f.Name})
 		v2.value = child.Value
 		v2.typeRef = f.Type
 		errs = append(errs, v2.validate()...)
@@ -193,7 +158,7 @@ func (v validatingObjectWalker) visitListItems(t schema.List, list *value.List) 
 		}
 		observedKeys[keyStr] = struct{}{}
 		v2 := v
-		v2.path = append(v.path, pe)
+		v2.errorFormatter.descend(pe)
 		v2.value = child
 		v2.typeRef = t.ElementType
 		errs = append(errs, v2.validate()...)
@@ -224,7 +189,7 @@ func (v validatingObjectWalker) visitMapItems(t schema.Map, m *value.Map) (errs 
 	for _, item := range m.Items {
 		v2 := v
 		name := item.Name
-		v2.path = append(v.path, fieldpath.PathElement{FieldName: &name})
+		v2.errorFormatter.descend(fieldpath.PathElement{FieldName: &name})
 		v2.value = item.Value
 		v2.typeRef = t.ElementType
 		errs = append(errs, v2.validate()...)
