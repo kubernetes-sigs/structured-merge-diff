@@ -21,9 +21,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/kubernetes-sigs/structured-merge-diff/fieldpath"
-	"github.com/kubernetes-sigs/structured-merge-diff/schema"
-	"github.com/kubernetes-sigs/structured-merge-diff/value"
+	"sigs.k8s.io/structured-merge-diff/fieldpath"
+	"sigs.k8s.io/structured-merge-diff/schema"
+	"sigs.k8s.io/structured-merge-diff/value"
 )
 
 // ValidationError reports an error about a particular field

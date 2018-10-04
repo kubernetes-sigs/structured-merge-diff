@@ -19,7 +19,7 @@ package fieldpath
 import (
 	"testing"
 
-	"github.com/kubernetes-sigs/structured-merge-diff/value"
+	"sigs.k8s.io/structured-merge-diff/value"
 )
 
 func TestFromValue(t *testing.T) {
