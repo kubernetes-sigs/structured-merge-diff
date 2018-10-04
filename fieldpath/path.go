@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/kubernetes-sigs/structured-merge-diff/value"
+	"sigs.k8s.io/structured-merge-diff/value"
 )
 
 // Path describes how to select a potentially deeply-nested child field given a

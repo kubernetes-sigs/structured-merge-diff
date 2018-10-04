@@ -21,7 +21,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/kubernetes-sigs/structured-merge-diff/value"
+	"sigs.k8s.io/structured-merge-diff/value"
 )
 
 // PathElement describes how to select a child field given a containing object.

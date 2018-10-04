@@ -17,7 +17,7 @@ limitations under the License.
 package fieldpath
 
 import (
-	"github.com/kubernetes-sigs/structured-merge-diff/value"
+	"sigs.k8s.io/structured-merge-diff/value"
 )
 
 // SetFromValue creates a set containing every leaf field mentioned in v.
