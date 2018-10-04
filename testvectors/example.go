@@ -17,7 +17,6 @@ limitations under the License.
 package testvectors
 
 func init() {
-
 	Schemas["listordering-primitiveInlineList"] = SchemaDefinition(`
 type:
   inlineList:
@@ -34,6 +33,17 @@ type:
 		- b
 		- c
 		- d`,
+		Actions: []Action{
+			&TestAction{
+				ActionName: "SetExpectedState",
+				ReturnObject: `items:
+		- a
+		- b
+		- e
+		- c
+		- d`,
+			},
+		},
 		ExpectedState: `items:
 		- a
 		- b
@@ -41,16 +51,6 @@ type:
 		- c
 		- d`,
 	}
-
-	exampleSequence.AppendTestVectors(&TestVector{
-		VectorName: "SetExpectedState",
-		ReturnObject: `items:
-		- a
-		- b
-		- e
-		- c
-		- d`,
-	})
 
 	AppendTestSequences(exampleSequence)
 }

@@ -20,54 +20,54 @@ import (
 	"testing"
 )
 
-// Vector describes an individual test case. Test cases are exported for ease
+// Action describes an individual test case. Test cases are exported for ease
 // in applying them to various implementations.
-type Vector interface {
+type Action interface {
 	Name() string
 	Valid() bool
-	// Run the Vector on cur with schema to return the resulting object and
+	// Run the Action on cur with schema to return the resulting object and
 	// failing the test on unexpected conflicts
 	Run(t *testing.T, cur YAMLObject, schema SchemaDefinition) YAMLObject
 }
 
-// TestVector is an implementation of Vector which just returns the defined ReturnObject
-type TestVector struct {
-	ValidVectorHelper
-	VectorName   string     `yaml:"name"`
+// TestAction is an implementation of Action which just returns the defined ReturnObject
+type TestAction struct {
+	ValidActionHelper
+	ActionName   string     `yaml:"name"`
 	ReturnObject YAMLObject `yaml:"returnObject"`
 }
 
-// Name of the current vector
-func (v *TestVector) Name() string { return v.VectorName }
+// Name of the current action
+func (a *TestAction) Name() string { return a.ActionName }
 
-// Run the TestVector
-func (v *TestVector) Run(t *testing.T, cur YAMLObject, schema SchemaDefinition) YAMLObject {
-	return v.ReturnObject
+// Run the TestAction
+func (a *TestAction) Run(t *testing.T, cur YAMLObject, schema SchemaDefinition) YAMLObject {
+	return a.ReturnObject
 }
 
-// FailVector is an implementation of Vector which just returns the defined ReturnObject
-type FailVector struct {
-	ValidVectorHelper
-	VectorName string `yaml:"name"`
+// FailAction is an implementation of Action which just returns the defined ReturnObject
+type FailAction struct {
+	ValidActionHelper
+	ActionName string `yaml:"name"`
 }
 
-// Name of the current vector
-func (v *FailVector) Name() string { return v.VectorName }
+// Name of the current action
+func (a *FailAction) Name() string { return a.ActionName }
 
-// Run the FailVector
-func (v *FailVector) Run(t *testing.T, cur YAMLObject, schema SchemaDefinition) YAMLObject {
+// Run the FailAction
+func (a *FailAction) Run(t *testing.T, cur YAMLObject, schema SchemaDefinition) YAMLObject {
 	t.Errorf("Intentionally failing the test")
 	return cur
 }
 
-// ValidVectorHelper is a helper for building test vectors to implement the Valid() function through embedding
-type ValidVectorHelper struct{}
+// ValidActionHelper is a helper for building test actions to implement the Valid() function through embedding
+type ValidActionHelper struct{}
 
 // Valid fakes the Valid implementation and always returns true
-func (v *ValidVectorHelper) Valid() bool { return true }
+func (a *ValidActionHelper) Valid() bool { return true }
 
-// InvalidVectorHelper is a helper for building test vectors to implement the Valid() function through embedding
-type InvalidVectorHelper struct{}
+// InvalidActionHelper is a helper for building test actions to implement the Valid() function through embedding
+type InvalidActionHelper struct{}
 
 // Valid fakes the Valid implementation and always returns false
-func (v *InvalidVectorHelper) Valid() bool { return false }
+func (a *InvalidActionHelper) Valid() bool { return false }
