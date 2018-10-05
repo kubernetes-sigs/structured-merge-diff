@@ -117,20 +117,23 @@ func resolveSchema(s *schema.Schema, tr schema.TypeRef, ah atomHandler) Validati
 	return ah.errorf("schema error: invalid atom")
 }
 
-func validateScalar(t schema.Scalar, v value.Value) error {
+func (ef errorFormatter) validateScalar(t schema.Scalar, v *value.Value, prefix string) (errs ValidationErrors) {
+	if v == nil {
+		return nil
+	}
 	switch t {
 	case schema.Numeric:
 		if v.Float == nil && v.Int == nil {
 			// TODO: should the schema separate int and float?
-			return fmt.Errorf("expected numeric (int or float), got %v", v.HumanReadable())
+			return ef.errorf("%vexpected numeric (int or float), got %v", prefix, v.HumanReadable())
 		}
 	case schema.String:
 		if v.String == nil {
-			return fmt.Errorf("expected string, got %v", v.HumanReadable())
+			return ef.errorf("%vexpected string, got %v", prefix, v.HumanReadable())
 		}
 	case schema.Boolean:
 		if v.Boolean == nil {
-			return fmt.Errorf("expected boolean, got %v", v.HumanReadable())
+			return ef.errorf("%vexpected boolean, got %v", prefix, v.HumanReadable())
 		}
 	}
 	return nil
@@ -150,28 +153,27 @@ func listValue(val value.Value) (*value.List, error) {
 }
 
 // Returns the map, or an error. Reminder: nil is a valid map and might be returned.
-func mapValue(val value.Value) (*value.Map, error) {
+func mapOrStructValue(val value.Value, typeName string) (*value.Map, error) {
 	switch {
 	case val.Null:
 		return nil, nil
 	case val.Map != nil:
 		return val.Map, nil
 	default:
-		return nil, fmt.Errorf("expected map, got %v", val.HumanReadable())
+		return nil, fmt.Errorf("expected %v, got %v", typeName, val.HumanReadable())
 	}
 }
 
-// Returns the map, or an error. Reminder: nil is a valid map and might be returned.
-// Same as mapValue except for the error message.
-func structValue(val value.Value) (*value.Map, error) {
-	switch {
-	case val.Null:
-		return nil, nil
-	case val.Map != nil:
-		return val.Map, nil
-	default:
-		return nil, fmt.Errorf("expected struct, got %v", val.HumanReadable())
+func (ef errorFormatter) rejectExtraStructFields(m *value.Map, allowedNames map[string]struct{}, prefix string) (errs ValidationErrors) {
+	if m == nil {
+		return nil
 	}
+	for _, f := range m.Items {
+		if _, allowed := allowedNames[f.Name]; !allowed {
+			errs = append(errs, ef.errorf("%vfield %v is not mentioned in the schema", prefix, f.Name)...)
+		}
+	}
+	return errs
 }
 
 func keyedAssociativeListItemToPathElement(list schema.List, index int, child value.Value) (fieldpath.PathElement, error) {

@@ -17,8 +17,6 @@ limitations under the License.
 package typed
 
 import (
-	"reflect"
-
 	"sigs.k8s.io/structured-merge-diff/fieldpath"
 	"sigs.k8s.io/structured-merge-diff/schema"
 	"sigs.k8s.io/structured-merge-diff/value"
@@ -33,6 +31,10 @@ type mergingWalker struct {
 
 	// How to merge. Called after schema validation for all leaf fields.
 	rule mergeRule
+
+	// If set, called after non-leaf items have been merged. (`out` is
+	// probably already set.)
+	postItemHook mergeRule
 
 	// output of the merge operation (nil if none)
 	out *value.Value
@@ -56,21 +58,6 @@ var (
 			w.out = &v
 		}
 	})
-	ruleSymmetricDifference = mergeRule(func(w *mergingWalker) {
-		// Return everything not the same in both.
-		if w.lhs == nil {
-			v := *w.rhs
-			w.out = &v
-		} else if w.rhs == nil {
-			v := *w.lhs
-			w.out = &v
-		} else if !reflect.DeepEqual(w.rhs, w.lhs) {
-			// TODO: reflect.DeepEqual is not sufficient for this.
-			// Need to implement equality check on the value type.
-			v := *w.rhs
-			w.out = &v
-		}
-	})
 )
 
 // merge sets w.out.
@@ -79,7 +66,11 @@ func (w *mergingWalker) merge() ValidationErrors {
 		// check this condidition here instead of everywhere below.
 		return w.errorf("at least one of lhs and rhs must be provided")
 	}
-	return resolveSchema(w.schema, w.typeRef, w)
+	errs := resolveSchema(w.schema, w.typeRef, w)
+	if !w.inLeaf && w.postItemHook != nil {
+		w.postItemHook(w)
+	}
+	return errs
 }
 
 // doLeaf should be called on leaves before descending into children, if there
@@ -97,16 +88,8 @@ func (w *mergingWalker) doLeaf() {
 }
 
 func (w *mergingWalker) doScalar(t schema.Scalar) (errs ValidationErrors) {
-	if w.lhs != nil {
-		if err := validateScalar(t, *w.lhs); err != nil {
-			errs = append(errs, w.prefixError("lhs: ", err)...)
-		}
-	}
-	if w.rhs != nil {
-		if err := validateScalar(t, *w.rhs); err != nil {
-			errs = append(errs, w.prefixError("rhs: ", err)...)
-		}
-	}
+	errs = append(errs, w.validateScalar(t, w.lhs, "lhs: ")...)
+	errs = append(errs, w.validateScalar(t, w.rhs, "rhs: ")...)
 	if len(errs) > 0 {
 		return errs
 	}
@@ -130,11 +113,15 @@ func (w *mergingWalker) prepareDescent(pe fieldpath.PathElement, tr schema.TypeR
 func (w *mergingWalker) visitStructFields(t schema.Struct, lhs, rhs *value.Map) (errs ValidationErrors) {
 	out := &value.Map{}
 
-	maybeGet := func(m *value.Map, name string) (*value.Field, bool) {
+	valOrNil := func(m *value.Map, name string) *value.Value {
 		if m == nil {
-			return nil, false
+			return nil
 		}
-		return m.Get(name)
+		val, ok := m.Get(name)
+		if ok {
+			return &val.Value
+		}
+		return nil
 	}
 
 	allowedNames := map[string]struct{}{}
@@ -143,18 +130,12 @@ func (w *mergingWalker) visitStructFields(t schema.Struct, lhs, rhs *value.Map) 
 		// might outlive the loop iteration (in an error message).
 		f := t.Fields[i]
 		allowedNames[f.Name] = struct{}{}
-		lchild, lok := maybeGet(lhs, f.Name)
-		rchild, rok := maybeGet(rhs, f.Name)
-		if !lok && !rok {
+		w2 := w.prepareDescent(fieldpath.PathElement{FieldName: &f.Name}, f.Type)
+		w2.lhs = valOrNil(lhs, f.Name)
+		w2.rhs = valOrNil(rhs, f.Name)
+		if w2.lhs == nil && w2.rhs == nil {
 			// All fields are optional
 			continue
-		}
-		w2 := w.prepareDescent(fieldpath.PathElement{FieldName: &f.Name}, f.Type)
-		if lok {
-			w2.lhs = &lchild.Value
-		}
-		if rok {
-			w2.rhs = &rchild.Value
 		}
 		if newErrs := w2.merge(); len(newErrs) > 0 {
 			errs = append(errs, newErrs...)
@@ -164,19 +145,10 @@ func (w *mergingWalker) visitStructFields(t schema.Struct, lhs, rhs *value.Map) 
 	}
 
 	// All fields may be optional, but unknown fields are not allowed.
-	if lhs != nil {
-		for _, f := range lhs.Items {
-			if _, allowed := allowedNames[f.Name]; !allowed {
-				errs = append(errs, w.errorf("lhs: field %v is not mentioned in the schema", f.Name)...)
-			}
-		}
-	}
-	if rhs != nil {
-		for _, f := range rhs.Items {
-			if _, allowed := allowedNames[f.Name]; !allowed {
-				errs = append(errs, w.errorf("rhs: field %v is not mentioned in the schema", f.Name)...)
-			}
-		}
+	errs = append(errs, w.rejectExtraStructFields(lhs, allowedNames, "lhs: ")...)
+	errs = append(errs, w.rejectExtraStructFields(rhs, allowedNames, "rhs: ")...)
+	if len(errs) > 0 {
+		return errs
 	}
 
 	if len(out.Items) > 0 {
@@ -186,22 +158,24 @@ func (w *mergingWalker) visitStructFields(t schema.Struct, lhs, rhs *value.Map) 
 	return errs
 }
 
+func (w *mergingWalker) derefMapOrStruct(prefix, typeName string, v *value.Value, dest **value.Map) (errs ValidationErrors) {
+	// taking dest as input so that it can be called as a one-liner with
+	// append.
+	if v == nil {
+		return nil
+	}
+	m, err := mapOrStructValue(*v, typeName)
+	if err != nil {
+		return w.prefixError(prefix, err)
+	}
+	*dest = m
+	return nil
+}
+
 func (w *mergingWalker) doStruct(t schema.Struct) (errs ValidationErrors) {
 	var lhs, rhs *value.Map
-	var err error
-	if w.lhs != nil {
-		lhs, err = structValue(*w.lhs)
-		if err != nil {
-			errs = append(errs, w.prefixError("lhs: ", err)...)
-		}
-	}
-	if w.rhs != nil {
-		rhs, err = structValue(*w.rhs)
-		if err != nil {
-			errs = append(errs, w.prefixError("rhs: ", err)...)
-		}
-	}
-
+	errs = append(errs, w.derefMapOrStruct("lhs: ", "struct", w.lhs, &lhs)...)
+	errs = append(errs, w.derefMapOrStruct("rhs: ", "struct", w.rhs, &rhs)...)
 	if len(errs) > 0 {
 		return errs
 	}
@@ -236,7 +210,7 @@ func (w *mergingWalker) visitListItems(t schema.List, lhs, rhs *value.List) (err
 	// TODO: might as well make the map order work the same way.
 
 	// This is a cheap hack to at least make the output order stable.
-	rhsOrder := []string{}
+	rhsOrder := []fieldpath.PathElement{}
 
 	// First, collect all RHS children.
 	observedRHS := map[string]value.Value{}
@@ -255,7 +229,7 @@ func (w *mergingWalker) visitListItems(t schema.List, lhs, rhs *value.List) (err
 				errs = append(errs, w.errorf("rhs: duplicate entries for key %v", keyStr)...)
 			}
 			observedRHS[keyStr] = child
-			rhsOrder = append(rhsOrder, keyStr)
+			rhsOrder = append(rhsOrder, pe)
 		}
 	}
 
@@ -277,15 +251,11 @@ func (w *mergingWalker) visitListItems(t schema.List, lhs, rhs *value.List) (err
 				continue
 			}
 			observedLHS[keyStr] = struct{}{}
-			rchild, ok := observedRHS[keyStr]
-			if !ok {
-				// only a left child exists; no need to merge.
-				out.Items = append(out.Items, child)
-				continue
-			}
 			w2 := w.prepareDescent(pe, t.ElementType)
 			w2.lhs = &child
-			w2.rhs = &rchild
+			if rchild, ok := observedRHS[keyStr]; ok {
+				w2.rhs = &rchild
+			}
 			if newErrs := w2.merge(); len(newErrs) > 0 {
 				errs = append(errs, newErrs...)
 			} else if w2.out != nil {
@@ -297,8 +267,14 @@ func (w *mergingWalker) visitListItems(t schema.List, lhs, rhs *value.List) (err
 	}
 
 	for _, rhsToCheck := range rhsOrder {
-		if unmergedChild, ok := observedRHS[rhsToCheck]; ok {
-			out.Items = append(out.Items, unmergedChild)
+		if unmergedChild, ok := observedRHS[rhsToCheck.String()]; ok {
+			w2 := w.prepareDescent(rhsToCheck, t.ElementType)
+			w2.rhs = &unmergedChild
+			if newErrs := w2.merge(); len(newErrs) > 0 {
+				errs = append(errs, newErrs...)
+			} else if w2.out != nil {
+				out.Items = append(out.Items, *w2.out)
+			}
 		}
 	}
 
@@ -308,22 +284,24 @@ func (w *mergingWalker) visitListItems(t schema.List, lhs, rhs *value.List) (err
 	return errs
 }
 
+func (w *mergingWalker) derefList(prefix string, v *value.Value, dest **value.List) (errs ValidationErrors) {
+	// taking dest as input so that it can be called as a one-liner with
+	// append.
+	if v == nil {
+		return nil
+	}
+	l, err := listValue(*v)
+	if err != nil {
+		return w.prefixError(prefix, err)
+	}
+	*dest = l
+	return nil
+}
+
 func (w *mergingWalker) doList(t schema.List) (errs ValidationErrors) {
 	var lhs, rhs *value.List
-	var err error
-	if w.lhs != nil {
-		lhs, err = listValue(*w.lhs)
-		if err != nil {
-			errs = append(errs, w.prefixError("lhs: ", err)...)
-		}
-	}
-	if w.rhs != nil {
-		rhs, err = listValue(*w.rhs)
-		if err != nil {
-			errs = append(errs, w.prefixError("rhs: ", err)...)
-		}
-	}
-
+	errs = append(errs, w.derefList("lhs: ", w.lhs, &lhs)...)
+	errs = append(errs, w.derefList("rhs: ", w.rhs, &rhs)...)
 	if len(errs) > 0 {
 		return errs
 	}
@@ -353,26 +331,22 @@ func (w *mergingWalker) visitMapItems(t schema.Map, lhs, rhs *value.Map) (errs V
 
 	if lhs != nil {
 		for _, litem := range lhs.Items {
-			var ritem *value.Field
-			var ok bool
-			if rhs != nil {
-				ritem, ok = rhs.Get(litem.Name)
-			}
-			if !ok {
-				out.Set(litem.Name, litem.Value)
-				continue
-			}
 			name := litem.Name
 			w2 := w.prepareDescent(fieldpath.PathElement{FieldName: &name}, t.ElementType)
 			w2.lhs = &litem.Value
-			w2.rhs = &ritem.Value
+			if rhs != nil {
+				if ritem, ok := rhs.Get(litem.Name); ok {
+					w2.rhs = &ritem.Value
+				}
+			}
 			if newErrs := w2.merge(); len(newErrs) > 0 {
 				errs = append(errs, newErrs...)
 			} else if w2.out != nil {
-				out.Set(litem.Name, *w2.out)
+				out.Set(name, *w2.out)
 			}
 		}
 	}
+
 	if rhs != nil {
 		for _, ritem := range rhs.Items {
 			if lhs != nil {
@@ -380,7 +354,15 @@ func (w *mergingWalker) visitMapItems(t schema.Map, lhs, rhs *value.Map) (errs V
 					continue
 				}
 			}
-			out.Set(ritem.Name, ritem.Value)
+
+			name := ritem.Name
+			w2 := w.prepareDescent(fieldpath.PathElement{FieldName: &name}, t.ElementType)
+			w2.rhs = &ritem.Value
+			if newErrs := w2.merge(); len(newErrs) > 0 {
+				errs = append(errs, newErrs...)
+			} else if w2.out != nil {
+				out.Set(name, *w2.out)
+			}
 		}
 	}
 
@@ -392,20 +374,8 @@ func (w *mergingWalker) visitMapItems(t schema.Map, lhs, rhs *value.Map) (errs V
 
 func (w *mergingWalker) doMap(t schema.Map) (errs ValidationErrors) {
 	var lhs, rhs *value.Map
-	var err error
-	if w.lhs != nil {
-		lhs, err = mapValue(*w.lhs)
-		if err != nil {
-			errs = append(errs, w.prefixError("lhs: ", err)...)
-		}
-	}
-	if w.rhs != nil {
-		rhs, err = mapValue(*w.rhs)
-		if err != nil {
-			errs = append(errs, w.prefixError("rhs: ", err)...)
-		}
-	}
-
+	errs = append(errs, w.derefMapOrStruct("lhs: ", "map", w.lhs, &lhs)...)
+	errs = append(errs, w.derefMapOrStruct("rhs: ", "map", w.rhs, &rhs)...)
 	if len(errs) > 0 {
 		return errs
 	}

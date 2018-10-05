@@ -68,8 +68,8 @@ func (v *validatingObjectWalker) doLeaf() {
 }
 
 func (v validatingObjectWalker) doScalar(t schema.Scalar) ValidationErrors {
-	if err := validateScalar(t, v.value); err != nil {
-		return v.error(err)
+	if errs := v.validateScalar(t, &v.value, ""); len(errs) > 0 {
+		return errs
 	}
 
 	// All scalars are leaf fields.
@@ -98,17 +98,11 @@ func (v validatingObjectWalker) visitStructFields(t schema.Struct, m *value.Map)
 	}
 
 	// All fields may be optional, but unknown fields are not allowed.
-	for _, f := range m.Items {
-		if _, allowed := allowedNames[f.Name]; !allowed {
-			errs = append(errs, v.errorf("field %v is not mentioned in the schema", f.Name)...)
-		}
-	}
-
-	return errs
+	return append(errs, v.rejectExtraStructFields(m, allowedNames, "")...)
 }
 
 func (v validatingObjectWalker) doStruct(t schema.Struct) (errs ValidationErrors) {
-	m, err := structValue(v.value)
+	m, err := mapOrStructValue(v.value, "struct")
 	if err != nil {
 		return v.error(err)
 	}
@@ -186,7 +180,7 @@ func (v validatingObjectWalker) visitMapItems(t schema.Map, m *value.Map) (errs 
 }
 
 func (v validatingObjectWalker) doMap(t schema.Map) (errs ValidationErrors) {
-	m, err := mapValue(v.value)
+	m, err := mapOrStructValue(v.value, "map")
 	if err != nil {
 		return v.error(err)
 	}

@@ -78,22 +78,82 @@ func (tv TypedValue) ToFieldSet() (*fieldpath.Set, error) {
 // match), or an error will be returned. Validation errors will be returned if
 // the objects don't conform to the schema.
 func (tv TypedValue) Merge(pso TypedValue) (TypedValue, error) {
-	if tv.schema != pso.schema {
+	return merge(tv, pso, ruleKeepRHS, nil)
+}
+
+// Comparison is the return value of a TypedValue.Compare() operation.
+//
+// No field will appear in more than one of the three fieldsets. If all of the
+// fieldsets are empty, then the objects must have been equal.
+type Comparison struct {
+	// Merged is the result of merging the two objects, as explained in the
+	// comments on TypedValue.Merge().
+	Merged TypedValue
+
+	// Removed contains any fields removed by rhs (the right-hand-side
+	// object in the comparison).
+	Removed *fieldpath.Set
+	// Modified contains fields present in both objects but different.
+	Modified *fieldpath.Set
+	// Added contains any fields added by rhs.
+	Added *fieldpath.Set
+}
+
+// Compare compares the two objects. See the comments on the `Comparison`
+// struct for details on the return value.
+//
+// tv and rhs must both be of the same type (their Schema and TypeRef must
+// match), or an error will be returned. Validation errors will be returned if
+// the objects don't conform to the schema.
+func (tv TypedValue) Compare(rhs TypedValue) (c *Comparison, err error) {
+	c = &Comparison{
+		Removed:  fieldpath.NewSet(),
+		Modified: fieldpath.NewSet(),
+		Added:    fieldpath.NewSet(),
+	}
+	c.Merged, err = merge(tv, rhs, func(w *mergingWalker) {
+		if w.lhs == nil {
+			c.Added.Insert(w.path)
+		} else if w.rhs == nil {
+			c.Removed.Insert(w.path)
+		} else if !reflect.DeepEqual(w.rhs, w.lhs) {
+			// TODO: reflect.DeepEqual is not sufficient for this.
+			// Need to implement equality check on the value type.
+			c.Modified.Insert(w.path)
+		}
+
+		ruleKeepRHS(w)
+	}, func(w *mergingWalker) {
+		if w.lhs == nil {
+			c.Added.Insert(w.path)
+		} else if w.rhs == nil {
+			c.Removed.Insert(w.path)
+		}
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return c, nil
+}
+
+func merge(lhs, rhs TypedValue, rule, postRule mergeRule) (TypedValue, error) {
+	if lhs.schema != rhs.schema {
 		return TypedValue{}, errorFormatter{}.
 			errorf("expected objects with types from the same schema")
 	}
-	if !reflect.DeepEqual(tv.typeRef, pso.typeRef) {
+	if !reflect.DeepEqual(lhs.typeRef, rhs.typeRef) {
 		return TypedValue{}, errorFormatter{}.
-			errorf("expected objects of the same type, but got %v and %v", tv.typeRef, pso.typeRef)
+			errorf("expected objects of the same type, but got %v and %v", lhs.typeRef, rhs.typeRef)
 	}
 
 	mw := mergingWalker{
-		lhs:     &tv.value,
-		rhs:     &pso.value,
-		schema:  tv.schema,
-		typeRef: tv.typeRef,
-
-		rule: ruleKeepRHS,
+		lhs:          &lhs.value,
+		rhs:          &rhs.value,
+		schema:       lhs.schema,
+		typeRef:      lhs.typeRef,
+		rule:         rule,
+		postItemHook: postRule,
 	}
 	errs := mw.merge()
 	if len(errs) > 0 {
@@ -101,8 +161,8 @@ func (tv TypedValue) Merge(pso TypedValue) (TypedValue, error) {
 	}
 
 	out := TypedValue{
-		schema:  tv.schema,
-		typeRef: tv.typeRef,
+		schema:  lhs.schema,
+		typeRef: lhs.typeRef,
 	}
 	if mw.out == nil {
 		out.value = value.Value{Null: true}

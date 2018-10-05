@@ -30,6 +30,12 @@ import (
 func FromYAML(input []byte) (Value, error) {
 	var decoded interface{}
 
+	if len(input) == 0 || (len(input) == 4 && string(input) == "null") {
+		// Special case since the yaml package doesn't accurately
+		// preserve this.
+		return Value{Null: true}, nil
+	}
+
 	// This attempts to enable order sensitivity; note the yaml package is
 	// broken for documents that have root-level arrays, hence the two-step
 	// approach. TODO: This is a horrific hack. Is it worth it?
