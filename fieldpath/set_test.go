@@ -211,6 +211,7 @@ func TestSetUnion(t *testing.T) {
 		MakePathOrDie("foo"),
 		MakePathOrDie("bar", "baz"),
 		MakePathOrDie("qux", KeyByFields("name", value.StringValue("first"))),
+		MakePathOrDie("parent", "child", "grandchild"),
 	)
 
 	s2 := NewSet(
@@ -218,6 +219,7 @@ func TestSetUnion(t *testing.T) {
 		MakePathOrDie("bar", "baz"),
 		MakePathOrDie("bar"),
 		MakePathOrDie("qux", KeyByFields("name", value.StringValue("second"))),
+		MakePathOrDie("parent", "child"),
 	)
 
 	u := NewSet(
@@ -228,6 +230,8 @@ func TestSetUnion(t *testing.T) {
 		MakePathOrDie("bar"),
 		MakePathOrDie("qux", KeyByFields("name", value.StringValue("first"))),
 		MakePathOrDie("qux", KeyByFields("name", value.StringValue("second"))),
+		MakePathOrDie("parent", "child"),
+		MakePathOrDie("parent", "child", "grandchild"),
 	)
 
 	got := s1.Union(s2)
@@ -242,14 +246,17 @@ func TestSetIntersectionDifference(t *testing.T) {
 	// test is recursive, we should be able to craft a single input that is
 	// sufficient to check all code paths.
 
+	nameFirst := KeyByFields("name", value.StringValue("first"))
 	s1 := NewSet(
 		MakePathOrDie("a0"),
 		MakePathOrDie("a1"),
 		MakePathOrDie("foo", 0),
 		MakePathOrDie("foo", 1),
-		MakePathOrDie("b0", KeyByFields("name", value.StringValue("first"))),
-		MakePathOrDie("b1", KeyByFields("name", value.StringValue("first"))),
+		MakePathOrDie("b0", nameFirst),
+		MakePathOrDie("b1", nameFirst),
 		MakePathOrDie("bar", "c0"),
+
+		MakePathOrDie("cp", nameFirst, "child"),
 	)
 
 	s2 := NewSet(
@@ -257,16 +264,20 @@ func TestSetIntersectionDifference(t *testing.T) {
 		MakePathOrDie("a2"),
 		MakePathOrDie("foo", 1),
 		MakePathOrDie("foo", 2),
-		MakePathOrDie("b1", KeyByFields("name", value.StringValue("first"))),
-		MakePathOrDie("b2", KeyByFields("name", value.StringValue("first"))),
+		MakePathOrDie("b1", nameFirst),
+		MakePathOrDie("b2", nameFirst),
 		MakePathOrDie("bar", "c2"),
+
+		MakePathOrDie("cp", nameFirst),
 	)
+	t.Logf("s1:\n%v\n", s1)
+	t.Logf("s2:\n%v\n", s2)
 
 	t.Run("intersection", func(t *testing.T) {
 		i := NewSet(
 			MakePathOrDie("a1"),
 			MakePathOrDie("foo", 1),
-			MakePathOrDie("b1", KeyByFields("name", value.StringValue("first"))),
+			MakePathOrDie("b1", nameFirst),
 		)
 
 		got := s1.Intersection(s2)
@@ -279,7 +290,7 @@ func TestSetIntersectionDifference(t *testing.T) {
 		sDiffS2 := NewSet(
 			MakePathOrDie("a0"),
 			MakePathOrDie("foo", 0),
-			MakePathOrDie("b0", KeyByFields("name", value.StringValue("first"))),
+			MakePathOrDie("b0", nameFirst),
 			MakePathOrDie("bar", "c0"),
 		)
 
@@ -293,13 +304,33 @@ func TestSetIntersectionDifference(t *testing.T) {
 		s2DiffS := NewSet(
 			MakePathOrDie("a2"),
 			MakePathOrDie("foo", 2),
-			MakePathOrDie("b2", KeyByFields("name", value.StringValue("first"))),
+			MakePathOrDie("b2", nameFirst),
 			MakePathOrDie("bar", "c2"),
+			MakePathOrDie("cp", nameFirst),
 		)
 
 		got := s2.Difference(s1)
 		if !got.Equals(s2DiffS) {
 			t.Errorf("expected: \n%v\n, got \n%v\n", s2DiffS, got)
+		}
+	})
+
+	t.Run("intersection (the hard way)", func(t *testing.T) {
+		i := NewSet(
+			MakePathOrDie("a1"),
+			MakePathOrDie("foo", 1),
+			MakePathOrDie("b1", nameFirst),
+		)
+
+		// We can construct Intersection out of two union and
+		// three difference calls.
+		u := s1.Union(s2)
+		t.Logf("s1 u s2:\n%v\n", u)
+		notIntersection := s2.Difference(s1).Union(s1.Difference(s2))
+		t.Logf("s1 !i s2:\n%v\n", notIntersection)
+		got := u.Difference(notIntersection)
+		if !got.Equals(i) {
+			t.Errorf("expected: \n%v\n, got \n%v\n", i, got)
 		}
 	})
 }
