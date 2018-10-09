@@ -67,7 +67,9 @@ func (s *Set) Union(s2 *Set) *Set {
 	}
 }
 
-// Intersection returns a Set containing elements which appear in both s and s2.
+// Intersection returns a Set containing leaf elements which appear in both s
+// and s2. Intersection can be constructed from Union and Difference operations
+// (example in the tests) but it's much faster to do it in one pass.
 func (s *Set) Intersection(s2 *Set) *Set {
 	return &Set{
 		Members:  *s.Members.Intersection(&s2.Members),
@@ -75,11 +77,20 @@ func (s *Set) Intersection(s2 *Set) *Set {
 	}
 }
 
-// Difference returns a Set containing elements which appear in s but not in s2.
+// Difference returns a Set containing elements which:
+// * appear in s
+// * do not appear in s2
+// * and are not children of elements that appear in s2.
+//
+// In other words, for leaf fields, this acts like a regular set difference
+// operation. When non leaf fields are compared with leaf fields ("parents"
+// which contain "children"), the effect is:
+// * parent - child = parent
+// * child - parent = {empty set}
 func (s *Set) Difference(s2 *Set) *Set {
 	return &Set{
 		Members:  *s.Members.Difference(&s2.Members),
-		Children: *s.Children.Difference(&s2.Children),
+		Children: *s.Children.Difference(s2),
 	}
 }
 
@@ -226,18 +237,20 @@ func (s *SetNodeMap) Equals(s2 *SetNodeMap) bool {
 func (s *SetNodeMap) Union(s2 *SetNodeMap) *SetNodeMap {
 	out := &SetNodeMap{}
 	for k, sn := range s.members {
+		pe := sn.pathElement
 		if sn2, ok := s2.members[k]; ok {
-			*out.Descend(sn.pathElement) = *sn.set.Union(sn2.set)
+			*out.Descend(pe) = *sn.set.Union(sn2.set)
 		} else {
-			*out.Descend(sn.pathElement) = *sn.set
+			*out.Descend(pe) = *sn.set
 		}
 	}
 	for k, sn2 := range s2.members {
-		if sn, ok := s.members[k]; ok {
+		pe := sn2.pathElement
+		if _, ok := s.members[k]; ok {
 			// already handled
-		} else {
-			*out.Descend(sn.pathElement) = *sn2.set
+			continue
 		}
+		*out.Descend(pe) = *sn2.set
 	}
 	return out
 }
@@ -246,10 +259,11 @@ func (s *SetNodeMap) Union(s2 *SetNodeMap) *SetNodeMap {
 func (s *SetNodeMap) Intersection(s2 *SetNodeMap) *SetNodeMap {
 	out := &SetNodeMap{}
 	for k, sn := range s.members {
+		pe := sn.pathElement
 		if sn2, ok := s2.members[k]; ok {
 			i := *sn.set.Intersection(sn2.set)
 			if !i.Empty() {
-				*out.Descend(sn.pathElement) = i
+				*out.Descend(pe) = i
 			}
 		}
 	}
@@ -257,17 +271,21 @@ func (s *SetNodeMap) Intersection(s2 *SetNodeMap) *SetNodeMap {
 }
 
 // Difference returns a SetNodeMap with members that appear in s but not in s2.
-func (s *SetNodeMap) Difference(s2 *SetNodeMap) *SetNodeMap {
+func (s *SetNodeMap) Difference(s2 *Set) *SetNodeMap {
 	out := &SetNodeMap{}
 	for k, sn := range s.members {
-		if sn2, ok := s2.members[k]; ok {
+		pe := sn.pathElement
+		if s2.Members.Has(pe) {
+			continue
+		}
+		if sn2, ok := s2.Children.members[k]; ok {
 			diff := *sn.set.Difference(sn2.set)
 			// We aren't permitted to add nodes with no elements.
 			if !diff.Empty() {
-				*out.Descend(sn.pathElement) = diff
+				*out.Descend(pe) = diff
 			}
 		} else {
-			*out.Descend(sn.pathElement) = *sn.set
+			*out.Descend(pe) = *sn.set
 		}
 	}
 	return out
@@ -275,6 +293,7 @@ func (s *SetNodeMap) Difference(s2 *SetNodeMap) *SetNodeMap {
 
 func (s *SetNodeMap) iteratePrefix(prefix Path, f func(Path)) {
 	for _, n := range s.members {
-		n.set.iteratePrefix(append(prefix, n.pathElement), f)
+		pe := n.pathElement
+		n.set.iteratePrefix(append(prefix, pe), f)
 	}
 }
