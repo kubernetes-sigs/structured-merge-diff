@@ -17,6 +17,8 @@ limitations under the License.
 package typed
 
 import (
+	"reflect"
+
 	"sigs.k8s.io/structured-merge-diff/fieldpath"
 	"sigs.k8s.io/structured-merge-diff/schema"
 	"sigs.k8s.io/structured-merge-diff/value"
@@ -62,6 +64,112 @@ func (tv TypedValue) ToFieldSet() (*fieldpath.Set, error) {
 		return nil, errs
 	}
 	return s, nil
+}
+
+// Merge returns the result of merging tv and pso ("partially specified
+// object") together. Of note:
+//  * No fields can be removed by this operation.
+//  * If both tv and pso specify a given leaf field, the result will keep pso's
+//    value.
+//  * Container typed elements will have their items ordered:
+//    * like tv, if pso doesn't change anything in the container
+//    * like pso, if pso does change something in the container.
+// tv and pso must both be of the same type (their Schema and TypeRef must
+// match), or an error will be returned. Validation errors will be returned if
+// the objects don't conform to the schema.
+func (tv TypedValue) Merge(pso TypedValue) (TypedValue, error) {
+	return merge(tv, pso, ruleKeepRHS, nil)
+}
+
+// Comparison is the return value of a TypedValue.Compare() operation.
+//
+// No field will appear in more than one of the three fieldsets. If all of the
+// fieldsets are empty, then the objects must have been equal.
+type Comparison struct {
+	// Merged is the result of merging the two objects, as explained in the
+	// comments on TypedValue.Merge().
+	Merged TypedValue
+
+	// Removed contains any fields removed by rhs (the right-hand-side
+	// object in the comparison).
+	Removed *fieldpath.Set
+	// Modified contains fields present in both objects but different.
+	Modified *fieldpath.Set
+	// Added contains any fields added by rhs.
+	Added *fieldpath.Set
+}
+
+// Compare compares the two objects. See the comments on the `Comparison`
+// struct for details on the return value.
+//
+// tv and rhs must both be of the same type (their Schema and TypeRef must
+// match), or an error will be returned. Validation errors will be returned if
+// the objects don't conform to the schema.
+func (tv TypedValue) Compare(rhs TypedValue) (c *Comparison, err error) {
+	c = &Comparison{
+		Removed:  fieldpath.NewSet(),
+		Modified: fieldpath.NewSet(),
+		Added:    fieldpath.NewSet(),
+	}
+	c.Merged, err = merge(tv, rhs, func(w *mergingWalker) {
+		if w.lhs == nil {
+			c.Added.Insert(w.path)
+		} else if w.rhs == nil {
+			c.Removed.Insert(w.path)
+		} else if !reflect.DeepEqual(w.rhs, w.lhs) {
+			// TODO: reflect.DeepEqual is not sufficient for this.
+			// Need to implement equality check on the value type.
+			c.Modified.Insert(w.path)
+		}
+
+		ruleKeepRHS(w)
+	}, func(w *mergingWalker) {
+		if w.lhs == nil {
+			c.Added.Insert(w.path)
+		} else if w.rhs == nil {
+			c.Removed.Insert(w.path)
+		}
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return c, nil
+}
+
+func merge(lhs, rhs TypedValue, rule, postRule mergeRule) (TypedValue, error) {
+	if lhs.schema != rhs.schema {
+		return TypedValue{}, errorFormatter{}.
+			errorf("expected objects with types from the same schema")
+	}
+	if !reflect.DeepEqual(lhs.typeRef, rhs.typeRef) {
+		return TypedValue{}, errorFormatter{}.
+			errorf("expected objects of the same type, but got %v and %v", lhs.typeRef, rhs.typeRef)
+	}
+
+	mw := mergingWalker{
+		lhs:          &lhs.value,
+		rhs:          &rhs.value,
+		schema:       lhs.schema,
+		typeRef:      lhs.typeRef,
+		rule:         rule,
+		postItemHook: postRule,
+	}
+	errs := mw.merge()
+	if len(errs) > 0 {
+		return TypedValue{}, errs
+	}
+
+	out := TypedValue{
+		schema:  lhs.schema,
+		typeRef: lhs.typeRef,
+	}
+	if mw.out == nil {
+		out.value = value.Value{Null: true}
+	} else {
+		out.value = *mw.out
+	}
+	return out, nil
 }
 
 // AsTypeUnvalidated is just like WithType, but doesn't validate that the type
