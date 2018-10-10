@@ -20,6 +20,6 @@ package framework
 type Implementation interface {
 	// Apply returns the new post merge object and errors (including conflicts if any occur)
 	Apply(live, config YAMLObject, workflow string, force bool) (YAMLObject, error)
-	// NonApply returns the new object and errors (including conflicts if any occur)
-	NonApply(live, new YAMLObject, workflow string) (YAMLObject, error)
+	// Update returns the new object and errors (including conflicts if any occur)
+	Update(live, new YAMLObject, workflow string) (YAMLObject, error)
 }

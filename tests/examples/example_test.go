@@ -24,7 +24,7 @@ import (
 
 // TestExample shows how to use the test framework
 func TestExample(t *testing.T) {
-	state := &framework.State{Implementation: &MockImplementation{}}
+	state := &framework.State{Implementation: &mockImplementation{}}
 
 	err := state.Apply(`
 list:
@@ -32,6 +32,10 @@ list:
 - b
 - c
 `, "default", false)
+	err = framework.CheckExpectedConflicts(err, nil)
+	if err != nil {
+		t.Errorf("encountered unexpected conflicts: %v", err)
+	}
 
 	err = state.Apply(`
 list:
@@ -49,12 +53,12 @@ list:
 	}
 }
 
-type MockImplementation struct{}
+type mockImplementation struct{}
 
-func (i *MockImplementation) Apply(live, config framework.YAMLObject, workflow string, force bool) (framework.YAMLObject, error) {
+func (i *mockImplementation) Apply(live, config framework.YAMLObject, workflow string, force bool) (framework.YAMLObject, error) {
 	return "", nil
 }
 
-func (i *MockImplementation) NonApply(live, config framework.YAMLObject, workflow string) (framework.YAMLObject, error) {
+func (i *mockImplementation) Update(live, config framework.YAMLObject, workflow string) (framework.YAMLObject, error) {
 	return "", nil
 }

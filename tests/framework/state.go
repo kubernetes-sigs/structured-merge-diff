@@ -26,19 +26,19 @@ type State struct {
 }
 
 // Apply the passed in object to the current state
-func (s *State) Apply(obj YAMLObject, workflow string, force bool) (err error) {
-	s.Live, err = s.Implementation.Apply(s.Live, obj, workflow, force)
+func (s *State) Apply(obj YAMLObject, workflow string, force bool) error {
+	new, err := s.Implementation.Apply(s.Live, obj, workflow, force)
+	if err == nil {
+		s.Live = new
+	}
 	return err
 }
 
 // Update the current state with the passed in object
-func (s *State) Update(obj YAMLObject, workflow string) (err error) {
-	s.Live, err = s.Implementation.NonApply(s.Live, obj, workflow)
-	return err
-}
-
-// Patch the current state with the passed in object
-func (s *State) Patch(obj YAMLObject, workflow string) (err error) {
-	s.Live, err = s.Implementation.NonApply(s.Live, obj, workflow)
+func (s *State) Update(obj YAMLObject, workflow string) error {
+	new, err := s.Implementation.Update(s.Live, obj, workflow)
+	if err == nil {
+		s.Live = new
+	}
 	return err
 }

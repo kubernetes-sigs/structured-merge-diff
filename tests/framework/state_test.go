@@ -17,20 +17,21 @@ limitations under the License.
 package framework_test
 
 import (
+	"errors"
 	"testing"
 
 	"sigs.k8s.io/structured-merge-diff/tests/framework"
 )
 
-type MockImplementation struct {
-	applyFunc    func(live, config framework.YAMLObject, workflow string, force bool) (framework.YAMLObject, error)
-	nonApplyFunc func(live, config framework.YAMLObject, workflow string) (framework.YAMLObject, error)
+type mockImplementation struct {
+	applyFunc  func(live, config framework.YAMLObject, workflow string, force bool) (framework.YAMLObject, error)
+	updateFunc func(live, config framework.YAMLObject, workflow string) (framework.YAMLObject, error)
 
-	applyFuncCallCount    int
-	nonApplyFuncCallCount int
+	applyFuncCallCount  int
+	updateFuncCallCount int
 }
 
-func (i *MockImplementation) Apply(live, config framework.YAMLObject, workflow string, force bool) (framework.YAMLObject, error) {
+func (i *mockImplementation) Apply(live, config framework.YAMLObject, workflow string, force bool) (framework.YAMLObject, error) {
 	i.applyFuncCallCount++
 	if i.applyFunc != nil {
 		return i.applyFunc(live, config, workflow, force)
@@ -38,17 +39,17 @@ func (i *MockImplementation) Apply(live, config framework.YAMLObject, workflow s
 	return "", nil
 }
 
-func (i *MockImplementation) NonApply(live, config framework.YAMLObject, workflow string) (framework.YAMLObject, error) {
-	i.nonApplyFuncCallCount++
-	if i.nonApplyFunc != nil {
-		return i.nonApplyFunc(live, config, workflow)
+func (i *mockImplementation) Update(live, config framework.YAMLObject, workflow string) (framework.YAMLObject, error) {
+	i.updateFuncCallCount++
+	if i.updateFunc != nil {
+		return i.updateFunc(live, config, workflow)
 	}
 	return "", nil
 }
 
 func TestState(t *testing.T) {
 	t.Run("does call Implementation.Apply on State.Apply", func(t *testing.T) {
-		impl := &MockImplementation{}
+		impl := &mockImplementation{}
 		state := &framework.State{Implementation: impl}
 		state.Apply("", "", false)
 
@@ -57,23 +58,43 @@ func TestState(t *testing.T) {
 		}
 	})
 
-	t.Run("does call Implementation.NonApply on State.Update", func(t *testing.T) {
-		impl := &MockImplementation{}
+	t.Run("does call Implementation.update on State.Update", func(t *testing.T) {
+		impl := &mockImplementation{}
 		state := &framework.State{Implementation: impl}
 		state.Update("", "")
 
-		if impl.nonApplyFuncCallCount != 1 {
-			t.Errorf("State.Update should call Implementation.NonApply exactly once, got: %v", impl.nonApplyFuncCallCount)
+		if impl.updateFuncCallCount != 1 {
+			t.Errorf("State.Update should call Implementation.update exactly once, got: %v", impl.updateFuncCallCount)
 		}
 	})
 
-	t.Run("does call Implementation.NonApply on State.Patch", func(t *testing.T) {
-		impl := &MockImplementation{}
-		state := &framework.State{Implementation: impl}
-		state.Patch("", "")
+	t.Run("does not overwrite live on apply error", func(t *testing.T) {
+		impl := &mockImplementation{}
+		impl.applyFunc = func(live, config framework.YAMLObject, workflow string, force bool) (framework.YAMLObject, error) {
+			return "", errors.New("")
+		}
 
-		if impl.nonApplyFuncCallCount != 1 {
-			t.Errorf("State.Patch should call Implementation.NonApply exactly once, got: %v", impl.nonApplyFuncCallCount)
+		state := &framework.State{Implementation: impl}
+		state.Live = framework.YAMLObject("test")
+
+		state.Apply("", "", false)
+		if state.Live != "test" {
+			t.Errorf("State.Apply should not overwrite live on error, got: %v", state.Live)
+		}
+	})
+
+	t.Run("does not overwrite live on update error", func(t *testing.T) {
+		impl := &mockImplementation{}
+		impl.updateFunc = func(live, config framework.YAMLObject, workflow string) (framework.YAMLObject, error) {
+			return "", errors.New("")
+		}
+
+		state := &framework.State{Implementation: impl}
+		state.Live = framework.YAMLObject("test")
+
+		state.Update("", "")
+		if state.Live != "test" {
+			t.Errorf("State.Update should not overwrite live on error, got: %v", state.Live)
 		}
 	})
 }
