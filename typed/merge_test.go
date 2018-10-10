@@ -21,10 +21,7 @@ import (
 	"reflect"
 	"testing"
 
-	"sigs.k8s.io/structured-merge-diff/schema"
 	"sigs.k8s.io/structured-merge-diff/value"
-
-	"gopkg.in/yaml.v2"
 )
 
 type mergeTestCase struct {
@@ -330,11 +327,7 @@ var mergeCases = []mergeTestCase{{
 }}
 
 func (tt mergeTestCase) test(t *testing.T) {
-	var s schema.Schema
-	err := yaml.Unmarshal([]byte(tt.schema), &s)
-	if err != nil {
-		t.Fatalf("unable to unmarshal schema")
-	}
+	s := loadAndCheckSchema(t, tt.schema)
 
 	for i, triplet := range tt.triplets {
 		triplet := triplet
@@ -359,8 +352,8 @@ func (tt mergeTestCase) test(t *testing.T) {
 			}
 			t.Logf("parsed out object:\v%v", expect.HumanReadable())
 
-			tvLHS := AsTypedUnvalidated(lhs, &s, tt.rootTypeName)
-			tvRHS := AsTypedUnvalidated(rhs, &s, tt.rootTypeName)
+			tvLHS := AsTypedUnvalidated(lhs, s, tt.rootTypeName)
+			tvRHS := AsTypedUnvalidated(rhs, s, tt.rootTypeName)
 			got, err := tvLHS.Merge(tvRHS)
 			if err != nil {
 				t.Errorf("got validation errors: %v", err)

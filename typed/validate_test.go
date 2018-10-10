@@ -227,12 +227,32 @@ var validationCases = []validationTestCase{{
 	},
 }}
 
-func (tt validationTestCase) test(t *testing.T) {
-	var s schema.Schema
-	err := yaml.Unmarshal([]byte(tt.schema), &s)
-	if err != nil {
-		t.Fatalf("unable to unmarshal schema")
+func loadAndCheckSchema(t *testing.T, schemaYAML string) *schema.Schema {
+	t.Logf("Processing schema:\n%v\n", schemaYAML)
+
+	// Make sure the schema validates against the schema schema.
+	var ss schema.Schema
+	if err := yaml.Unmarshal([]byte(schema.SchemaSchemaYAML), &ss); err != nil {
+		t.Fatalf("unable to unmarshal schema schema: %v", err)
 	}
+	schemaValue, err := value.FromYAML([]byte(schemaYAML))
+	if err != nil {
+		t.Fatalf("unable to interpret schema yaml as object: %v", err)
+	}
+
+	if _, err := AsTyped(schemaValue, &ss, "schema"); err != nil {
+		t.Fatalf("schema doesn't validate: %v", err)
+	}
+
+	var s schema.Schema
+	if err := yaml.Unmarshal([]byte(schemaYAML), &s); err != nil {
+		t.Fatalf("unable to unmarshal schema: %v", err)
+	}
+	return &s
+}
+
+func (tt validationTestCase) test(t *testing.T) {
+	s := loadAndCheckSchema(t, tt.schema)
 
 	for i, v := range tt.validObjects {
 		v := v
@@ -243,7 +263,7 @@ func (tt validationTestCase) test(t *testing.T) {
 				t.Fatalf("unable to interpret yaml: %v\n%v", err, v)
 			}
 			t.Logf("parsed object:\v%v", val.HumanReadable())
-			_, err = AsTyped(val, &s, tt.rootTypeName)
+			_, err = AsTyped(val, s, tt.rootTypeName)
 			if err != nil {
 				t.Errorf("got validation errors: %v", err)
 			}
@@ -259,7 +279,7 @@ func (tt validationTestCase) test(t *testing.T) {
 				t.Fatalf("unable to interpret yaml: %v\n%v", err, iv)
 			}
 			t.Logf("parsed object:\v%v", val.HumanReadable())
-			_, err = AsTyped(val, &s, tt.rootTypeName)
+			_, err = AsTyped(val, s, tt.rootTypeName)
 			if err == nil {
 				t.Errorf("didn't get validation errors!")
 			}
@@ -275,4 +295,9 @@ func TestSchemaValidation(t *testing.T) {
 			tt.test(t)
 		})
 	}
+}
+
+func TestSchemaSchema(t *testing.T) {
+	// Verify that the schema schema validates itself.
+	loadAndCheckSchema(t, schema.SchemaSchemaYAML)
 }
