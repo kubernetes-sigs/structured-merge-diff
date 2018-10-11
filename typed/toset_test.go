@@ -14,28 +14,26 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package typed
+package typed_test
 
 import (
 	"fmt"
 	"testing"
 
 	"sigs.k8s.io/structured-merge-diff/fieldpath"
-	"sigs.k8s.io/structured-merge-diff/schema"
+	"sigs.k8s.io/structured-merge-diff/tests/framework"
 	"sigs.k8s.io/structured-merge-diff/value"
-
-	"gopkg.in/yaml.v2"
 )
 
 type objSetPair struct {
-	object string
+	object framework.YAMLObject
 	set    *fieldpath.Set
 }
 
 type fieldsetTestCase struct {
 	name         string
 	rootTypeName string
-	schema       string
+	schema       framework.YAMLObject
 	pairs        []objSetPair
 }
 
@@ -240,22 +238,12 @@ var fieldsetCases = []fieldsetTestCase{{
 }}
 
 func (tt fieldsetTestCase) test(t *testing.T) {
-	var s schema.Schema
-	err := yaml.Unmarshal([]byte(tt.schema), &s)
-	if err != nil {
-		t.Fatalf("unable to unmarshal schema: %v", err)
-	}
-
+	parser := framework.NewParserOrDie(tt.schema)
 	for i, v := range tt.pairs {
 		v := v
 		t.Run(fmt.Sprintf("%v-%v", tt.name, i), func(t *testing.T) {
 			t.Parallel()
-			val, err := value.FromYAML([]byte(v.object))
-			if err != nil {
-				t.Fatalf("unable to interpret yaml: %v\n%v", err, v)
-			}
-			t.Logf("parsed object:\v%v", val.HumanReadable())
-			tv := AsTypedUnvalidated(val, &s, tt.rootTypeName)
+			tv := parser.FromYAMLOrDie(v.object, tt.rootTypeName)
 			fs, err := tv.ToFieldSet()
 			if err != nil {
 				t.Errorf("got validation errors: %v", err)

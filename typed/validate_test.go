@@ -14,24 +14,22 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package typed
+package typed_test
 
 import (
 	"fmt"
 	"testing"
 
 	"sigs.k8s.io/structured-merge-diff/schema"
-	"sigs.k8s.io/structured-merge-diff/value"
-
-	"gopkg.in/yaml.v2"
+	"sigs.k8s.io/structured-merge-diff/tests/framework"
 )
 
 type validationTestCase struct {
 	name           string
 	rootTypeName   string
-	schema         string
-	validObjects   []string
-	invalidObjects []string
+	schema         framework.YAMLObject
+	validObjects   []framework.YAMLObject
+	invalidObjects []framework.YAMLObject
 }
 
 var validationCases = []validationTestCase{{
@@ -48,7 +46,7 @@ var validationCases = []validationTestCase{{
       type:
         untyped: {}
 `,
-	validObjects: []string{
+	validObjects: []framework.YAMLObject{
 		`{"key":"foo","value":1}`,
 		`{"key":"foo","value":{}}`,
 		`{"key":"foo","value":null}`,
@@ -56,7 +54,7 @@ var validationCases = []validationTestCase{{
 		`{"key":"foo","value":true}`,
 		`{"key":"foo","value":true}`,
 	},
-	invalidObjects: []string{
+	invalidObjects: []framework.YAMLObject{
 		`{"key":true,"value":1}`,
 		`{"key":1,"value":{}}`,
 		`{"key":false,"value":null}`,
@@ -99,7 +97,7 @@ var validationCases = []validationTestCase{{
             scalar: numeric
           elementRelationship: associative
 `,
-	validObjects: []string{
+	validObjects: []framework.YAMLObject{
 		`{"numeric":1}`,
 		`{"numeric":3.14159}`,
 		`{"string":"aoeu"}`,
@@ -109,7 +107,7 @@ var validationCases = []validationTestCase{{
 		`{"setBool":[true,false]}`,
 		`{"setNumeric":[1,2,3,3.14159]}`,
 	},
-	invalidObjects: []string{
+	invalidObjects: []framework.YAMLObject{
 		`{"numeric":null}`,
 		`{"numeric":["foo"]}`,
 		`{"numeric":{"a":1}}`,
@@ -199,13 +197,13 @@ var validationCases = []validationTestCase{{
     elementType:
       scalar: string
 `,
-	validObjects: []string{
+	validObjects: []framework.YAMLObject{
 		`{"list":[]}`,
 		`{"list":[{"key":"a","id":1,"value":{"a":"a"}}]}`,
 		`{"list":[{"key":"a","id":1},{"key":"a","id":2},{"key":"b","id":1}]}`,
 		`{"atomicList":["a","a","a"]}`,
 	},
-	invalidObjects: []string{
+	invalidObjects: []framework.YAMLObject{
 		`{"key":true,"value":1}`,
 		`{"list":{"key":true,"value":1}}`,
 		`{"list":[{"key":true,"value":1}]}`,
@@ -227,45 +225,16 @@ var validationCases = []validationTestCase{{
 	},
 }}
 
-func loadAndCheckSchema(t *testing.T, schemaYAML string) *schema.Schema {
-	t.Logf("Processing schema:\n%v\n", schemaYAML)
-
-	// Make sure the schema validates against the schema schema.
-	var ss schema.Schema
-	if err := yaml.Unmarshal([]byte(schema.SchemaSchemaYAML), &ss); err != nil {
-		t.Fatalf("unable to unmarshal schema schema: %v", err)
-	}
-	schemaValue, err := value.FromYAML([]byte(schemaYAML))
-	if err != nil {
-		t.Fatalf("unable to interpret schema yaml as object: %v", err)
-	}
-
-	if _, err := AsTyped(schemaValue, &ss, "schema"); err != nil {
-		t.Fatalf("schema doesn't validate: %v", err)
-	}
-
-	var s schema.Schema
-	if err := yaml.Unmarshal([]byte(schemaYAML), &s); err != nil {
-		t.Fatalf("unable to unmarshal schema: %v", err)
-	}
-	return &s
-}
-
 func (tt validationTestCase) test(t *testing.T) {
-	s := loadAndCheckSchema(t, tt.schema)
+	parser := framework.NewParserOrDie(tt.schema)
 
 	for i, v := range tt.validObjects {
 		v := v
 		t.Run(fmt.Sprintf("%v-valid-%v", tt.name, i), func(t *testing.T) {
 			t.Parallel()
-			val, err := value.FromYAML([]byte(v))
+			_, err := parser.FromYAML(v, tt.rootTypeName)
 			if err != nil {
-				t.Fatalf("unable to interpret yaml: %v\n%v", err, v)
-			}
-			t.Logf("parsed object:\v%v", val.HumanReadable())
-			_, err = AsTyped(val, s, tt.rootTypeName)
-			if err != nil {
-				t.Errorf("got validation errors: %v", err)
+				t.Errorf("failed to parse/validate yaml: %v\n%v", err, v)
 			}
 		})
 	}
@@ -274,14 +243,9 @@ func (tt validationTestCase) test(t *testing.T) {
 		iv := iv
 		t.Run(fmt.Sprintf("%v-invalid-%v", tt.name, i), func(t *testing.T) {
 			t.Parallel()
-			val, err := value.FromYAML([]byte(iv))
-			if err != nil {
-				t.Fatalf("unable to interpret yaml: %v\n%v", err, iv)
-			}
-			t.Logf("parsed object:\v%v", val.HumanReadable())
-			_, err = AsTyped(val, s, tt.rootTypeName)
+			_, err := parser.FromYAML(iv, tt.rootTypeName)
 			if err == nil {
-				t.Errorf("didn't get validation errors!")
+				t.Errorf("Object should fail: %v\n%v", err, iv)
 			}
 		})
 	}
@@ -299,5 +263,8 @@ func TestSchemaValidation(t *testing.T) {
 
 func TestSchemaSchema(t *testing.T) {
 	// Verify that the schema schema validates itself.
-	loadAndCheckSchema(t, schema.SchemaSchemaYAML)
+	_, err := framework.NewParser(framework.YAMLObject(schema.SchemaSchemaYAML))
+	if err != nil {
+		t.Fatalf("failed to create schemaschema: %v", err)
+	}
 }

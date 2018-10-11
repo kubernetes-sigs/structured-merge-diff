@@ -14,29 +14,26 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package typed
+package typed_test
 
 import (
 	"fmt"
 	"testing"
 
 	"sigs.k8s.io/structured-merge-diff/fieldpath"
-	"sigs.k8s.io/structured-merge-diff/schema"
-	"sigs.k8s.io/structured-merge-diff/value"
-
-	"gopkg.in/yaml.v2"
+	"sigs.k8s.io/structured-merge-diff/tests/framework"
 )
 
 type symdiffTestCase struct {
 	name         string
 	rootTypeName string
-	schema       string
+	schema       framework.YAMLObject
 	quints       []symdiffQuint
 }
 
 type symdiffQuint struct {
-	lhs string
-	rhs string
+	lhs framework.YAMLObject
+	rhs framework.YAMLObject
 
 	// Please note that everything is tested both ways--removed and added
 	// are symmetric. So if a test case is covered for one of them, it
@@ -469,36 +466,19 @@ var symdiffCases = []symdiffTestCase{{
 }}
 
 func (tt symdiffTestCase) test(t *testing.T) {
-	var s schema.Schema
-	err := yaml.Unmarshal([]byte(tt.schema), &s)
-	if err != nil {
-		t.Fatalf("unable to unmarshal schema")
-	}
-
+	parser := framework.NewParserOrDie(tt.schema)
 	for i, quint := range tt.quints {
 		quint := quint
 		t.Run(fmt.Sprintf("%v-valid-%v", tt.name, i), func(t *testing.T) {
 			t.Parallel()
 
-			lhs, err := value.FromYAML([]byte(quint.lhs))
-			if err != nil {
-				t.Fatalf("unable to interpret lhs yaml: %v\n%v", err, quint.lhs)
-			}
-			t.Logf("parsed lhs object:\v%v", lhs.HumanReadable())
-
-			rhs, err := value.FromYAML([]byte(quint.rhs))
-			if err != nil {
-				t.Fatalf("unable to interpret rhs yaml: %v\n%v", err, quint.rhs)
-			}
-			t.Logf("parsed rhs object:\v%v", rhs.HumanReadable())
-
-			tvLHS := AsTypedUnvalidated(lhs, &s, tt.rootTypeName)
-			tvRHS := AsTypedUnvalidated(rhs, &s, tt.rootTypeName)
+			tvLHS := parser.FromYAMLOrDie(quint.lhs, tt.rootTypeName)
+			tvRHS := parser.FromYAMLOrDie(quint.rhs, tt.rootTypeName)
 			got, err := tvLHS.Compare(tvRHS)
 			if err != nil {
 				t.Fatalf("got validation errors: %v", err)
 			}
-			t.Logf("got merged:\n%s\n", got.Merged.value.HumanReadable())
+			t.Logf("got merged:\n%s\n", got.Merged.AsValue().HumanReadable())
 			t.Logf("got added:\n%s\n", got.Added)
 			if !got.Added.Equals(quint.added) {
 				t.Errorf("Expected added:\n%s\n", quint.added)
