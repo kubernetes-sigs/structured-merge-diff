@@ -39,7 +39,7 @@ type TypeDef struct {
 type TypeRef struct {
 	// Either the name or one member of Atom should be set.
 	NamedType *string `yaml:"namedType,omitempty"`
-	Inlined   Atom    `yaml:"inlined,inline,omitempty"`
+	Inlined   Atom    `yaml:",inline,omitempty"`
 }
 
 // Atom represents the smallest possible pieces of the type system.

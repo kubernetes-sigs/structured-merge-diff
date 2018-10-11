@@ -114,7 +114,12 @@ func resolveSchema(s *schema.Schema, tr schema.TypeRef, ah atomHandler) Validati
 		return ah.doUntyped(*a.Untyped)
 	}
 
-	return ah.errorf("schema error: invalid atom")
+	name := "inlined"
+	if tr.NamedType != nil {
+		name = "named type: " + *tr.NamedType
+	}
+
+	return ah.errorf("schema error: invalid atom: %v", name)
 }
 
 func (ef errorFormatter) validateScalar(t schema.Scalar, v *value.Value, prefix string) (errs ValidationErrors) {
