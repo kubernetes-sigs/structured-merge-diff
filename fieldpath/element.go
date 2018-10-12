@@ -17,6 +17,7 @@ limitations under the License.
 package fieldpath
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -67,6 +68,24 @@ func (e PathElement) String() string {
 		return fmt.Sprintf("[%v]", *e.Index)
 	default:
 		return "{{invalid path element}}"
+	}
+}
+
+// Follow tries tries to find the value corresponding to the
+// PathElement. If it can't follow the PathElement, an error is
+// returned.
+func (e PathElement) Follow(v value.Value) (value.Value, error) {
+	switch {
+	case e.FieldName != nil:
+		return v.Map.Follow(*e.FieldName)
+	case len(e.Key) > 0:
+		return v.List.FollowKeys(e.Key)
+	case e.Value != nil:
+		return v.List.FollowValue(*e.Value)
+	case e.Index != nil:
+		return v.List.FollowIndex(*e.Index)
+	default:
+		return value.Value{}, errors.New("invalid path element")
 	}
 }
 

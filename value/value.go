@@ -17,7 +17,9 @@ limitations under the License.
 package value
 
 import (
+	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 )
 
@@ -44,9 +46,52 @@ type Field struct {
 	Value Value
 }
 
+// String returns a human-readable representation of the field.
+func (f Field) String() string {
+	return fmt.Sprintf("%v=%v", f.Name, f.Value.HumanReadable())
+}
+
 // List is a list of items.
 type List struct {
 	Items []Value
+}
+
+// FollowKeys returns the first value with the corresponding keys or an
+// error if no item can be found.
+func (l *List) FollowKeys(keys []Field) (Value, error) {
+	if l == nil {
+		return Value{}, errors.New("can't lookup keys in nil-list")
+	}
+	return Value{}, fmt.Errorf("couldn't find item for keys %v in list", keys)
+}
+
+// FollowValue returns the first value that matches in the list, or an
+// error if no item can be found.
+func (l *List) FollowValue(value Value) (Value, error) {
+	if l == nil {
+		return Value{}, errors.New("can't lookup value in nil-list")
+	}
+	for _, item := range l.Items {
+		if reflect.DeepEqual(value, item) {
+			return item, nil
+		}
+	}
+	return Value{}, fmt.Errorf("couldn't find value %q in list", value.HumanReadable())
+}
+
+// FollowIndex returns the value at the given index, if the index is
+// valid for the list.
+func (l *List) FollowIndex(index int) (Value, error) {
+	if l == nil {
+		return Value{}, errors.New("can't lookup index in nil-list")
+	}
+	if index < 0 {
+		return Value{}, errors.New("can't lookup negative index in list")
+	}
+	if index >= len(l.Items) {
+		return Value{}, fmt.Errorf("index out of range: %d/%d", index, len(l.Items))
+	}
+	return l.Items[index], nil
 }
 
 // Map is a map of key-value pairs. It represents both structs and maps. We use
@@ -84,6 +129,19 @@ func (m *Map) Set(key string, value Value) {
 	m.index = nil // Since the append might have reallocated
 }
 
+// Follow returns the Value corresponding to the key, or an error if it
+// can't be found.
+func (m *Map) Follow(key string) (Value, error) {
+	if m == nil {
+		return Value{}, errors.New("can't look-up field in nil-map")
+	}
+	f, ok := m.Get(key)
+	if !ok {
+		return Value{}, fmt.Errorf("could not look-up field %q in map", key)
+	}
+	return f.Value, nil
+}
+
 // StringValue returns s as a scalar string Value.
 func StringValue(s string) Value {
 	s2 := String(s)
@@ -108,6 +166,22 @@ func BooleanValue(b bool) Value {
 	return Value{Boolean: &b2}
 }
 
+// MatchKeys returns true if the Value would match against the given keys.
+func (v Value) MatchKeys(keys []Field) bool {
+	if v.Map == nil {
+		// Non-map never match the given keys.
+		return false
+	}
+
+	for _, key := range keys {
+		value, found := v.Map.Get(key.Name)
+		if !found || !reflect.DeepEqual(value, key.Value) {
+			return false
+		}
+	}
+	return true
+}
+
 // HumanReadable returns a human-readable representation of the value.
 // TODO: Rename this to "String".
 func (v Value) HumanReadable() string {
@@ -129,7 +203,7 @@ func (v Value) HumanReadable() string {
 	case v.Map != nil:
 		strs := []string{}
 		for _, i := range v.Map.Items {
-			strs = append(strs, fmt.Sprintf("%v=%v", i.Name, i.Value.HumanReadable()))
+			strs = append(strs, i.String())
 		}
 		return "{" + strings.Join(strs, ";") + "}"
 	default:

@@ -35,6 +35,21 @@ func (fp Path) String() string {
 	return strings.Join(strs, "")
 }
 
+// Follow tries tries to find the corresponding by following the given
+// path. If the path can't be followed, an error is returned.
+func (fp Path) Follow(v value.Value) (value.Value, error) {
+	for _, pe := range fp {
+		// Find the new value that follows the path, or return error.
+		var err error
+		v, err = pe.Follow(v)
+		if err != nil {
+			return value.Value{}, err
+		}
+	}
+
+	return v, nil
+}
+
 // MakePath constructs a Path. The parts may be PathElements, ints, strings.
 func MakePath(parts ...interface{}) (Path, error) {
 	var fp Path
