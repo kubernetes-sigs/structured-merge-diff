@@ -16,6 +16,9 @@ limitations under the License.
 
 package framework
 
+// YAMLObject is an object encoded in YAML.
+type YAMLObject string
+
 // State of the current test in terms of live object
 type State struct {
 	Live           YAMLObject `yaml:"live"`

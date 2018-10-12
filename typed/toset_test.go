@@ -21,19 +21,19 @@ import (
 	"testing"
 
 	"sigs.k8s.io/structured-merge-diff/fieldpath"
-	"sigs.k8s.io/structured-merge-diff/tests/framework"
+	"sigs.k8s.io/structured-merge-diff/typed"
 	"sigs.k8s.io/structured-merge-diff/value"
 )
 
 type objSetPair struct {
-	object framework.YAMLObject
+	object typed.YAMLObject
 	set    *fieldpath.Set
 }
 
 type fieldsetTestCase struct {
 	name         string
 	rootTypeName string
-	schema       framework.YAMLObject
+	schema       typed.YAMLObject
 	pairs        []objSetPair
 }
 
@@ -238,7 +238,7 @@ var fieldsetCases = []fieldsetTestCase{{
 }}
 
 func (tt fieldsetTestCase) test(t *testing.T) {
-	parser, err := framework.NewParser(tt.schema)
+	parser, err := typed.NewParser(tt.schema)
 	if err != nil {
 		t.Fatalf("failed to create schema: %v", err)
 	}

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package framework
+package typed
 
 import (
 	"fmt"
@@ -22,7 +22,6 @@ import (
 	yaml "gopkg.in/yaml.v2"
 
 	"sigs.k8s.io/structured-merge-diff/schema"
-	"sigs.k8s.io/structured-merge-diff/typed"
 	"sigs.k8s.io/structured-merge-diff/value"
 )
 
@@ -31,7 +30,7 @@ type YAMLObject string
 
 // YAMLParser allows you to parse YAML into a TypeValue
 type YAMLParser interface {
-	FromYAML(object YAMLObject, typename string) (typed.TypedValue, error)
+	FromYAML(object YAMLObject, typename string) (TypedValue, error)
 }
 
 type parser struct {
@@ -64,10 +63,10 @@ func NewParser(schema YAMLObject) (YAMLParser, error) {
 	return create(schema)
 }
 
-func (p *parser) FromYAML(object YAMLObject, typename string) (typed.TypedValue, error) {
+func (p *parser) FromYAML(object YAMLObject, typename string) (TypedValue, error) {
 	v, err := value.FromYAML([]byte(object))
 	if err != nil {
-		return typed.TypedValue{}, err
+		return TypedValue{}, err
 	}
-	return typed.AsTyped(v, &p.schema, typename)
+	return AsTyped(v, &p.schema, typename)
 }

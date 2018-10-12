@@ -21,20 +21,20 @@ import (
 	"reflect"
 	"testing"
 
-	"sigs.k8s.io/structured-merge-diff/tests/framework"
+	"sigs.k8s.io/structured-merge-diff/typed"
 )
 
 type mergeTestCase struct {
 	name         string
 	rootTypeName string
-	schema       framework.YAMLObject
+	schema       typed.YAMLObject
 	triplets     []mergeTriplet
 }
 
 type mergeTriplet struct {
-	lhs framework.YAMLObject
-	rhs framework.YAMLObject
-	out framework.YAMLObject
+	lhs typed.YAMLObject
+	rhs typed.YAMLObject
+	out typed.YAMLObject
 }
 
 var mergeCases = []mergeTestCase{{
@@ -327,7 +327,7 @@ var mergeCases = []mergeTestCase{{
 }}
 
 func (tt mergeTestCase) test(t *testing.T) {
-	parser, err := framework.NewParser(tt.schema)
+	parser, err := typed.NewParser(tt.schema)
 	if err != nil {
 		t.Fatalf("failed to create schema: %v", err)
 	}

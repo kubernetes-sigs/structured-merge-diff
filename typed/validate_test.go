@@ -21,15 +21,15 @@ import (
 	"testing"
 
 	"sigs.k8s.io/structured-merge-diff/schema"
-	"sigs.k8s.io/structured-merge-diff/tests/framework"
+	"sigs.k8s.io/structured-merge-diff/typed"
 )
 
 type validationTestCase struct {
 	name           string
 	rootTypeName   string
-	schema         framework.YAMLObject
-	validObjects   []framework.YAMLObject
-	invalidObjects []framework.YAMLObject
+	schema         typed.YAMLObject
+	validObjects   []typed.YAMLObject
+	invalidObjects []typed.YAMLObject
 }
 
 var validationCases = []validationTestCase{{
@@ -46,7 +46,7 @@ var validationCases = []validationTestCase{{
       type:
         untyped: {}
 `,
-	validObjects: []framework.YAMLObject{
+	validObjects: []typed.YAMLObject{
 		`{"key":"foo","value":1}`,
 		`{"key":"foo","value":{}}`,
 		`{"key":"foo","value":null}`,
@@ -54,7 +54,7 @@ var validationCases = []validationTestCase{{
 		`{"key":"foo","value":true}`,
 		`{"key":"foo","value":true}`,
 	},
-	invalidObjects: []framework.YAMLObject{
+	invalidObjects: []typed.YAMLObject{
 		`{"key":true,"value":1}`,
 		`{"key":1,"value":{}}`,
 		`{"key":false,"value":null}`,
@@ -97,7 +97,7 @@ var validationCases = []validationTestCase{{
             scalar: numeric
           elementRelationship: associative
 `,
-	validObjects: []framework.YAMLObject{
+	validObjects: []typed.YAMLObject{
 		`{"numeric":1}`,
 		`{"numeric":3.14159}`,
 		`{"string":"aoeu"}`,
@@ -107,7 +107,7 @@ var validationCases = []validationTestCase{{
 		`{"setBool":[true,false]}`,
 		`{"setNumeric":[1,2,3,3.14159]}`,
 	},
-	invalidObjects: []framework.YAMLObject{
+	invalidObjects: []typed.YAMLObject{
 		`{"numeric":null}`,
 		`{"numeric":["foo"]}`,
 		`{"numeric":{"a":1}}`,
@@ -197,13 +197,13 @@ var validationCases = []validationTestCase{{
     elementType:
       scalar: string
 `,
-	validObjects: []framework.YAMLObject{
+	validObjects: []typed.YAMLObject{
 		`{"list":[]}`,
 		`{"list":[{"key":"a","id":1,"value":{"a":"a"}}]}`,
 		`{"list":[{"key":"a","id":1},{"key":"a","id":2},{"key":"b","id":1}]}`,
 		`{"atomicList":["a","a","a"]}`,
 	},
-	invalidObjects: []framework.YAMLObject{
+	invalidObjects: []typed.YAMLObject{
 		`{"key":true,"value":1}`,
 		`{"list":{"key":true,"value":1}}`,
 		`{"list":[{"key":true,"value":1}]}`,
@@ -226,7 +226,7 @@ var validationCases = []validationTestCase{{
 }}
 
 func (tt validationTestCase) test(t *testing.T) {
-	parser, err := framework.NewParser(tt.schema)
+	parser, err := typed.NewParser(tt.schema)
 	if err != nil {
 		t.Fatalf("failed to create schema: %v", err)
 	}
@@ -266,7 +266,7 @@ func TestSchemaValidation(t *testing.T) {
 
 func TestSchemaSchema(t *testing.T) {
 	// Verify that the schema schema validates itself.
-	_, err := framework.NewParser(framework.YAMLObject(schema.SchemaSchemaYAML))
+	_, err := typed.NewParser(typed.YAMLObject(schema.SchemaSchemaYAML))
 	if err != nil {
 		t.Fatalf("failed to create schemaschema: %v", err)
 	}

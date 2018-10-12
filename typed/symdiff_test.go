@@ -21,19 +21,19 @@ import (
 	"testing"
 
 	"sigs.k8s.io/structured-merge-diff/fieldpath"
-	"sigs.k8s.io/structured-merge-diff/tests/framework"
+	"sigs.k8s.io/structured-merge-diff/typed"
 )
 
 type symdiffTestCase struct {
 	name         string
 	rootTypeName string
-	schema       framework.YAMLObject
+	schema       typed.YAMLObject
 	quints       []symdiffQuint
 }
 
 type symdiffQuint struct {
-	lhs framework.YAMLObject
-	rhs framework.YAMLObject
+	lhs typed.YAMLObject
+	rhs typed.YAMLObject
 
 	// Please note that everything is tested both ways--removed and added
 	// are symmetric. So if a test case is covered for one of them, it
@@ -466,7 +466,7 @@ var symdiffCases = []symdiffTestCase{{
 }}
 
 func (tt symdiffTestCase) test(t *testing.T) {
-	parser, err := framework.NewParser(tt.schema)
+	parser, err := typed.NewParser(tt.schema)
 	if err != nil {
 		t.Fatalf("failed to create schema: %v", err)
 	}
