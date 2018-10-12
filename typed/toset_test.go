@@ -252,7 +252,7 @@ func (tt fieldsetTestCase) test(t *testing.T) {
 			}
 			fs, err := tv.ToFieldSet()
 			if err != nil {
-				t.Errorf("got validation errors: %v", err)
+				t.Fatalf("got validation errors: %v", err)
 			}
 			if !fs.Equals(v.set) {
 				t.Errorf("wanted\n%s\ngot\n%s\n", v.set, fs)
