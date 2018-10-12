@@ -238,12 +238,18 @@ var fieldsetCases = []fieldsetTestCase{{
 }}
 
 func (tt fieldsetTestCase) test(t *testing.T) {
-	parser := framework.NewParserOrDie(tt.schema)
+	parser, err := framework.NewParser(tt.schema)
+	if err != nil {
+		t.Fatalf("failed to create schema: %v", err)
+	}
 	for i, v := range tt.pairs {
 		v := v
 		t.Run(fmt.Sprintf("%v-%v", tt.name, i), func(t *testing.T) {
 			t.Parallel()
-			tv := parser.FromYAMLOrDie(v.object, tt.rootTypeName)
+			tv, err := parser.FromYAML(v.object, tt.rootTypeName)
+			if err != nil {
+				t.Errorf("failed to parse object: %v", err)
+			}
 			fs, err := tv.ToFieldSet()
 			if err != nil {
 				t.Errorf("got validation errors: %v", err)

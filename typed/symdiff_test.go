@@ -466,14 +466,23 @@ var symdiffCases = []symdiffTestCase{{
 }}
 
 func (tt symdiffTestCase) test(t *testing.T) {
-	parser := framework.NewParserOrDie(tt.schema)
+	parser, err := framework.NewParser(tt.schema)
+	if err != nil {
+		t.Fatalf("failed to create schema: %v", err)
+	}
 	for i, quint := range tt.quints {
 		quint := quint
 		t.Run(fmt.Sprintf("%v-valid-%v", tt.name, i), func(t *testing.T) {
 			t.Parallel()
 
-			tvLHS := parser.FromYAMLOrDie(quint.lhs, tt.rootTypeName)
-			tvRHS := parser.FromYAMLOrDie(quint.rhs, tt.rootTypeName)
+			tvLHS, err := parser.FromYAML(quint.lhs, tt.rootTypeName)
+			if err != nil {
+				t.Errorf("failed to parse lhs: %v", err)
+			}
+			tvRHS, err := parser.FromYAML(quint.rhs, tt.rootTypeName)
+			if err != nil {
+				t.Errorf("failed to parse rhs: %v", err)
+			}
 			got, err := tvLHS.Compare(tvRHS)
 			if err != nil {
 				t.Fatalf("got validation errors: %v", err)

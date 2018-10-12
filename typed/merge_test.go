@@ -327,7 +327,10 @@ var mergeCases = []mergeTestCase{{
 }}
 
 func (tt mergeTestCase) test(t *testing.T) {
-	parser := framework.NewParserOrDie(tt.schema)
+	parser, err := framework.NewParser(tt.schema)
+	if err != nil {
+		t.Fatalf("failed to create schema: %v", err)
+	}
 
 	for i, triplet := range tt.triplets {
 		triplet := triplet

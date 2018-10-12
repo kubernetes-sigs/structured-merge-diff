@@ -226,7 +226,10 @@ var validationCases = []validationTestCase{{
 }}
 
 func (tt validationTestCase) test(t *testing.T) {
-	parser := framework.NewParserOrDie(tt.schema)
+	parser, err := framework.NewParser(tt.schema)
+	if err != nil {
+		t.Fatalf("failed to create schema: %v", err)
+	}
 
 	for i, v := range tt.validObjects {
 		v := v

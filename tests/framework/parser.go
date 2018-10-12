@@ -32,49 +32,36 @@ type YAMLObject string
 // YAMLParser allows you to parse YAML into a TypeValue
 type YAMLParser interface {
 	FromYAML(object YAMLObject, typename string) (typed.TypedValue, error)
-	FromYAMLOrDie(object YAMLObject, typename string) typed.TypedValue
 }
 
 type parser struct {
 	schema schema.Schema
 }
 
-func parseSchema(object YAMLObject) (schema.Schema, error) {
-	// Make sure the schema validates against the schema schema.
-	var s schema.Schema
-	err := yaml.Unmarshal([]byte(object), &s)
-	return s, err
+// create builds an unvalidated parser.
+func create(schema YAMLObject) (YAMLParser, error) {
+	p := parser{}
+	err := yaml.Unmarshal([]byte(schema), &p.schema)
+	return &p, err
 }
 
-// NewParser will build a YAMLParser with a corresponding version and schema.
-func NewParser(object YAMLObject) (YAMLParser, error) {
-	ss, err := parseSchema(YAMLObject(schema.SchemaSchemaYAML))
+func createOrDie(schema YAMLObject) YAMLParser {
+	p, err := create(schema)
 	if err != nil {
-		return nil, fmt.Errorf("unable to parse SchemaSchema: %v", err)
+		panic(fmt.Errorf("failed to create parser: %v", err))
 	}
+	return p
+}
 
-	schemaParser := parser{
-		schema: ss,
-	}
-	_, err = schemaParser.FromYAML(object, "schema")
+var ssParser YAMLParser = createOrDie(YAMLObject(schema.SchemaSchemaYAML))
+
+// NewParser will build a YAMLParser from a schema. The schema is validated.
+func NewParser(schema YAMLObject) (YAMLParser, error) {
+	_, err := ssParser.FromYAML(schema, "schema")
 	if err != nil {
 		return nil, fmt.Errorf("unable to validate schema: %v", err)
 	}
-
-	s, err := parseSchema(object)
-	if err != nil {
-		return nil, fmt.Errorf("unable to parse schema: %v", err)
-	}
-	return &parser{schema: s}, nil
-}
-
-// NewParserOrDie either returns a YAMLParser or dies.
-func NewParserOrDie(schema YAMLObject) YAMLParser {
-	p, err := NewParser(schema)
-	if err != nil {
-		panic(fmt.Errorf("Failed to create parser: %v", err))
-	}
-	return p
+	return create(schema)
 }
 
 func (p *parser) FromYAML(object YAMLObject, typename string) (typed.TypedValue, error) {
@@ -83,12 +70,4 @@ func (p *parser) FromYAML(object YAMLObject, typename string) (typed.TypedValue,
 		return typed.TypedValue{}, err
 	}
 	return typed.AsTyped(v, &p.schema, typename)
-}
-
-func (p *parser) FromYAMLOrDie(object YAMLObject, typename string) typed.TypedValue {
-	o, err := p.FromYAML(object, typename)
-	if err != nil {
-		panic(fmt.Errorf("Failed to parse YAML object: %v", err))
-	}
-	return o
 }
