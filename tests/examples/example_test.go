@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"sigs.k8s.io/structured-merge-diff/tests/framework"
+	"sigs.k8s.io/structured-merge-diff/typed"
 )
 
 // TestExample shows how to use the test framework
@@ -55,10 +56,10 @@ list:
 
 type mockImplementation struct{}
 
-func (i *mockImplementation) Apply(live, config framework.YAMLObject, workflow string, force bool) (framework.YAMLObject, error) {
+func (i *mockImplementation) Apply(live, config typed.YAMLObject, workflow string, force bool) (typed.YAMLObject, error) {
 	return "", nil
 }
 
-func (i *mockImplementation) Update(live, config framework.YAMLObject, workflow string) (framework.YAMLObject, error) {
+func (i *mockImplementation) Update(live, config typed.YAMLObject, workflow string) (typed.YAMLObject, error) {
 	return "", nil
 }

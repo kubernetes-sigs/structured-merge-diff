@@ -16,17 +16,16 @@ limitations under the License.
 
 package framework
 
-// YAMLObject is an object encoded in YAML.
-type YAMLObject string
+import "sigs.k8s.io/structured-merge-diff/typed"
 
 // State of the current test in terms of live object
 type State struct {
-	Live           YAMLObject `yaml:"live"`
+	Live           typed.YAMLObject `yaml:"live"`
 	Implementation Implementation
 }
 
 // Apply the passed in object to the current state
-func (s *State) Apply(obj YAMLObject, workflow string, force bool) error {
+func (s *State) Apply(obj typed.YAMLObject, workflow string, force bool) error {
 	new, err := s.Implementation.Apply(s.Live, obj, workflow, force)
 	if err == nil {
 		s.Live = new
@@ -35,7 +34,7 @@ func (s *State) Apply(obj YAMLObject, workflow string, force bool) error {
 }
 
 // Update the current state with the passed in object
-func (s *State) Update(obj YAMLObject, workflow string) error {
+func (s *State) Update(obj typed.YAMLObject, workflow string) error {
 	new, err := s.Implementation.Update(s.Live, obj, workflow)
 	if err == nil {
 		s.Live = new

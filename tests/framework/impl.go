@@ -16,10 +16,12 @@ limitations under the License.
 
 package framework
 
+import "sigs.k8s.io/structured-merge-diff/typed"
+
 // Implementation defines the interface required by the actual merge code to be used in Kubernetes and this test framework
 type Implementation interface {
 	// Apply returns the new post merge object and errors (including conflicts if any occur)
-	Apply(live, config YAMLObject, workflow string, force bool) (YAMLObject, error)
+	Apply(live, config typed.YAMLObject, workflow string, force bool) (typed.YAMLObject, error)
 	// Update returns the new object and errors (including conflicts if any occur)
-	Update(live, new YAMLObject, workflow string) (YAMLObject, error)
+	Update(live, new typed.YAMLObject, workflow string) (typed.YAMLObject, error)
 }
