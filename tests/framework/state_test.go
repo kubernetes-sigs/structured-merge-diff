@@ -21,17 +21,18 @@ import (
 	"testing"
 
 	"sigs.k8s.io/structured-merge-diff/tests/framework"
+	"sigs.k8s.io/structured-merge-diff/typed"
 )
 
 type mockImplementation struct {
-	applyFunc  func(live, config framework.YAMLObject, workflow string, force bool) (framework.YAMLObject, error)
-	updateFunc func(live, config framework.YAMLObject, workflow string) (framework.YAMLObject, error)
+	applyFunc  func(live, config typed.YAMLObject, workflow string, force bool) (typed.YAMLObject, error)
+	updateFunc func(live, config typed.YAMLObject, workflow string) (typed.YAMLObject, error)
 
 	applyFuncCallCount  int
 	updateFuncCallCount int
 }
 
-func (i *mockImplementation) Apply(live, config framework.YAMLObject, workflow string, force bool) (framework.YAMLObject, error) {
+func (i *mockImplementation) Apply(live, config typed.YAMLObject, workflow string, force bool) (typed.YAMLObject, error) {
 	i.applyFuncCallCount++
 	if i.applyFunc != nil {
 		return i.applyFunc(live, config, workflow, force)
@@ -39,7 +40,7 @@ func (i *mockImplementation) Apply(live, config framework.YAMLObject, workflow s
 	return "", nil
 }
 
-func (i *mockImplementation) Update(live, config framework.YAMLObject, workflow string) (framework.YAMLObject, error) {
+func (i *mockImplementation) Update(live, config typed.YAMLObject, workflow string) (typed.YAMLObject, error) {
 	i.updateFuncCallCount++
 	if i.updateFunc != nil {
 		return i.updateFunc(live, config, workflow)
@@ -70,12 +71,12 @@ func TestState(t *testing.T) {
 
 	t.Run("does not overwrite live on apply error", func(t *testing.T) {
 		impl := &mockImplementation{}
-		impl.applyFunc = func(live, config framework.YAMLObject, workflow string, force bool) (framework.YAMLObject, error) {
+		impl.applyFunc = func(live, config typed.YAMLObject, workflow string, force bool) (typed.YAMLObject, error) {
 			return "", errors.New("")
 		}
 
 		state := &framework.State{Implementation: impl}
-		state.Live = framework.YAMLObject("test")
+		state.Live = typed.YAMLObject("test")
 
 		state.Apply("", "", false)
 		if state.Live != "test" {
@@ -85,12 +86,12 @@ func TestState(t *testing.T) {
 
 	t.Run("does not overwrite live on update error", func(t *testing.T) {
 		impl := &mockImplementation{}
-		impl.updateFunc = func(live, config framework.YAMLObject, workflow string) (framework.YAMLObject, error) {
+		impl.updateFunc = func(live, config typed.YAMLObject, workflow string) (typed.YAMLObject, error) {
 			return "", errors.New("")
 		}
 
 		state := &framework.State{Implementation: impl}
-		state.Live = framework.YAMLObject("test")
+		state.Live = typed.YAMLObject("test")
 
 		state.Update("", "")
 		if state.Live != "test" {

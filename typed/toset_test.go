@@ -14,28 +14,26 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package typed
+package typed_test
 
 import (
 	"fmt"
 	"testing"
 
 	"sigs.k8s.io/structured-merge-diff/fieldpath"
-	"sigs.k8s.io/structured-merge-diff/schema"
+	"sigs.k8s.io/structured-merge-diff/typed"
 	"sigs.k8s.io/structured-merge-diff/value"
-
-	"gopkg.in/yaml.v2"
 )
 
 type objSetPair struct {
-	object string
+	object typed.YAMLObject
 	set    *fieldpath.Set
 }
 
 type fieldsetTestCase struct {
 	name         string
 	rootTypeName string
-	schema       string
+	schema       typed.YAMLObject
 	pairs        []objSetPair
 }
 
@@ -240,25 +238,21 @@ var fieldsetCases = []fieldsetTestCase{{
 }}
 
 func (tt fieldsetTestCase) test(t *testing.T) {
-	var s schema.Schema
-	err := yaml.Unmarshal([]byte(tt.schema), &s)
+	parser, err := typed.NewParser(tt.schema)
 	if err != nil {
-		t.Fatalf("unable to unmarshal schema: %v", err)
+		t.Fatalf("failed to create schema: %v", err)
 	}
-
 	for i, v := range tt.pairs {
 		v := v
 		t.Run(fmt.Sprintf("%v-%v", tt.name, i), func(t *testing.T) {
 			t.Parallel()
-			val, err := value.FromYAML([]byte(v.object))
+			tv, err := parser.FromYAML(v.object, tt.rootTypeName)
 			if err != nil {
-				t.Fatalf("unable to interpret yaml: %v\n%v", err, v)
+				t.Errorf("failed to parse object: %v", err)
 			}
-			t.Logf("parsed object:\v%v", val.HumanReadable())
-			tv := AsTypedUnvalidated(val, &s, tt.rootTypeName)
 			fs, err := tv.ToFieldSet()
 			if err != nil {
-				t.Errorf("got validation errors: %v", err)
+				t.Fatalf("got validation errors: %v", err)
 			}
 			if !fs.Equals(v.set) {
 				t.Errorf("wanted\n%s\ngot\n%s\n", v.set, fs)

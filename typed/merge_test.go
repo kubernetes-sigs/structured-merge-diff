@@ -14,27 +14,27 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package typed
+package typed_test
 
 import (
 	"fmt"
 	"reflect"
 	"testing"
 
-	"sigs.k8s.io/structured-merge-diff/value"
+	"sigs.k8s.io/structured-merge-diff/typed"
 )
 
 type mergeTestCase struct {
 	name         string
 	rootTypeName string
-	schema       string
+	schema       typed.YAMLObject
 	triplets     []mergeTriplet
 }
 
 type mergeTriplet struct {
-	lhs string
-	rhs string
-	out string
+	lhs typed.YAMLObject
+	rhs typed.YAMLObject
+	out typed.YAMLObject
 }
 
 var mergeCases = []mergeTestCase{{
@@ -327,43 +327,41 @@ var mergeCases = []mergeTestCase{{
 }}
 
 func (tt mergeTestCase) test(t *testing.T) {
-	s := loadAndCheckSchema(t, tt.schema)
+	parser, err := typed.NewParser(tt.schema)
+	if err != nil {
+		t.Fatalf("failed to create schema: %v", err)
+	}
 
 	for i, triplet := range tt.triplets {
 		triplet := triplet
 		t.Run(fmt.Sprintf("%v-valid-%v", tt.name, i), func(t *testing.T) {
 			t.Parallel()
 
-			lhs, err := value.FromYAML([]byte(triplet.lhs))
+			lhs, err := parser.FromYAML(triplet.lhs, tt.rootTypeName)
 			if err != nil {
-				t.Fatalf("unable to interpret lhs yaml: %v\n%v", err, triplet.lhs)
+				t.Fatalf("unable to parser/validate lhs yaml: %v\n%v", err, triplet.lhs)
 			}
-			t.Logf("parsed lhs object:\v%v", lhs.HumanReadable())
 
-			rhs, err := value.FromYAML([]byte(triplet.rhs))
+			rhs, err := parser.FromYAML(triplet.rhs, tt.rootTypeName)
 			if err != nil {
-				t.Fatalf("unable to interpret rhs yaml: %v\n%v", err, triplet.rhs)
+				t.Fatalf("unable to parser/validate rhs yaml: %v\n%v", err, triplet.rhs)
 			}
-			t.Logf("parsed rhs object:\v%v", rhs.HumanReadable())
 
-			expect, err := value.FromYAML([]byte(triplet.out))
+			out, err := parser.FromYAML(triplet.out, tt.rootTypeName)
 			if err != nil {
-				t.Fatalf("unable to interpret out yaml: %v\n%v", err, triplet.out)
+				t.Fatalf("unable to parser/validate out yaml: %v\n%v", err, triplet.out)
 			}
-			t.Logf("parsed out object:\v%v", expect.HumanReadable())
 
-			tvLHS := AsTypedUnvalidated(lhs, s, tt.rootTypeName)
-			tvRHS := AsTypedUnvalidated(rhs, s, tt.rootTypeName)
-			got, err := tvLHS.Merge(tvRHS)
+			got, err := lhs.Merge(rhs)
 			if err != nil {
 				t.Errorf("got validation errors: %v", err)
 			} else {
-				t.Logf("got:\v%v", got.value.HumanReadable())
-				gotUS := got.value.ToUnstructured(true)
-				expectUS := expect.ToUnstructured(true)
+				t.Logf("got:\v%v", got.AsValue().HumanReadable())
+				gotUS := got.AsValue().ToUnstructured(true)
+				expectUS := out.AsValue().ToUnstructured(true)
 				if !reflect.DeepEqual(gotUS, expectUS) {
 					t.Errorf("Expected\n%v\nbut got\n%v\n",
-						expect.HumanReadable(), got.value.HumanReadable(),
+						out.AsValue().HumanReadable(), got.AsValue().HumanReadable(),
 					)
 				}
 			}

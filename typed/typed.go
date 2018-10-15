@@ -46,6 +46,11 @@ func AsTyped(v value.Value, s *schema.Schema, typeName string) (TypedValue, erro
 	return tv, nil
 }
 
+// AsValue removes the type from the TypedValue and only keeps the value.
+func (tv TypedValue) AsValue() *value.Value {
+	return &tv.value
+}
+
 // Validate returns an error with a list of every spec violation.
 func (tv TypedValue) Validate() error {
 	if errs := tv.walker().validate(); len(errs) != 0 {
