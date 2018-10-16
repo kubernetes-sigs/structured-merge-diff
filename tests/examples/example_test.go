@@ -19,47 +19,60 @@ package tests
 import (
 	"testing"
 
+	"sigs.k8s.io/structured-merge-diff/merge"
 	"sigs.k8s.io/structured-merge-diff/tests/framework"
 	"sigs.k8s.io/structured-merge-diff/typed"
 )
 
 // TestExample shows how to use the test framework
 func TestExample(t *testing.T) {
-	state := &framework.State{Implementation: &mockImplementation{}}
+	state := &framework.State{Updater: &merge.Updater{}}
+	parser, err := typed.NewParser(`types:
+- name: lists
+  struct:
+    fields:
+    - name: list
+      type:
+        list:
+          elementType:
+            scalar: string
+          elementRelationship: associative`)
+	if err != nil {
+		t.Fatalf("Failed to create parser: %v", err)
+	}
 
-	err := state.Apply(`
+	config, err := parser.FromYAML(`
 list:
 - a
 - b
 - c
-`, "default", false)
-	err = framework.CheckExpectedConflicts(err, nil)
+`, "lists")
 	if err != nil {
-		t.Errorf("encountered unexpected conflicts: %v", err)
+		t.Fatalf("Failed to parse YAML: %v", err)
+	}
+	err = state.Apply(config, "default", false)
+	if err != nil {
+		t.Fatalf("Wanted err = %v, got %v", nil, err)
 	}
 
-	err = state.Apply(`
+	config, err = parser.FromYAML(`
 list:
 - a
 - b
 - c
-- d
-	`, "default", false)
-
-	err = framework.CheckExpectedConflicts(err, framework.Conflicts{
-		framework.Conflict{Field: "someConflict"},
-	})
+- d`, "lists")
 	if err != nil {
-		t.Errorf("encountered unexpected conflicts: %v", err)
+		t.Fatalf("Failed to parse YAML: %v", err)
 	}
-}
+	err = state.Apply(config, "default", false)
 
-type mockImplementation struct{}
+	if err != nil {
+		t.Fatalf("Wanted err = %v, got %v", nil, err)
+	}
 
-func (i *mockImplementation) Apply(live, config typed.YAMLObject, workflow string, force bool) (typed.YAMLObject, error) {
-	return "", nil
-}
-
-func (i *mockImplementation) Update(live, config typed.YAMLObject, workflow string) (typed.YAMLObject, error) {
-	return "", nil
+	// The following is wrong because the code doesn't work yet.
+	_, err = state.Live.Compare(config)
+	if err == nil {
+		t.Fatalf("Succeeded to compare live with config")
+	}
 }

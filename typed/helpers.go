@@ -34,6 +34,9 @@ type ValidationError struct {
 
 // Error returns a human readable error message.
 func (ve ValidationError) Error() string {
+	if len(ve.Path) == 0 {
+		return ve.ErrorMessage
+	}
 	return fmt.Sprintf("%s: %v", ve.Path, ve.ErrorMessage)
 }
 
