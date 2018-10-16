@@ -201,7 +201,7 @@ func keyedAssociativeListItemToPathElement(list schema.List, index int, child va
 			fieldValue = field.Value
 		} else {
 			// Treat keys as required.
-			return pe, errors.New("associative list with keys has an element that omits key field " + fieldName)
+			return pe, fmt.Errorf("associative list with keys has an element that omits key field %q", fieldName)
 		}
 		pe.Key = append(pe.Key, value.Field{
 			Name:  fieldName,

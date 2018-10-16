@@ -28,23 +28,19 @@ import (
 // YAMLObject is an object encoded in YAML.
 type YAMLObject string
 
-// YAMLParser allows you to parse YAML into a TypeValue
-type YAMLParser interface {
-	FromYAML(object YAMLObject, typename string) (TypedValue, error)
-}
-
-type parser struct {
-	schema schema.Schema
+// Parser implements YAMLParser and allows introspecting the schema.
+type Parser struct {
+	Schema schema.Schema
 }
 
 // create builds an unvalidated parser.
-func create(schema YAMLObject) (YAMLParser, error) {
-	p := parser{}
-	err := yaml.Unmarshal([]byte(schema), &p.schema)
+func create(schema YAMLObject) (*Parser, error) {
+	p := Parser{}
+	err := yaml.Unmarshal([]byte(schema), &p.Schema)
 	return &p, err
 }
 
-func createOrDie(schema YAMLObject) YAMLParser {
+func createOrDie(schema YAMLObject) *Parser {
 	p, err := create(schema)
 	if err != nil {
 		panic(fmt.Errorf("failed to create parser: %v", err))
@@ -52,10 +48,10 @@ func createOrDie(schema YAMLObject) YAMLParser {
 	return p
 }
 
-var ssParser YAMLParser = createOrDie(YAMLObject(schema.SchemaSchemaYAML))
+var ssParser = createOrDie(YAMLObject(schema.SchemaSchemaYAML))
 
 // NewParser will build a YAMLParser from a schema. The schema is validated.
-func NewParser(schema YAMLObject) (YAMLParser, error) {
+func NewParser(schema YAMLObject) (*Parser, error) {
 	_, err := ssParser.FromYAML(schema, "schema")
 	if err != nil {
 		return nil, fmt.Errorf("unable to validate schema: %v", err)
@@ -63,10 +59,10 @@ func NewParser(schema YAMLObject) (YAMLParser, error) {
 	return create(schema)
 }
 
-func (p *parser) FromYAML(object YAMLObject, typename string) (TypedValue, error) {
+func (p *Parser) FromYAML(object YAMLObject, typename string) (TypedValue, error) {
 	v, err := value.FromYAML([]byte(object))
 	if err != nil {
 		return TypedValue{}, err
 	}
-	return AsTyped(v, &p.schema, typename)
+	return AsTyped(v, &p.Schema, typename)
 }
