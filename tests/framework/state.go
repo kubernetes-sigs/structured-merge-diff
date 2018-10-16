@@ -16,28 +16,35 @@ limitations under the License.
 
 package framework
 
-import "sigs.k8s.io/structured-merge-diff/typed"
+import (
+	"sigs.k8s.io/structured-merge-diff/merge"
+	"sigs.k8s.io/structured-merge-diff/typed"
+)
 
-// State of the current test in terms of live object
+// State of the current test in terms of live object. One can check at
+// any time that Live and Owners match the expectations.
 type State struct {
-	Live           typed.YAMLObject `yaml:"live"`
-	Implementation Implementation
+	Live    typed.TypedValue
+	Owners  merge.Owners
+	Updater *merge.Updater
 }
 
-// Apply the passed in object to the current state
-func (s *State) Apply(obj typed.YAMLObject, workflow string, force bool) error {
-	new, err := s.Implementation.Apply(s.Live, obj, workflow, force)
+// Update the current state with the passed in object
+func (s *State) Update(obj typed.TypedValue, owner string) error {
+	owners, err := s.Updater.Update(s.Live, obj, s.Owners, owner)
 	if err == nil {
-		s.Live = new
+		s.Live = obj
+		s.Owners = owners
 	}
 	return err
 }
 
-// Update the current state with the passed in object
-func (s *State) Update(obj typed.YAMLObject, workflow string) error {
-	new, err := s.Implementation.Update(s.Live, obj, workflow)
+// Apply the passed in object to the current state
+func (s *State) Apply(obj typed.TypedValue, owner string, force bool) error {
+	new, owners, err := s.Updater.Apply(s.Live, obj, s.Owners, owner, force)
 	if err == nil {
 		s.Live = new
+		s.Owners = owners
 	}
 	return err
 }
