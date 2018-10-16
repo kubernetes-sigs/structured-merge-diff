@@ -27,7 +27,7 @@ type VersionedSet struct {
 	APIVersion APIVersion
 }
 
-// Owners is a map from workflow-id to VersionedSet (what they own in
+// Owners is a map from owner to VersionedSet (what they own in
 // what version).
 type Owners map[string]*VersionedSet
 

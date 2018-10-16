@@ -30,8 +30,8 @@ type State struct {
 }
 
 // Update the current state with the passed in object
-func (s *State) Update(obj typed.TypedValue, workflow string) error {
-	owners, err := s.Updater.Update(s.Live, obj, s.Owners, workflow)
+func (s *State) Update(obj typed.TypedValue, owner string) error {
+	owners, err := s.Updater.Update(s.Live, obj, s.Owners, owner)
 	if err == nil {
 		s.Live = obj
 		s.Owners = owners
@@ -40,8 +40,8 @@ func (s *State) Update(obj typed.TypedValue, workflow string) error {
 }
 
 // Apply the passed in object to the current state
-func (s *State) Apply(obj typed.TypedValue, workflow string, force bool) error {
-	new, owners, err := s.Updater.Apply(s.Live, obj, s.Owners, workflow, force)
+func (s *State) Apply(obj typed.TypedValue, owner string, force bool) error {
+	new, owners, err := s.Updater.Apply(s.Live, obj, s.Owners, owner, force)
 	if err == nil {
 		s.Live = new
 		s.Owners = owners
