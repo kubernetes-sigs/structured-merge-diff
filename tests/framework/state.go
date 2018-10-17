@@ -31,20 +31,30 @@ type State struct {
 
 // Update the current state with the passed in object
 func (s *State) Update(obj typed.TypedValue, owner string) error {
-	owners, err := s.Updater.Update(s.Live, obj, s.Owners, owner)
-	if err == nil {
-		s.Live = obj
-		s.Owners = owners
+	if s.Owners == nil {
+		s.Owners = merge.Owners{}
 	}
-	return err
+	owners, err := s.Updater.Update(s.Live, obj, s.Owners, owner)
+	if err != nil {
+		return err
+	}
+	s.Live = obj
+	s.Owners = owners
+
+	return nil
 }
 
 // Apply the passed in object to the current state
 func (s *State) Apply(obj typed.TypedValue, owner string, force bool) error {
-	new, owners, err := s.Updater.Apply(s.Live, obj, s.Owners, owner, force)
-	if err == nil {
-		s.Live = new
-		s.Owners = owners
+	if s.Owners == nil {
+		s.Owners = merge.Owners{}
 	}
-	return err
+	new, owners, err := s.Updater.Apply(s.Live, obj, s.Owners, owner, force)
+	if err != nil {
+		return err
+	}
+	s.Live = new
+	s.Owners = owners
+
+	return nil
 }
