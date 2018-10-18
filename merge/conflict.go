@@ -74,8 +74,8 @@ func (conflicts Conflicts) Error() string {
 	return strings.Join(messages, "\n")
 }
 
-// NewFromSets creates a list of conflicts error from a map of owner to set of fields.
-func NewFromSets(sets map[string]*fieldpath.Set) Conflicts {
+// ConflictsFromOwners creates a list of conflicts given Owners sets.
+func ConflictsFromOwners(sets Owners) Conflicts {
 	conflicts := []Conflict{}
 
 	for owner, set := range sets {

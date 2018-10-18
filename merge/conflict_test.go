@@ -34,15 +34,21 @@ var (
 )
 
 func TestNewFromSets(t *testing.T) {
-	got := merge.NewFromSets(map[string]*fieldpath.Set{
-		"Bob": _NS(
-			_P("key"),
-			_P("list", _KBF("key", _SV("a"), "id", _IV(2)), "id"),
-		),
-		"Alice": _NS(
-			_P("value"),
-			_P("list", _KBF("key", _SV("a"), "id", _IV(2)), "key"),
-		),
+	got := merge.ConflictsFromOwners(merge.Owners{
+		"Bob": &merge.VersionedSet{
+			Set: _NS(
+				_P("key"),
+				_P("list", _KBF("key", _SV("a"), "id", _IV(2)), "id"),
+			),
+			APIVersion: "v1",
+		},
+		"Alice": &merge.VersionedSet{
+			Set: _NS(
+				_P("value"),
+				_P("list", _KBF("key", _SV("a"), "id", _IV(2)), "key"),
+			),
+			APIVersion: "v1",
+		},
 	})
 	wanted := `conflicts with "Alice":
 - .value

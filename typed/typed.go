@@ -104,6 +104,12 @@ type Comparison struct {
 	Added *fieldpath.Set
 }
 
+// IsSame returns true if the comparison returned no changes (the two
+// compared objects are similar).
+func (c *Comparison) IsSame() bool {
+	return c.Removed.Empty() && c.Modified.Empty() && c.Added.Empty()
+}
+
 // Compare compares the two objects. See the comments on the `Comparison`
 // struct for details on the return value.
 //

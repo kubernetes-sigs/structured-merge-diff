@@ -401,6 +401,19 @@ var symdiffCases = []symdiffTestCase{{
       scalar: string
 `,
 	quints: []symdiffQuint{{
+		lhs:      `{}`,
+		rhs:      `{"list":[{"key":"a","id":1,"value":{"a":"a"}}]}`,
+		removed:  _NS(),
+		modified: _NS(),
+		added: _NS(
+			_P("list"),
+			_P("list", _KBF("key", _SV("a"), "id", _IV(1))),
+			_P("list", _KBF("key", _SV("a"), "id", _IV(1)), "key"),
+			_P("list", _KBF("key", _SV("a"), "id", _IV(1)), "id"),
+			_P("list", _KBF("key", _SV("a"), "id", _IV(1)), "value"),
+			_P("list", _KBF("key", _SV("a"), "id", _IV(1)), "value", "a"),
+		),
+	}, {
 		lhs:      `{"list":[{"key":"a","id":1,"value":{"a":"a"}}]}`,
 		rhs:      `{"list":[{"key":"a","id":1,"value":{"a":"a"}}]}`,
 		removed:  _NS(),
