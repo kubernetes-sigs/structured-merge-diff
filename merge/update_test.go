@@ -17,6 +17,7 @@ limitations under the License.
 package merge_test
 
 import (
+	"fmt"
 	"testing"
 
 	"sigs.k8s.io/structured-merge-diff/merge"
@@ -26,44 +27,79 @@ import (
 // State of the current test in terms of live object. One can check at
 // any time that Live and Owners match the expectations.
 type State struct {
-	Live    typed.TypedValue
-	Owners  merge.Owners
-	Updater *merge.Updater
+	Live   *typed.TypedValue
+	Parser *typed.Parser
+	// Typename is the typename used to create objects in the
+	// schema.
+	Typename string
+	Owners   merge.Owners
+	Updater  *merge.Updater
 }
 
-// Update the current state with the passed in object
-func (s *State) Update(obj typed.TypedValue, owner string) error {
+func (s *State) checkInit() error {
 	if s.Owners == nil {
 		s.Owners = merge.Owners{}
 	}
-	owners, err := s.Updater.Update(s.Live, obj, s.Owners, owner)
+	if s.Live == nil {
+		obj, err := s.Parser.NewEmpty(s.Typename)
+		if err != nil {
+			return fmt.Errorf("failed to create new empty object: %v", err)
+		}
+		s.Live = &obj
+	}
+	return nil
+}
+
+// Update the current state with the passed in object
+func (s *State) Update(obj typed.YAMLObject, owner string) error {
+	if err := s.checkInit(); err != nil {
+		return err
+	}
+	tv, err := s.Parser.FromYAML(obj, s.Typename)
+	owners, err := s.Updater.Update(*s.Live, tv, s.Owners, owner)
 	if err != nil {
 		return err
 	}
-	s.Live = obj
+	s.Live = &tv
 	s.Owners = owners
 
 	return nil
 }
 
 // Apply the passed in object to the current state
-func (s *State) Apply(obj typed.TypedValue, owner string, force bool) error {
-	if s.Owners == nil {
-		s.Owners = merge.Owners{}
+func (s *State) Apply(obj typed.YAMLObject, owner string, force bool) error {
+	if err := s.checkInit(); err != nil {
+		return err
 	}
-	new, owners, err := s.Updater.Apply(s.Live, obj, s.Owners, owner, force)
+	tv, err := s.Parser.FromYAML(obj, s.Typename)
 	if err != nil {
 		return err
 	}
-	s.Live = new
+	new, owners, err := s.Updater.Apply(*s.Live, tv, s.Owners, owner, force)
+	if err != nil {
+		return err
+	}
+	s.Live = &new
 	s.Owners = owners
 
 	return nil
 }
 
+// CompareLive takes a YAML string and returns the comparison with the
+// current live object or an error.
+func (s *State) CompareLive(obj typed.YAMLObject) (*typed.Comparison, error) {
+	if err := s.checkInit(); err != nil {
+		return nil, err
+	}
+	tv, err := s.Parser.FromYAML(obj, s.Typename)
+	if err != nil {
+		return nil, err
+	}
+	return s.Live.Compare(tv)
+}
+
 // TestExample shows how to use the test framework
 func TestExample(t *testing.T) {
-	state := &State{Updater: &merge.Updater{}}
 	parser, err := typed.NewParser(`types:
 - name: lists
   struct:
@@ -77,30 +113,29 @@ func TestExample(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create parser: %v", err)
 	}
+	state := &State{
+		Updater:  &merge.Updater{},
+		Parser:   parser,
+		Typename: "lists",
+	}
 
-	config, err := parser.FromYAML(`
+	config := typed.YAMLObject(`
 list:
 - a
 - b
 - c
-`, "lists")
-	if err != nil {
-		t.Fatalf("Failed to parse YAML: %v", err)
-	}
+`)
 	err = state.Apply(config, "default", false)
 	if err != nil {
 		t.Fatalf("Wanted err = %v, got %v", nil, err)
 	}
 
-	config, err = parser.FromYAML(`
+	config = typed.YAMLObject(`
 list:
 - a
 - b
 - c
-- d`, "lists")
-	if err != nil {
-		t.Fatalf("Failed to parse YAML: %v", err)
-	}
+- d`)
 	err = state.Apply(config, "default", false)
 
 	if err != nil {
@@ -108,7 +143,7 @@ list:
 	}
 
 	// The following is wrong because the code doesn't work yet.
-	_, err = state.Live.Compare(config)
+	_, err = state.CompareLive(config)
 	if err == nil {
 		t.Fatalf("Succeeded to compare live with config")
 	}
