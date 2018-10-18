@@ -20,7 +20,6 @@ import (
 	"fmt"
 
 	yaml "gopkg.in/yaml.v2"
-
 	"sigs.k8s.io/structured-merge-diff/schema"
 	"sigs.k8s.io/structured-merge-diff/value"
 )
@@ -59,6 +58,14 @@ func NewParser(schema YAMLObject) (*Parser, error) {
 	return create(schema)
 }
 
+// NewEmpty returns a new empty object with the current schema and the
+// type "typename".
+func (p *Parser) NewEmpty(typename string) (TypedValue, error) {
+	return p.FromYAML(YAMLObject("{}"), typename)
+}
+
+// FromYAML parses a yaml string into an object with the current schema
+// and the type "typename" or an error if validation fails.
 func (p *Parser) FromYAML(object YAMLObject, typename string) (TypedValue, error) {
 	v, err := value.FromYAML([]byte(object))
 	if err != nil {
