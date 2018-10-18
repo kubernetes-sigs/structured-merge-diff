@@ -37,9 +37,6 @@ type State struct {
 }
 
 func (s *State) checkInit() error {
-	if s.Owners == nil {
-		s.Owners = merge.Owners{}
-	}
 	if s.Live == nil {
 		obj, err := s.Parser.NewEmpty(s.Typename)
 		if err != nil {
@@ -144,7 +141,7 @@ list:
 
 	// The following is wrong because the code doesn't work yet.
 	_, err = state.CompareLive(config)
-	if err == nil {
-		t.Fatalf("Succeeded to compare live with config")
+	if err != nil {
+		t.Fatalf("Failed to compare live with config: %v", err)
 	}
 }
