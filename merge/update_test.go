@@ -86,6 +86,8 @@ func (s *State) Apply(obj typed.YAMLObject, owner string, force bool) error {
 	return nil
 }
 
+// CompareLive takes a YAML string and returns the comparison with the
+// current live object or an error.
 func (s *State) CompareLive(obj typed.YAMLObject) (*typed.Comparison, error) {
 	if err := s.checkInit(); err != nil {
 		return nil, err
