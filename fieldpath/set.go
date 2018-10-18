@@ -174,14 +174,13 @@ func (s *SetNodeMap) Descend(pe PathElement) *Set {
 	}
 	if n, ok := s.members[serialized]; ok {
 		return n.set
-	} else {
-		ss := &Set{}
-		s.members[serialized] = setNode{
-			pathElement: pe,
-			set:         ss,
-		}
-		return ss
 	}
+	ss := &Set{}
+	s.members[serialized] = setNode{
+		pathElement: pe,
+		set:         ss,
+	}
+	return ss
 }
 
 // Size returns the sum of the number of members of all subsets.
