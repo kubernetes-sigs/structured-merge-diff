@@ -39,6 +39,7 @@ type Options struct {
 	output string
 
 	// options determining the operation to perform
+	listTypes    bool
 	validatePath string
 	merge        bool
 	compare      bool
@@ -58,6 +59,7 @@ func (o *Options) AddFlags(fs *flag.FlagSet) {
 	// and that would probably make more sense, but this is easy and this
 	// binary is mostly just to enable a little exploration, so this is
 	// fine for now.
+	fs.BoolVar(&o.listTypes, "list-types", false, "List all the types in the schema and exit.")
 	fs.StringVar(&o.validatePath, "validate", "", "Path to a file to perform a validation operation on.")
 	fs.BoolVar(&o.merge, "merge", false, "Perform a merge operation between --lhs and --rhs")
 	fs.BoolVar(&o.compare, "compare", false, "Perform a compare operation between --lhs and --rhs")
@@ -93,12 +95,14 @@ func (o *Options) Resolve() (Operation, error) {
 
 	// Count how many operations were requested
 	c := map[bool]int{true: 1}
-	count := c[o.merge] + c[o.compare] + c[o.validatePath != ""]
+	count := c[o.merge] + c[o.compare] + c[o.validatePath != ""] + c[o.listTypes]
 	if count > 1 {
 		return nil, ErrTooManyOperations
 	}
 
 	switch {
+	case o.listTypes:
+		return listTypes{base}, nil
 	case o.validatePath != "":
 		return validation{base, o.validatePath}, nil
 	case o.merge:

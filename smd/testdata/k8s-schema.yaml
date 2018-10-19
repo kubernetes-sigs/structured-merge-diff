@@ -3825,7 +3825,7 @@ types:
       type:
         scalar: string
 - name: io.k8s.apimachinery.pkg.util.intstr.IntOrString
-  scalar: string
+  untyped: {}
 - name: io.k8s.apimachinery.pkg.version.Info
   struct:
     fields:

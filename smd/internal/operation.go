@@ -56,6 +56,17 @@ func (v validation) Execute(_ io.Writer) error {
 	return err
 }
 
+type listTypes struct {
+	operationBase
+}
+
+func (l listTypes) Execute(w io.Writer) error {
+	for _, td := range l.parser.Schema.Types {
+		fmt.Fprintf(w, "%v\n", td.Name)
+	}
+	return nil
+}
+
 type merge struct {
 	operationBase
 
