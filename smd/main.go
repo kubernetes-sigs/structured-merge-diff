@@ -19,98 +19,28 @@ limitations under the License.
 package main
 
 import (
-	"errors"
 	"flag"
-	"fmt"
-	"io/ioutil"
 	"log"
 
-	"sigs.k8s.io/structured-merge-diff/typed"
+	"sigs.k8s.io/structured-merge-diff/smd/internal"
 )
 
-type options struct {
-	schemaPath string
-	typeName   string
-
-	validatePath string
-}
-
-func (o *options) addFlags(fs *flag.FlagSet) {
-	fs.StringVar(&o.schemaPath, "schema", "", "Path to the schema file for this operation. Required.")
-	fs.StringVar(&o.typeName, "type-name", "", "Name of type in the schema to use. If empty, the first type in the schema will be used.")
-	fs.StringVar(&o.validatePath, "validate", "", "Path to a file to validate against the schema.")
-}
-
-type operation interface {
-	execute() error
-}
-
-type operationBase struct {
-	parser   *typed.Parser
-	typeName string
-}
-
-// resolve turns options in to an operation that can be executed.
-func (o *options) resolve() (operation, error) {
-	var base operationBase
-	if o.schemaPath == "" {
-		return nil, errors.New("a schema is required")
-	}
-	b, err := ioutil.ReadFile(o.schemaPath)
-	if err != nil {
-		return nil, fmt.Errorf("unable to read schema %q: %v", o.schemaPath, err)
-	}
-	base.parser, err = typed.NewParser(typed.YAMLObject(b))
-	if err != nil {
-		return nil, fmt.Errorf("schema %q has errors:\n%v", o.schemaPath, err)
-	}
-
-	if o.typeName == "" {
-		types := base.parser.Schema.Types
-		if len(types) == 0 {
-			return nil, errors.New("no types were given in the schema")
-		}
-		base.typeName = types[0].Name
-	} else {
-		base.typeName = o.typeName
-	}
-
-	switch {
-	case o.validatePath != "":
-		return validation{base, o.validatePath}, nil
-	}
-	return nil, errors.New("no operation requested")
-}
-
-type validation struct {
-	operationBase
-
-	fileToValidate string
-}
-
-func (v validation) execute() error {
-	b, err := ioutil.ReadFile(v.fileToValidate)
-	if err != nil {
-		return fmt.Errorf("unable to read file %q: %v", v.fileToValidate, err)
-	}
-	_, err = v.parser.FromYAML(typed.YAMLObject(b), v.typeName)
-	if err != nil {
-		return fmt.Errorf("unable to validate file %q:\n%v", v.fileToValidate, err)
-	}
-	return nil
-}
-
 func main() {
-	var o options
-	o.addFlags(flag.CommandLine)
+	var o internal.Options
+	o.AddFlags(flag.CommandLine)
 	flag.Parse()
 
-	op, err := o.resolve()
+	op, err := o.Resolve()
 	if err != nil {
-		log.Fatalf("Couldn't resolve options: %v", err)
+		log.Fatalf("Couldn't understand command line flags: %v", err)
 	}
 
-	err = op.execute()
+	out, err := o.OpenOutput()
+	if err != nil {
+		log.Fatalf("Couldn't prepare output: %v", err)
+	}
+
+	err = op.Execute(out)
 	if err != nil {
 		log.Fatalf("Couldn't execute operation: %v", err)
 	}

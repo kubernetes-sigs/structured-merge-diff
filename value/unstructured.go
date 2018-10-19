@@ -152,6 +152,18 @@ func FromUnstructured(in interface{}) (Value, error) {
 	}
 }
 
+// ToYAML is a helper function for producing a YAML document; it attempts to
+// preserve order of keys within maps/structs. This is as a convenience to
+// humans keeping YAML documents, not because there is a behavior difference.
+func (v *Value) ToYAML() ([]byte, error) {
+	out := v.ToUnstructured(true)
+	b, err := yaml.Marshal(out)
+	if err != nil {
+		return nil, err
+	}
+	return b, nil
+}
+
 // ToUnstructured will convert the Value into a go-typed object.
 // If preserveOrder is true, then maps will be converted to the yaml.MapSlice
 // type. Otherwise, map[string]interface{} must be used-- this destroys

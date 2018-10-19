@@ -100,6 +100,14 @@ func runUnstructuredTestOrdered(t *testing.T, input []byte) {
 	if string(dcheck) != string(echeck) {
 		t.Fatalf("From/To were not inverse.\n\ndecoded: %#v\n\nencoded: %#v\n\ndecoded:\n%s\n\nencoded:\n%s", decoded, encoded, dcheck, echeck)
 	}
+
+	echeck2, err := v.ToYAML()
+	if err != nil {
+		t.Fatalf("ToYAML gave different result: %v", err)
+	}
+	if string(echeck) != string(echeck2) {
+		t.Errorf("ToYAML gave different result:\n%v", echeck2)
+	}
 }
 
 func runUnstructuredTestUnordered(t *testing.T, input []byte) {
