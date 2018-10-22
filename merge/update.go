@@ -16,6 +16,7 @@ package merge
 import (
 	"fmt"
 
+	"sigs.k8s.io/structured-merge-diff/fieldpath"
 	"sigs.k8s.io/structured-merge-diff/typed"
 )
 
@@ -93,13 +94,19 @@ func (s *Updater) Update(liveObject, newObject typed.TypedValue, owners Owners, 
 	var err error
 	owners, err = s.update(liveObject, newObject, owners, owner, true)
 	if err != nil {
-		return Owners{}, fmt.Errorf("failed to update owners: %v", err)
+		return Owners{}, err
 	}
 	compare, err := liveObject.Compare(newObject)
 	if err != nil {
 		return Owners{}, fmt.Errorf("failed to compare live and new objects: %v", err)
 	}
+	if _, ok := owners[owner]; !ok {
+		owners[owner] = &VersionedSet{
+			Set: fieldpath.NewSet(),
+		}
+	}
 	owners[owner].Set = owners[owner].Set.Union(compare.Modified).Union(compare.Added).Difference(compare.Removed)
+	owners[owner].APIVersion = APIVersion("v1") // TODO: We don't support multiple versions yet.
 	return owners, nil
 }
 
@@ -113,7 +120,7 @@ func (s *Updater) Apply(liveObject, configObject typed.TypedValue, owners Owners
 	}
 	owners, err = s.update(liveObject, newObject, owners, owner, force)
 	if err != nil {
-		return typed.TypedValue{}, Owners{}, fmt.Errorf("failed to update owners: %v", err)
+		return typed.TypedValue{}, Owners{}, err
 	}
 
 	// TODO: Remove unconflicting removed fields
