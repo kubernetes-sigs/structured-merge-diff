@@ -128,26 +128,7 @@ func (c compare) Execute(w io.Writer) error {
 	// TODO: I think it'd be neat if we actually emitted a machine-readable
 	// format.
 
-	if !got.Added.Empty() {
-		_, err = fmt.Fprintf(w, "Added:\n%s\n", got.Added)
-		if err != nil {
-			return err
-		}
-	}
+	_, err = fmt.Fprintf(w, got.String())
 
-	if !got.Modified.Empty() {
-		_, err = fmt.Fprintf(w, "Modified:\n%s\n", got.Modified)
-		if err != nil {
-			return err
-		}
-	}
-
-	if !got.Removed.Empty() {
-		_, err = fmt.Fprintf(w, "Removed:\n%s\n", got.Removed)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return err
 }
