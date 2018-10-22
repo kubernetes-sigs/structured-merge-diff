@@ -93,7 +93,7 @@ func (s *Updater) Update(liveObject, newObject typed.TypedValue, owners Owners, 
 	var err error
 	owners, err = s.update(liveObject, newObject, owners, owner, true)
 	if err != nil {
-		return Owners{}, fmt.Errorf("failed to update owners: %v", err)
+		return Owners{}, err
 	}
 	compare, err := liveObject.Compare(newObject)
 	if err != nil {
@@ -113,7 +113,7 @@ func (s *Updater) Apply(liveObject, configObject typed.TypedValue, owners Owners
 	}
 	owners, err = s.update(liveObject, newObject, owners, owner, force)
 	if err != nil {
-		return typed.TypedValue{}, Owners{}, fmt.Errorf("failed to update owners: %v", err)
+		return typed.TypedValue{}, Owners{}, err
 	}
 
 	// TODO: Remove unconflicting removed fields
