@@ -16,6 +16,7 @@ package merge
 import (
 	"fmt"
 
+	"sigs.k8s.io/structured-merge-diff/fieldpath"
 	"sigs.k8s.io/structured-merge-diff/typed"
 )
 
@@ -99,7 +100,13 @@ func (s *Updater) Update(liveObject, newObject typed.TypedValue, owners Owners, 
 	if err != nil {
 		return Owners{}, fmt.Errorf("failed to compare live and new objects: %v", err)
 	}
+	if _, ok := owners[owner]; !ok {
+		owners[owner] = &VersionedSet{
+			Set: fieldpath.NewSet(),
+		}
+	}
 	owners[owner].Set = owners[owner].Set.Union(compare.Modified).Union(compare.Added).Difference(compare.Removed)
+	owners[owner].APIVersion = APIVersion("v1") // TODO: We don't support multiple versions yet.
 	return owners, nil
 }
 
