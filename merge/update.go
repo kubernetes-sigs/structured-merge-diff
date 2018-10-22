@@ -16,22 +16,8 @@ package merge
 import (
 	"fmt"
 
-	"sigs.k8s.io/structured-merge-diff/fieldpath"
 	"sigs.k8s.io/structured-merge-diff/typed"
 )
-
-// APIVersion describes the version of an object or of a fieldset.
-type APIVersion string
-
-// VersionedSet associates a version to a set.
-type VersionedSet struct {
-	*fieldpath.Set
-	APIVersion APIVersion
-}
-
-// Owners is a map from owner to VersionedSet (what they own in
-// what version).
-type Owners map[string]*VersionedSet
 
 // Converter is an interface to the conversion logic. The converter
 // needs to be able to convert objects from one version to another.
