@@ -230,12 +230,13 @@ func (tt validationTestCase) test(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create schema: %v", err)
 	}
+	pt := parser.Type(tt.rootTypeName)
 
 	for i, v := range tt.validObjects {
 		v := v
 		t.Run(fmt.Sprintf("%v-valid-%v", tt.name, i), func(t *testing.T) {
 			t.Parallel()
-			_, err := parser.FromYAML(v, tt.rootTypeName)
+			_, err := pt.FromYAML(v)
 			if err != nil {
 				t.Errorf("failed to parse/validate yaml: %v\n%v", err, v)
 			}
@@ -246,7 +247,7 @@ func (tt validationTestCase) test(t *testing.T) {
 		iv := iv
 		t.Run(fmt.Sprintf("%v-invalid-%v", tt.name, i), func(t *testing.T) {
 			t.Parallel()
-			_, err := parser.FromYAML(iv, tt.rootTypeName)
+			_, err := pt.FromYAML(iv)
 			if err == nil {
 				t.Errorf("Object should fail: %v\n%v", err, iv)
 			}

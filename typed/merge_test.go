@@ -336,18 +336,19 @@ func (tt mergeTestCase) test(t *testing.T) {
 		triplet := triplet
 		t.Run(fmt.Sprintf("%v-valid-%v", tt.name, i), func(t *testing.T) {
 			t.Parallel()
+			pt := parser.Type(tt.rootTypeName)
 
-			lhs, err := parser.FromYAML(triplet.lhs, tt.rootTypeName)
+			lhs, err := pt.FromYAML(triplet.lhs)
 			if err != nil {
 				t.Fatalf("unable to parser/validate lhs yaml: %v\n%v", err, triplet.lhs)
 			}
 
-			rhs, err := parser.FromYAML(triplet.rhs, tt.rootTypeName)
+			rhs, err := pt.FromYAML(triplet.rhs)
 			if err != nil {
 				t.Fatalf("unable to parser/validate rhs yaml: %v\n%v", err, triplet.rhs)
 			}
 
-			out, err := parser.FromYAML(triplet.out, tt.rootTypeName)
+			out, err := pt.FromYAML(triplet.out)
 			if err != nil {
 				t.Fatalf("unable to parser/validate out yaml: %v\n%v", err, triplet.out)
 			}
