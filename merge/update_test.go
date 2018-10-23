@@ -36,9 +36,13 @@ type State struct {
 	Updater  *merge.Updater
 }
 
+func (s *State) ObjectFactory() *typed.ParseableType {
+	return s.Parser.Type(s.Typename)
+}
+
 func (s *State) checkInit() error {
 	if s.Live == nil {
-		obj, err := s.Parser.NewEmpty(s.Typename)
+		obj, err := s.ObjectFactory().NewEmpty()
 		if err != nil {
 			return fmt.Errorf("failed to create new empty object: %v", err)
 		}
@@ -52,7 +56,7 @@ func (s *State) Update(obj typed.YAMLObject, owner string) error {
 	if err := s.checkInit(); err != nil {
 		return err
 	}
-	tv, err := s.Parser.FromYAML(obj, s.Typename)
+	tv, err := s.ObjectFactory().FromYAML(obj)
 	owners, err := s.Updater.Update(*s.Live, tv, s.Owners, owner)
 	if err != nil {
 		return err
@@ -68,7 +72,7 @@ func (s *State) Apply(obj typed.YAMLObject, owner string, force bool) error {
 	if err := s.checkInit(); err != nil {
 		return err
 	}
-	tv, err := s.Parser.FromYAML(obj, s.Typename)
+	tv, err := s.ObjectFactory().FromYAML(obj)
 	if err != nil {
 		return err
 	}
@@ -88,7 +92,7 @@ func (s *State) CompareLive(obj typed.YAMLObject) (*typed.Comparison, error) {
 	if err := s.checkInit(); err != nil {
 		return nil, err
 	}
-	tv, err := s.Parser.FromYAML(obj, s.Typename)
+	tv, err := s.ObjectFactory().FromYAML(obj)
 	if err != nil {
 		return nil, err
 	}

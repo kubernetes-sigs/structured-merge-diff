@@ -487,12 +487,13 @@ func (tt symdiffTestCase) test(t *testing.T) {
 		quint := quint
 		t.Run(fmt.Sprintf("%v-valid-%v", tt.name, i), func(t *testing.T) {
 			t.Parallel()
+			pt := parser.Type(tt.rootTypeName)
 
-			tvLHS, err := parser.FromYAML(quint.lhs, tt.rootTypeName)
+			tvLHS, err := pt.FromYAML(quint.lhs)
 			if err != nil {
 				t.Errorf("failed to parse lhs: %v", err)
 			}
-			tvRHS, err := parser.FromYAML(quint.rhs, tt.rootTypeName)
+			tvRHS, err := pt.FromYAML(quint.rhs)
 			if err != nil {
 				t.Errorf("failed to parse rhs: %v", err)
 			}

@@ -51,25 +51,64 @@ var ssParser = createOrDie(YAMLObject(schema.SchemaSchemaYAML))
 
 // NewParser will build a YAMLParser from a schema. The schema is validated.
 func NewParser(schema YAMLObject) (*Parser, error) {
-	_, err := ssParser.FromYAML(schema, "schema")
+	_, err := ssParser.Type("schema").FromYAML(schema)
 	if err != nil {
 		return nil, fmt.Errorf("unable to validate schema: %v", err)
 	}
 	return create(schema)
 }
 
+// TypeNames returns a list of types this parser understands.
+func (p *Parser) TypeNames() (names []string) {
+	for _, td := range p.Schema.Types {
+		names = append(names, td.Name)
+	}
+	return names
+}
+
+// Type returns a helper which can produce objects of the given type. Any
+// errors are deferred until a further function is called.
+func (p *Parser) Type(name string) *ParseableType {
+	return &ParseableType{
+		parser:   p,
+		typename: name,
+	}
+}
+
+// ParseableType allows for easy production of typed objects.
+type ParseableType struct {
+	parser   *Parser
+	typename string
+}
+
+// IsValid return true if p's schema and typename are valid.
+func (p *ParseableType) IsValid() bool {
+	_, ok := p.parser.Schema.Resolve(schema.TypeRef{NamedType: &p.typename})
+	return ok
+}
+
 // NewEmpty returns a new empty object with the current schema and the
 // type "typename".
-func (p *Parser) NewEmpty(typename string) (TypedValue, error) {
-	return p.FromYAML(YAMLObject("{}"), typename)
+func (p *ParseableType) NewEmpty() (TypedValue, error) {
+	return p.FromYAML(YAMLObject("{}"))
 }
 
 // FromYAML parses a yaml string into an object with the current schema
 // and the type "typename" or an error if validation fails.
-func (p *Parser) FromYAML(object YAMLObject, typename string) (TypedValue, error) {
+func (p *ParseableType) FromYAML(object YAMLObject) (TypedValue, error) {
 	v, err := value.FromYAML([]byte(object))
 	if err != nil {
 		return TypedValue{}, err
 	}
-	return AsTyped(v, &p.Schema, typename)
+	return AsTyped(v, &p.parser.Schema, p.typename)
+}
+
+// FromUnstructured converts a go interface to a TypedValue. It will return an
+// error if the resulting object fails schema validation.
+func (p *ParseableType) FromUnstructured(in interface{}) (TypedValue, error) {
+	v, err := value.FromUnstructured(in)
+	if err != nil {
+		return TypedValue{}, err
+	}
+	return AsTyped(v, &p.parser.Schema, p.typename)
 }

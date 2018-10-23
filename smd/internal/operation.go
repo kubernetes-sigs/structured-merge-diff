@@ -38,7 +38,7 @@ func (b operationBase) parseFile(path string) (tv typed.TypedValue, err error) {
 	if err != nil {
 		return tv, fmt.Errorf("unable to read file %q: %v", path, err)
 	}
-	tv, err = b.parser.FromYAML(typed.YAMLObject(bytes), b.typeName)
+	tv, err = b.parser.Type(b.typeName).FromYAML(typed.YAMLObject(bytes))
 	if err != nil {
 		return tv, fmt.Errorf("unable to validate file %q:\n%v", path, err)
 	}

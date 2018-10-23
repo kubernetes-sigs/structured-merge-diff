@@ -246,7 +246,7 @@ func (tt fieldsetTestCase) test(t *testing.T) {
 		v := v
 		t.Run(fmt.Sprintf("%v-%v", tt.name, i), func(t *testing.T) {
 			t.Parallel()
-			tv, err := parser.FromYAML(v.object, tt.rootTypeName)
+			tv, err := parser.Type(tt.rootTypeName).FromYAML(v.object)
 			if err != nil {
 				t.Errorf("failed to parse object: %v", err)
 			}
