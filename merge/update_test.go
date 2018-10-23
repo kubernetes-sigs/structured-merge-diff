@@ -42,7 +42,7 @@ func (s *State) ObjectFactory() *typed.ParseableType {
 
 func (s *State) checkInit() error {
 	if s.Live == nil {
-		obj, err := s.ObjectFactory().NewEmpty()
+		obj, err := s.ObjectFactory().New()
 		if err != nil {
 			return fmt.Errorf("failed to create new empty object: %v", err)
 		}

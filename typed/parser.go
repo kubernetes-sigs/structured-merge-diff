@@ -87,9 +87,9 @@ func (p *ParseableType) IsValid() bool {
 	return ok
 }
 
-// NewEmpty returns a new empty object with the current schema and the
+// New returns a new empty object with the current schema and the
 // type "typename".
-func (p *ParseableType) NewEmpty() (TypedValue, error) {
+func (p *ParseableType) New() (TypedValue, error) {
 	return p.FromYAML(YAMLObject("{}"))
 }
 
