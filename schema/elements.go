@@ -16,7 +16,7 @@ limitations under the License.
 
 package schema
 
-// Schema is a list of types.
+// Schema is a list of named types.
 type Schema struct {
 	Types []TypeDef `yaml:"types,omitempty"`
 }
@@ -27,7 +27,7 @@ type TypeSpecifier struct {
 	Schema Schema  `yaml:"schema,omitempty"`
 }
 
-// TypeDef represents a node in a schema.
+// TypeDef represents a named type in a schema.
 type TypeDef struct {
 	// Top level types should be named. Every type must have a unique name.
 	Name string `yaml:"name,omitempty"`
@@ -52,8 +52,9 @@ type Atom struct {
 	*Untyped `yaml:"untyped,omitempty"`
 }
 
-// Scalar (AKA "primitive") has a single value which is either numeric, string,
-// or boolean.
+// Scalar (AKA "primitive") represents a type which has a single value which is
+// either numeric, string, or boolean.
+//
 // TODO: split numeric into float/int? Something even more fine-grained?
 type Scalar string
 
@@ -64,22 +65,24 @@ const (
 )
 
 // ElementRelationship is an enum of the different possible relationships
-// between the elements of container types.
+// between the elements of container types (maps, lists, structs, untyped).
 type ElementRelationship string
 
 const (
 	// Associative only applies to lists (see the documentation there).
 	Associative = ElementRelationship("associative")
 	// Atomic makes container types (lists, maps, structs, untyped) behave
-	// as scalars / leaf fields (default for untyped data).
+	// as scalars / leaf fields (which is the default for untyped data).
 	Atomic = ElementRelationship("atomic")
 	// Separable means the items of the container type have no particular
 	// relationship (default behavior for maps and structs).
 	Separable = ElementRelationship("separable")
 )
 
-// Struct is a list of fields. Each field has a name and a type. Some fields
-// may be grouped into unions.
+// Struct represents a type which is composed of a number of different fields.
+// Each field has a name and a type.
+//
+// TODO: in the future, we will add one-of groups (sometimes called unions).
 type Struct struct {
 	// Each struct field appears exactly once in this list. The order in
 	// this list defines the canonical field ordering.
@@ -111,39 +114,14 @@ type StructField struct {
 	Type TypeRef `yaml:"type,omitempty"`
 }
 
-/*
-
-TODO: incorporate unions. Likely not like this.
-
-type Union struct {
-	// Discriminator is optional, if it is set, it identifies the
-	// discriminator field for this union. The field identified must be a
-	// string typed scalar.
-	DiscriminatorName *string `yaml:"discriminatorName,omitempty"`
-
-	// Fields lists the members of the union, and their discriminator
-	// value (if Discriminator is non-nil).
-	Fields []UnionField `yaml:"fields,omitempty"`
-
-	// Attribute says whether the union is optional, required, or defaulted.
-	Attribute FieldAttribute `yaml:"attribute,omitempty"`
-}
-
-
-// UnionField pairs a field name with a field type.
-type UnionField struct {
-	// Name is the field name.
-	FieldName string `yaml:"fieldName,omitempty"`
-
-	// DiscriminatorValue is the value that the Discriminator field must
-	// have if this member of the union is set. It must be non-nil iff the
-	// Union's DiscriminatorName member is non-nil.
-	DiscriminatorValue *string `yaml:"discriminatorValue,omitempty"`
-}
-*/
-
-// List has zero or more elements of some type.
+// List represents a type which contains a zero or more elements, all of the
+// same subtype. Lists may be either associative: each element is more or less
+// independent and could be managed by separate entities in the system; or
+// atomic, where the elements are heavily dependent on each other: it is not
+// sensible to change one element without considering the ramifications on all
+// the other elements.
 type List struct {
+	// ElementType is the type of the list's elements.
 	ElementType TypeRef `yaml:"elementType,omitempty"`
 
 	// ElementRelationship states the relationship between the list's elements
@@ -168,13 +146,22 @@ type List struct {
 	Keys []string `yaml:"keys,omitempty"`
 }
 
-// Map is a key-value pair. Its semantics are the same as an associative list, but:
+// Map is a key-value pair. Its default semantics are the same as an
+// associative list, but:
 // * It is serialized differently:
 //     map:  {"k": {"value": "v"}}
 //     list: [{"key": "k", "value": "v"}]
 // * Keys must be string typed.
 // * Keys can't have multiple components.
+//
+// Although serialized the same, maps are different from structs in that each
+// map item must have the same type.
+//
+// Optionally, maps may be atomic (for example, imagine representing an RGB
+// color value--it doesn't make sense to have different actors own the R and G
+// values).
 type Map struct {
+	// ElementType is the type of the list's elements.
 	ElementType TypeRef `yaml:"elementType,omitempty"`
 
 	// ElementRelationship states the relationship between the map's items.
@@ -188,7 +175,7 @@ type Map struct {
 	ElementRelationship ElementRelationship `yaml:"elementRelationship,omitempty"`
 }
 
-// Untyped is used for fields that allow arbitrary content. (Think: plugin
+// Untyped represents types that allow arbitrary content. (Think: plugin
 // objects.)
 type Untyped struct {
 	// ElementRelationship states the relationship between the items, if
@@ -204,8 +191,8 @@ type Untyped struct {
 	ElementRelationship ElementRelationship `yaml:"elementRelationship,omitempty"`
 }
 
-// FindNamedType returns the referenced TypeDef, if it exists, or (nil, false)
-// if it doesn't.
+// FindNamedType is a convenience function that returns the referenced TypeDef,
+// if it exists, or (nil, false) if it doesn't.
 func (s Schema) FindNamedType(name string) (TypeDef, bool) {
 	for _, t := range s.Types {
 		if t.Name == name {
@@ -215,10 +202,11 @@ func (s Schema) FindNamedType(name string) (TypeDef, bool) {
 	return TypeDef{}, false
 }
 
-// Resolve returns the atom referenced, whether it is inline or
-// named. Returns Atom{}, false if the type can't be resolved. Allows callers
-// to not care about the difference between a (possibly inlined) reference and
-// a definition.
+// Resolve is a convenience function which returns the atom referenced, whether
+// it is inline or named. Returns (Atom{}, false) if the type can't be resolved.
+//
+// This allows callers to not care about the difference between a (possibly
+// inlined) reference and a definition.
 func (s Schema) Resolve(tr TypeRef) (Atom, bool) {
 	if tr.NamedType != nil {
 		t, ok := s.FindNamedType(*tr.NamedType)
