@@ -24,13 +24,13 @@ import (
 // A Value is an object; it corresponds to an 'atom' in the schema.
 type Value struct {
 	// Exactly one of the below must be set.
-	*Float
-	*Int
-	*String
-	*Boolean
-	*List
-	*Map
-	Null bool // represents an explicit `"foo" = null`
+	FloatValue   *Float
+	IntValue     *Int
+	StringValue  *String
+	BooleanValue *Boolean
+	ListValue    *List
+	MapValue     *Map
+	Null         bool // represents an explicit `"foo" = null`
 }
 
 type Int int64
@@ -87,48 +87,48 @@ func (m *Map) Set(key string, value Value) {
 // StringValue returns s as a scalar string Value.
 func StringValue(s string) Value {
 	s2 := String(s)
-	return Value{String: &s2}
+	return Value{StringValue: &s2}
 }
 
 // IntValue returns i as a scalar numeric (integer) Value.
 func IntValue(i int) Value {
 	i2 := Int(i)
-	return Value{Int: &i2}
+	return Value{IntValue: &i2}
 }
 
 // FloatValue returns f as a scalar numeric (float) Value.
 func FloatValue(f float64) Value {
 	f2 := Float(f)
-	return Value{Float: &f2}
+	return Value{FloatValue: &f2}
 }
 
 // BooleanValue returns b as a scalar boolean Value.
 func BooleanValue(b bool) Value {
 	b2 := Boolean(b)
-	return Value{Boolean: &b2}
+	return Value{BooleanValue: &b2}
 }
 
 // HumanReadable returns a human-readable representation of the value.
 // TODO: Rename this to "String".
 func (v Value) HumanReadable() string {
 	switch {
-	case v.Float != nil:
-		return fmt.Sprintf("%v", *v.Float)
-	case v.Int != nil:
-		return fmt.Sprintf("%v", *v.Int)
-	case v.String != nil:
-		return fmt.Sprintf("%q", *v.String)
-	case v.Boolean != nil:
-		return fmt.Sprintf("%v", *v.Boolean)
-	case v.List != nil:
+	case v.FloatValue != nil:
+		return fmt.Sprintf("%v", *v.FloatValue)
+	case v.IntValue != nil:
+		return fmt.Sprintf("%v", *v.IntValue)
+	case v.StringValue != nil:
+		return fmt.Sprintf("%q", *v.StringValue)
+	case v.BooleanValue != nil:
+		return fmt.Sprintf("%v", *v.BooleanValue)
+	case v.ListValue != nil:
 		strs := []string{}
-		for _, item := range v.List.Items {
+		for _, item := range v.ListValue.Items {
 			strs = append(strs, item.HumanReadable())
 		}
 		return "[" + strings.Join(strs, ",") + "]"
-	case v.Map != nil:
+	case v.MapValue != nil:
 		strs := []string{}
-		for _, i := range v.Map.Items {
+		for _, i := range v.MapValue.Items {
 			strs = append(strs, fmt.Sprintf("%v=%v", i.Name, i.Value.HumanReadable()))
 		}
 		return "{" + strings.Join(strs, ";") + "}"

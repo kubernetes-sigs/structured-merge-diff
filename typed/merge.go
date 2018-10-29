@@ -152,7 +152,7 @@ func (w *mergingWalker) visitStructFields(t schema.Struct, lhs, rhs *value.Map) 
 	}
 
 	if len(out.Items) > 0 {
-		w.out = &value.Value{Map: out}
+		w.out = &value.Value{MapValue: out}
 	}
 
 	return errs
@@ -279,7 +279,7 @@ func (w *mergingWalker) visitListItems(t schema.List, lhs, rhs *value.List) (err
 	}
 
 	if len(out.Items) > 0 {
-		w.out = &value.Value{List: out}
+		w.out = &value.Value{ListValue: out}
 	}
 	return errs
 }
@@ -367,7 +367,7 @@ func (w *mergingWalker) visitMapItems(t schema.Map, lhs, rhs *value.Map) (errs V
 	}
 
 	if len(out.Items) > 0 {
-		w.out = &value.Value{Map: out}
+		w.out = &value.Value{MapValue: out}
 	}
 	return errs
 }

@@ -75,7 +75,7 @@ func FromUnstructured(in interface{}) (Value, error) {
 			}
 			m.Set(k, v)
 		}
-		return Value{Map: &m}, nil
+		return Value{MapValue: &m}, nil
 	case map[string]interface{}:
 		m := Map{}
 		for k, rawVal := range t {
@@ -85,7 +85,7 @@ func FromUnstructured(in interface{}) (Value, error) {
 			}
 			m.Set(k, v)
 		}
-		return Value{Map: &m}, nil
+		return Value{MapValue: &m}, nil
 	case yaml.MapSlice:
 		m := Map{}
 		for _, item := range t {
@@ -99,7 +99,7 @@ func FromUnstructured(in interface{}) (Value, error) {
 			}
 			m.Set(k, v)
 		}
-		return Value{Map: &m}, nil
+		return Value{MapValue: &m}, nil
 	case []interface{}:
 		l := List{}
 		for i, rawVal := range t {
@@ -109,40 +109,40 @@ func FromUnstructured(in interface{}) (Value, error) {
 			}
 			l.Items = append(l.Items, v)
 		}
-		return Value{List: &l}, nil
+		return Value{ListValue: &l}, nil
 	case int:
 		n := Int(t)
-		return Value{Int: &n}, nil
+		return Value{IntValue: &n}, nil
 	case int8:
 		n := Int(t)
-		return Value{Int: &n}, nil
+		return Value{IntValue: &n}, nil
 	case int16:
 		n := Int(t)
-		return Value{Int: &n}, nil
+		return Value{IntValue: &n}, nil
 	case int32:
 		n := Int(t)
-		return Value{Int: &n}, nil
+		return Value{IntValue: &n}, nil
 	case int64:
 		n := Int(t)
-		return Value{Int: &n}, nil
+		return Value{IntValue: &n}, nil
 	case uint:
 		n := Int(t)
-		return Value{Int: &n}, nil
+		return Value{IntValue: &n}, nil
 	case uint8:
 		n := Int(t)
-		return Value{Int: &n}, nil
+		return Value{IntValue: &n}, nil
 	case uint16:
 		n := Int(t)
-		return Value{Int: &n}, nil
+		return Value{IntValue: &n}, nil
 	case uint32:
 		n := Int(t)
-		return Value{Int: &n}, nil
+		return Value{IntValue: &n}, nil
 	case float32:
 		f := Float(t)
-		return Value{Float: &f}, nil
+		return Value{FloatValue: &f}, nil
 	case float64:
 		f := Float(t)
-		return Value{Float: &f}, nil
+		return Value{FloatValue: &f}, nil
 	case string:
 		return StringValue(t), nil
 	case bool:
@@ -176,24 +176,24 @@ func (v *Value) ToYAML() ([]byte, error) {
 // respectively.
 func (v *Value) ToUnstructured(preserveOrder bool) interface{} {
 	switch {
-	case v.Float != nil:
-		f := float64(*v.Float)
+	case v.FloatValue != nil:
+		f := float64(*v.FloatValue)
 		return f
-	case v.Int != nil:
-		i := int64(*v.Int)
+	case v.IntValue != nil:
+		i := int64(*v.IntValue)
 		return i
-	case v.String != nil:
-		return *v.String
-	case v.Boolean != nil:
-		return *v.Boolean
-	case v.List != nil:
+	case v.StringValue != nil:
+		return *v.StringValue
+	case v.BooleanValue != nil:
+		return *v.BooleanValue
+	case v.ListValue != nil:
 		out := []interface{}{}
-		for _, item := range v.List.Items {
+		for _, item := range v.ListValue.Items {
 			out = append(out, item.ToUnstructured(preserveOrder))
 		}
 		return out
-	case v.Map != nil:
-		m := v.Map
+	case v.MapValue != nil:
+		m := v.MapValue
 		if preserveOrder {
 			ms := make(yaml.MapSlice, len(m.Items))
 			for i := range m.Items {
