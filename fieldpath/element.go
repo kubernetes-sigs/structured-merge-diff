@@ -55,14 +55,14 @@ func (e PathElement) String() string {
 	case len(e.Key) > 0:
 		strs := make([]string, len(e.Key))
 		for i, k := range e.Key {
-			strs[i] = fmt.Sprintf("%v=%v", k.Name, k.Value.HumanReadable())
+			strs[i] = fmt.Sprintf("%v=%v", k.Name, k.Value)
 		}
 		// The order must be canonical, since we use the string value
 		// in a set structure.
 		sort.Strings(strs)
 		return "[" + strings.Join(strs, ",") + "]"
 	case e.Value != nil:
-		return fmt.Sprintf("[=%v]", e.Value.HumanReadable())
+		return fmt.Sprintf("[=%v]", e.Value)
 	case e.Index != nil:
 		return fmt.Sprintf("[%v]", *e.Index)
 	default:

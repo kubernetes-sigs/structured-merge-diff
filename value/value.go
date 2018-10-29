@@ -108,9 +108,8 @@ func BooleanValue(b bool) Value {
 	return Value{BooleanValue: &b2}
 }
 
-// HumanReadable returns a human-readable representation of the value.
-// TODO: Rename this to "String".
-func (v Value) HumanReadable() string {
+// String returns a human-readable representation of the value.
+func (v Value) String() string {
 	switch {
 	case v.FloatValue != nil:
 		return fmt.Sprintf("%v", *v.FloatValue)
@@ -123,13 +122,13 @@ func (v Value) HumanReadable() string {
 	case v.ListValue != nil:
 		strs := []string{}
 		for _, item := range v.ListValue.Items {
-			strs = append(strs, item.HumanReadable())
+			strs = append(strs, item.String())
 		}
 		return "[" + strings.Join(strs, ",") + "]"
 	case v.MapValue != nil:
 		strs := []string{}
 		for _, i := range v.MapValue.Items {
-			strs = append(strs, fmt.Sprintf("%v=%v", i.Name, i.Value.HumanReadable()))
+			strs = append(strs, fmt.Sprintf("%v=%v", i.Name, i.Value))
 		}
 		return "{" + strings.Join(strs, ";") + "}"
 	default:

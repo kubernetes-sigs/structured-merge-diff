@@ -113,7 +113,7 @@ func (c *Comparison) IsSame() bool {
 
 // String returns a human readable version of the comparison.
 func (c *Comparison) String() string {
-	str := fmt.Sprintf("- Merged Object:\n%v\n", c.Merged.AsValue().HumanReadable())
+	str := fmt.Sprintf("- Merged Object:\n%v\n", c.Merged.AsValue())
 	if !c.Modified.Empty() {
 		str += fmt.Sprintf("- Modified Fields:\n%v\n", c.Modified)
 	}

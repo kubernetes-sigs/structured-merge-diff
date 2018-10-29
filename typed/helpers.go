@@ -133,15 +133,15 @@ func (ef errorFormatter) validateScalar(t schema.Scalar, v *value.Value, prefix 
 	case schema.Numeric:
 		if v.FloatValue == nil && v.IntValue == nil {
 			// TODO: should the schema separate int and float?
-			return ef.errorf("%vexpected numeric (int or float), got %v", prefix, v.HumanReadable())
+			return ef.errorf("%vexpected numeric (int or float), got %v", prefix, v)
 		}
 	case schema.String:
 		if v.StringValue == nil {
-			return ef.errorf("%vexpected string, got %v", prefix, v.HumanReadable())
+			return ef.errorf("%vexpected string, got %v", prefix, v)
 		}
 	case schema.Boolean:
 		if v.BooleanValue == nil {
-			return ef.errorf("%vexpected boolean, got %v", prefix, v.HumanReadable())
+			return ef.errorf("%vexpected boolean, got %v", prefix, v)
 		}
 	}
 	return nil
@@ -156,7 +156,7 @@ func listValue(val value.Value) (*value.List, error) {
 	case val.ListValue != nil:
 		return val.ListValue, nil
 	default:
-		return nil, fmt.Errorf("expected list, got %v", val.HumanReadable())
+		return nil, fmt.Errorf("expected list, got %v", val)
 	}
 }
 
@@ -168,7 +168,7 @@ func mapOrStructValue(val value.Value, typeName string) (*value.Map, error) {
 	case val.MapValue != nil:
 		return val.MapValue, nil
 	default:
-		return nil, fmt.Errorf("expected %v, got %v", typeName, val.HumanReadable())
+		return nil, fmt.Errorf("expected %v, got %v", typeName, val)
 	}
 }
 
