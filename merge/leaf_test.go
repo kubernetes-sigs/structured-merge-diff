@@ -20,6 +20,7 @@ import (
 	"reflect"
 	"testing"
 
+	"sigs.k8s.io/structured-merge-diff/fieldpath"
 	"sigs.k8s.io/structured-merge-diff/merge"
 	"sigs.k8s.io/structured-merge-diff/typed"
 )
@@ -78,16 +79,16 @@ bool: false`)
 		t.Fatalf("Expected live and config to be the same: %v", comparison)
 	}
 
-	wanted := merge.Owners{
-		"default": &merge.VersionedSet{
+	wanted := fieldpath.ManagedFields{
+		"default": &fieldpath.VersionedSet{
 			Set: _NS(
 				_P("numeric"), _P("string"), _P("bool"),
 			),
 			APIVersion: "v1",
 		},
 	}
-	if diff := state.Owners.Difference(wanted); len(diff) != 0 {
-		t.Fatalf("Expected Owners to be %v, got %v", wanted, state.Owners)
+	if diff := state.Managers.Difference(wanted); len(diff) != 0 {
+		t.Fatalf("Expected Managers to be %v, got %v", wanted, state.Managers)
 	}
 }
 
@@ -140,21 +141,21 @@ bool: true`)
 	if !comparison.IsSame() {
 		t.Fatalf("Expected live and config to be the same: %v", comparison)
 	}
-	wanted := merge.Owners{
-		"default": &merge.VersionedSet{
+	wanted := fieldpath.ManagedFields{
+		"default": &fieldpath.VersionedSet{
 			Set: _NS(
 				_P("numeric"), _P("string"),
 			),
 			APIVersion: "v1",
 		},
-		"controller": &merge.VersionedSet{
+		"controller": &fieldpath.VersionedSet{
 			Set: _NS(
 				_P("bool"),
 			),
 			APIVersion: "v1",
 		}}
-	if diff := state.Owners.Difference(wanted); len(diff) != 0 {
-		t.Fatalf("Expected Owners to be %v, got %v", wanted, state.Owners)
+	if diff := state.Managers.Difference(wanted); len(diff) != 0 {
+		t.Fatalf("Expected Managers to be %v, got %v", wanted, state.Managers)
 	}
 }
 
@@ -192,7 +193,7 @@ numeric: 2
 string: "user string"`)
 	err = state.Apply(config, "default", false)
 	want := merge.Conflicts{
-		merge.Conflict{Owner: "controller", Path: _P("string")},
+		merge.Conflict{Manager: "controller", Path: _P("string")},
 	}
 	if got := err; !reflect.DeepEqual(err, want) {
 		t.Fatalf("want %v, got %v", want, got)
@@ -216,21 +217,21 @@ bool: true`)
 	if !comparison.IsSame() {
 		t.Fatalf("Expected live and config to be the same: %v", comparison)
 	}
-	wanted := merge.Owners{
-		"default": &merge.VersionedSet{
+	wanted := fieldpath.ManagedFields{
+		"default": &fieldpath.VersionedSet{
 			Set: _NS(
 				_P("numeric"), _P("string"),
 			),
 			APIVersion: "v1",
 		},
-		"controller": &merge.VersionedSet{
+		"controller": &fieldpath.VersionedSet{
 			Set: _NS(
 				_P("bool"),
 			),
 			APIVersion: "v1",
 		}}
-	if diff := state.Owners.Difference(wanted); len(diff) != 0 {
-		t.Fatalf("Expected Owners to be %v, got %v", wanted, state.Owners)
+	if diff := state.Managers.Difference(wanted); len(diff) != 0 {
+		t.Fatalf("Expected Managers to be %v, got %v", wanted, state.Managers)
 	}
 }
 
@@ -271,15 +272,15 @@ bool: true`)
 		t.Fatalf("Expected live and config to be the same: %v", comparison)
 	}
 
-	wanted := merge.Owners{
-		"default": &merge.VersionedSet{
+	wanted := fieldpath.ManagedFields{
+		"default": &fieldpath.VersionedSet{
 			Set: _NS(
 				_P("string"),
 			),
 			APIVersion: "v1",
 		},
 	}
-	if diff := state.Owners.Difference(wanted); len(diff) != 0 {
-		t.Fatalf("Expected Owners to be %v, got %v", wanted, state.Owners)
+	if diff := state.Managers.Difference(wanted); len(diff) != 0 {
+		t.Fatalf("Expected Managers to be %v, got %v", wanted, state.Managers)
 	}
 }

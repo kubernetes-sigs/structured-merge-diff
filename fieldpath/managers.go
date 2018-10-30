@@ -11,35 +11,33 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package merge
-
-import "sigs.k8s.io/structured-merge-diff/fieldpath"
+package fieldpath
 
 // APIVersion describes the version of an object or of a fieldset.
 type APIVersion string
 
 // VersionedSet associates a version to a set.
 type VersionedSet struct {
-	*fieldpath.Set
+	*Set
 	APIVersion APIVersion
 }
 
-// Owners is a map from owner to VersionedSet (what they own in
+// ManagedFields is a map from manager to VersionedSet (what they own in
 // what version).
-type Owners map[string]*VersionedSet
+type ManagedFields map[string]*VersionedSet
 
-// Difference returns a symmetric difference between two Owners. If a
+// Difference returns a symmetric difference between two Managers. If a
 // given user's entry has version X in lhs and version Y in rhs, then
 // the return value for that user will be from rhs. If the difference for
 // a user is an empty set, that user will not be inserted in the map.
-func (lhs Owners) Difference(rhs Owners) Owners {
-	diff := Owners{}
+func (lhs ManagedFields) Difference(rhs ManagedFields) ManagedFields {
+	diff := ManagedFields{}
 
-	for owner, left := range lhs {
-		right, ok := rhs[owner]
+	for manager, left := range lhs {
+		right, ok := rhs[manager]
 		if !ok {
 			if !left.Empty() {
-				diff[owner] = left
+				diff[manager] = left
 			}
 			continue
 		}
@@ -48,26 +46,26 @@ func (lhs Owners) Difference(rhs Owners) Owners {
 		// differs, we don't even diff and keep the
 		// entire thing.
 		if left.APIVersion != right.APIVersion {
-			diff[owner] = right
+			diff[manager] = right
 			continue
 		}
 
 		newSet := left.Difference(right.Set).Union(right.Difference(left.Set))
 		if !newSet.Empty() {
-			diff[owner] = &VersionedSet{
+			diff[manager] = &VersionedSet{
 				Set:        newSet,
 				APIVersion: right.APIVersion,
 			}
 		}
 	}
 
-	for owner, set := range rhs {
-		if _, ok := lhs[owner]; ok {
+	for manager, set := range rhs {
+		if _, ok := lhs[manager]; ok {
 			// Already done
 			continue
 		}
 		if !set.Empty() {
-			diff[owner] = set
+			diff[manager] = set
 		}
 	}
 
