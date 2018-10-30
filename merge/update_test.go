@@ -28,22 +28,15 @@ import (
 // State of the current test in terms of live object. One can check at
 // any time that Live and Managers match the expectations.
 type State struct {
-	Live   *typed.TypedValue
-	Parser *typed.Parser
-	// Typename is the typename used to create objects in the
-	// schema.
-	Typename string
+	Live     *typed.TypedValue
+	Parser   *typed.ParseableType
 	Managers fieldpath.ManagedFields
 	Updater  *merge.Updater
 }
 
-func (s *State) ObjectFactory() *typed.ParseableType {
-	return s.Parser.Type(s.Typename)
-}
-
 func (s *State) checkInit() error {
 	if s.Live == nil {
-		obj, err := s.ObjectFactory().New()
+		obj, err := s.Parser.New()
 		if err != nil {
 			return fmt.Errorf("failed to create new empty object: %v", err)
 		}
@@ -57,7 +50,7 @@ func (s *State) Update(obj typed.YAMLObject, manager string) error {
 	if err := s.checkInit(); err != nil {
 		return err
 	}
-	tv, err := s.ObjectFactory().FromYAML(obj)
+	tv, err := s.Parser.FromYAML(obj)
 	managers, err := s.Updater.Update(*s.Live, tv, s.Managers, manager)
 	if err != nil {
 		return err
@@ -73,7 +66,7 @@ func (s *State) Apply(obj typed.YAMLObject, manager string, force bool) error {
 	if err := s.checkInit(); err != nil {
 		return err
 	}
-	tv, err := s.ObjectFactory().FromYAML(obj)
+	tv, err := s.Parser.FromYAML(obj)
 	if err != nil {
 		return err
 	}
@@ -93,7 +86,7 @@ func (s *State) CompareLive(obj typed.YAMLObject) (*typed.Comparison, error) {
 	if err := s.checkInit(); err != nil {
 		return nil, err
 	}
-	tv, err := s.ObjectFactory().FromYAML(obj)
+	tv, err := s.Parser.FromYAML(obj)
 	if err != nil {
 		return nil, err
 	}
@@ -124,9 +117,8 @@ func TestExample(t *testing.T) {
 		t.Fatalf("Failed to create parser: %v", err)
 	}
 	state := &State{
-		Updater:  &merge.Updater{},
-		Parser:   parser,
-		Typename: "lists",
+		Updater: &merge.Updater{},
+		Parser:  parser.Type("lists"),
 	}
 
 	config := typed.YAMLObject(`
