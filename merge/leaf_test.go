@@ -20,6 +20,7 @@ import (
 	"reflect"
 	"testing"
 
+	"sigs.k8s.io/structured-merge-diff/fieldpath"
 	"sigs.k8s.io/structured-merge-diff/merge"
 	"sigs.k8s.io/structured-merge-diff/typed"
 )
@@ -78,8 +79,8 @@ bool: false`)
 		t.Fatalf("Expected live and config to be the same: %v", comparison)
 	}
 
-	wanted := merge.ManagedFields{
-		"default": &merge.VersionedSet{
+	wanted := fieldpath.ManagedFields{
+		"default": &fieldpath.VersionedSet{
 			Set: _NS(
 				_P("numeric"), _P("string"), _P("bool"),
 			),
@@ -140,14 +141,14 @@ bool: true`)
 	if !comparison.IsSame() {
 		t.Fatalf("Expected live and config to be the same: %v", comparison)
 	}
-	wanted := merge.ManagedFields{
-		"default": &merge.VersionedSet{
+	wanted := fieldpath.ManagedFields{
+		"default": &fieldpath.VersionedSet{
 			Set: _NS(
 				_P("numeric"), _P("string"),
 			),
 			APIVersion: "v1",
 		},
-		"controller": &merge.VersionedSet{
+		"controller": &fieldpath.VersionedSet{
 			Set: _NS(
 				_P("bool"),
 			),
@@ -216,14 +217,14 @@ bool: true`)
 	if !comparison.IsSame() {
 		t.Fatalf("Expected live and config to be the same: %v", comparison)
 	}
-	wanted := merge.ManagedFields{
-		"default": &merge.VersionedSet{
+	wanted := fieldpath.ManagedFields{
+		"default": &fieldpath.VersionedSet{
 			Set: _NS(
 				_P("numeric"), _P("string"),
 			),
 			APIVersion: "v1",
 		},
-		"controller": &merge.VersionedSet{
+		"controller": &fieldpath.VersionedSet{
 			Set: _NS(
 				_P("bool"),
 			),
@@ -271,8 +272,8 @@ bool: true`)
 		t.Fatalf("Expected live and config to be the same: %v", comparison)
 	}
 
-	wanted := merge.ManagedFields{
-		"default": &merge.VersionedSet{
+	wanted := fieldpath.ManagedFields{
+		"default": &fieldpath.VersionedSet{
 			Set: _NS(
 				_P("string"),
 			),

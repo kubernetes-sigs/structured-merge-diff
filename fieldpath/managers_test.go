@@ -14,37 +14,43 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package merge_test
+package fieldpath_test
 
 import (
 	"fmt"
 	"reflect"
 	"testing"
 
-	"sigs.k8s.io/structured-merge-diff/merge"
+	"sigs.k8s.io/structured-merge-diff/fieldpath"
+)
+
+var (
+	// Short names for readable test cases.
+	_NS = fieldpath.NewSet
+	_P  = fieldpath.MakePathOrDie
 )
 
 func TestManagersDifference(t *testing.T) {
 	tests := []struct {
 		name string
-		lhs  merge.ManagedFields
-		rhs  merge.ManagedFields
-		out  merge.ManagedFields
+		lhs  fieldpath.ManagedFields
+		rhs  fieldpath.ManagedFields
+		out  fieldpath.ManagedFields
 	}{
 		{
 			name: "Empty sets",
-			out:  merge.ManagedFields{},
+			out:  fieldpath.ManagedFields{},
 		},
 		{
 			name: "Empty RHS",
-			lhs: merge.ManagedFields{
-				"default": &merge.VersionedSet{
+			lhs: fieldpath.ManagedFields{
+				"default": &fieldpath.VersionedSet{
 					Set:        _NS(_P("numeric"), _P("string"), _P("bool")),
 					APIVersion: "v1",
 				},
 			},
-			out: merge.ManagedFields{
-				"default": &merge.VersionedSet{
+			out: fieldpath.ManagedFields{
+				"default": &fieldpath.VersionedSet{
 					Set:        _NS(_P("numeric"), _P("string"), _P("bool")),
 					APIVersion: "v1",
 				},
@@ -52,14 +58,14 @@ func TestManagersDifference(t *testing.T) {
 		},
 		{
 			name: "Empty LHS",
-			rhs: merge.ManagedFields{
-				"default": &merge.VersionedSet{
+			rhs: fieldpath.ManagedFields{
+				"default": &fieldpath.VersionedSet{
 					Set:        _NS(_P("numeric"), _P("string"), _P("bool")),
 					APIVersion: "v1",
 				},
 			},
-			out: merge.ManagedFields{
-				"default": &merge.VersionedSet{
+			out: fieldpath.ManagedFields{
+				"default": &fieldpath.VersionedSet{
 					Set:        _NS(_P("numeric"), _P("string"), _P("bool")),
 					APIVersion: "v1",
 				},
@@ -67,24 +73,24 @@ func TestManagersDifference(t *testing.T) {
 		},
 		{
 			name: "Different managers",
-			lhs: merge.ManagedFields{
-				"one": &merge.VersionedSet{
+			lhs: fieldpath.ManagedFields{
+				"one": &fieldpath.VersionedSet{
 					Set:        _NS(_P("numeric"), _P("string"), _P("bool")),
 					APIVersion: "v1",
 				},
 			},
-			rhs: merge.ManagedFields{
-				"two": &merge.VersionedSet{
+			rhs: fieldpath.ManagedFields{
+				"two": &fieldpath.VersionedSet{
 					Set:        _NS(_P("numeric"), _P("string"), _P("bool")),
 					APIVersion: "v1",
 				},
 			},
-			out: merge.ManagedFields{
-				"one": &merge.VersionedSet{
+			out: fieldpath.ManagedFields{
+				"one": &fieldpath.VersionedSet{
 					Set:        _NS(_P("numeric"), _P("string"), _P("bool")),
 					APIVersion: "v1",
 				},
-				"two": &merge.VersionedSet{
+				"two": &fieldpath.VersionedSet{
 					Set:        _NS(_P("numeric"), _P("string"), _P("bool")),
 					APIVersion: "v1",
 				},
@@ -92,20 +98,20 @@ func TestManagersDifference(t *testing.T) {
 		},
 		{
 			name: "Same manager, different version",
-			lhs: merge.ManagedFields{
-				"one": &merge.VersionedSet{
+			lhs: fieldpath.ManagedFields{
+				"one": &fieldpath.VersionedSet{
 					Set:        _NS(_P("numeric"), _P("string"), _P("integer")),
 					APIVersion: "v1",
 				},
 			},
-			rhs: merge.ManagedFields{
-				"one": &merge.VersionedSet{
+			rhs: fieldpath.ManagedFields{
+				"one": &fieldpath.VersionedSet{
 					Set:        _NS(_P("numeric"), _P("string"), _P("bool")),
 					APIVersion: "v2",
 				},
 			},
-			out: merge.ManagedFields{
-				"one": &merge.VersionedSet{
+			out: fieldpath.ManagedFields{
+				"one": &fieldpath.VersionedSet{
 					Set:        _NS(_P("numeric"), _P("string"), _P("bool")),
 					APIVersion: "v2",
 				},
@@ -113,20 +119,20 @@ func TestManagersDifference(t *testing.T) {
 		},
 		{
 			name: "Set difference",
-			lhs: merge.ManagedFields{
-				"one": &merge.VersionedSet{
+			lhs: fieldpath.ManagedFields{
+				"one": &fieldpath.VersionedSet{
 					Set:        _NS(_P("numeric"), _P("string")),
 					APIVersion: "v1",
 				},
 			},
-			rhs: merge.ManagedFields{
-				"one": &merge.VersionedSet{
+			rhs: fieldpath.ManagedFields{
+				"one": &fieldpath.VersionedSet{
 					Set:        _NS(_P("string"), _P("bool")),
 					APIVersion: "v1",
 				},
 			},
-			out: merge.ManagedFields{
-				"one": &merge.VersionedSet{
+			out: fieldpath.ManagedFields{
+				"one": &fieldpath.VersionedSet{
 					Set:        _NS(_P("numeric"), _P("bool")),
 					APIVersion: "v1",
 				},

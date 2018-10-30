@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"testing"
 
+	"sigs.k8s.io/structured-merge-diff/fieldpath"
 	"sigs.k8s.io/structured-merge-diff/merge"
 	"sigs.k8s.io/structured-merge-diff/typed"
 )
@@ -32,7 +33,7 @@ type State struct {
 	// Typename is the typename used to create objects in the
 	// schema.
 	Typename string
-	Managers merge.ManagedFields
+	Managers fieldpath.ManagedFields
 	Updater  *merge.Updater
 }
 
@@ -103,7 +104,7 @@ func (s *State) CompareLive(obj typed.YAMLObject) (*typed.Comparison, error) {
 type dummyConverter struct{}
 
 // Convert returns the object given in input, not doing any conversion.
-func (dummyConverter) Convert(v typed.TypedValue, version merge.APIVersion) (typed.TypedValue, error) {
+func (dummyConverter) Convert(v typed.TypedValue, version fieldpath.APIVersion) (typed.TypedValue, error) {
 	return v, nil
 }
 

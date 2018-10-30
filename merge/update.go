@@ -23,7 +23,7 @@ import (
 // Converter is an interface to the conversion logic. The converter
 // needs to be able to convert objects from one version to another.
 type Converter interface {
-	Convert(object typed.TypedValue, version APIVersion) (typed.TypedValue, error)
+	Convert(object typed.TypedValue, version fieldpath.APIVersion) (typed.TypedValue, error)
 }
 
 // Updater is the object used to compute updated FieldSets and also
@@ -32,16 +32,16 @@ type Updater struct {
 	Converter Converter
 }
 
-func (s *Updater) update(oldObject, newObject typed.TypedValue, managers ManagedFields, workflow string, force bool) (ManagedFields, error) {
+func (s *Updater) update(oldObject, newObject typed.TypedValue, managers fieldpath.ManagedFields, workflow string, force bool) (fieldpath.ManagedFields, error) {
 	if managers == nil {
-		managers = ManagedFields{}
+		managers = fieldpath.ManagedFields{}
 	}
-	conflicts := ManagedFields{}
+	conflicts := fieldpath.ManagedFields{}
 	type Versioned struct {
 		oldObject typed.TypedValue
 		newObject typed.TypedValue
 	}
-	versions := map[APIVersion]Versioned{}
+	versions := map[fieldpath.APIVersion]Versioned{}
 
 	for manager, managerSet := range managers {
 		if manager == workflow {
@@ -67,7 +67,7 @@ func (s *Updater) update(oldObject, newObject typed.TypedValue, managers Managed
 
 		conflictSet := managerSet.Intersection(compare.Modified.Union(compare.Added))
 		if !conflictSet.Empty() {
-			conflicts[manager] = &VersionedSet{
+			conflicts[manager] = &fieldpath.VersionedSet{
 				Set:        conflictSet,
 				APIVersion: managerSet.APIVersion,
 			}
@@ -90,48 +90,48 @@ func (s *Updater) update(oldObject, newObject typed.TypedValue, managers Managed
 // that you intend to persist (after applying the patch if this is for a
 // PATCH call), and liveObject must be the original object (empty if
 // this is a CREATE call).
-func (s *Updater) Update(liveObject, newObject typed.TypedValue, managers ManagedFields, manager string) (ManagedFields, error) {
+func (s *Updater) Update(liveObject, newObject typed.TypedValue, managers fieldpath.ManagedFields, manager string) (fieldpath.ManagedFields, error) {
 	var err error
 	managers, err = s.update(liveObject, newObject, managers, manager, true)
 	if err != nil {
-		return ManagedFields{}, err
+		return fieldpath.ManagedFields{}, err
 	}
 	compare, err := liveObject.Compare(newObject)
 	if err != nil {
-		return ManagedFields{}, fmt.Errorf("failed to compare live and new objects: %v", err)
+		return fieldpath.ManagedFields{}, fmt.Errorf("failed to compare live and new objects: %v", err)
 	}
 	if _, ok := managers[manager]; !ok {
-		managers[manager] = &VersionedSet{
+		managers[manager] = &fieldpath.VersionedSet{
 			Set: fieldpath.NewSet(),
 		}
 	}
 	managers[manager].Set = managers[manager].Set.Union(compare.Modified).Union(compare.Added).Difference(compare.Removed)
-	managers[manager].APIVersion = APIVersion("v1") // TODO: We don't support multiple versions yet.
+	managers[manager].APIVersion = fieldpath.APIVersion("v1") // TODO: We don't support multiple versions yet.
 	return managers, nil
 }
 
 // Apply should be called when Apply is run, given the current object as
 // well as the configuration that is applied. This will merge the object
 // and return it.
-func (s *Updater) Apply(liveObject, configObject typed.TypedValue, managers ManagedFields, manager string, force bool) (typed.TypedValue, ManagedFields, error) {
+func (s *Updater) Apply(liveObject, configObject typed.TypedValue, managers fieldpath.ManagedFields, manager string, force bool) (typed.TypedValue, fieldpath.ManagedFields, error) {
 	newObject, err := liveObject.Merge(configObject)
 	if err != nil {
-		return typed.TypedValue{}, ManagedFields{}, fmt.Errorf("failed to merge config: %v", err)
+		return typed.TypedValue{}, fieldpath.ManagedFields{}, fmt.Errorf("failed to merge config: %v", err)
 	}
 	managers, err = s.update(liveObject, newObject, managers, manager, force)
 	if err != nil {
-		return typed.TypedValue{}, ManagedFields{}, err
+		return typed.TypedValue{}, fieldpath.ManagedFields{}, err
 	}
 
 	// TODO: Remove unconflicting removed fields
 
 	set, err := configObject.ToFieldSet()
 	if err != nil {
-		return typed.TypedValue{}, ManagedFields{}, fmt.Errorf("failed to get field set: %v", err)
+		return typed.TypedValue{}, fieldpath.ManagedFields{}, fmt.Errorf("failed to get field set: %v", err)
 	}
-	managers[manager] = &VersionedSet{
+	managers[manager] = &fieldpath.VersionedSet{
 		Set:        set,
-		APIVersion: APIVersion("v1"), // TODO: We don't support multiple versions yet.
+		APIVersion: fieldpath.APIVersion("v1"), // TODO: We don't support multiple versions yet.
 	}
 	return newObject, managers, nil
 }

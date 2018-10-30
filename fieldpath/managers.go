@@ -11,16 +11,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package merge
-
-import "sigs.k8s.io/structured-merge-diff/fieldpath"
+package fieldpath
 
 // APIVersion describes the version of an object or of a fieldset.
 type APIVersion string
 
 // VersionedSet associates a version to a set.
 type VersionedSet struct {
-	*fieldpath.Set
+	*Set
 	APIVersion APIVersion
 }
 
