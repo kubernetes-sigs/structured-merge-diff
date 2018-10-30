@@ -32,11 +32,11 @@ type Updater struct {
 	Converter Converter
 }
 
-func (s *Updater) update(oldObject, newObject typed.TypedValue, managers Managers, workflow string, force bool) (Managers, error) {
+func (s *Updater) update(oldObject, newObject typed.TypedValue, managers ManagedFields, workflow string, force bool) (ManagedFields, error) {
 	if managers == nil {
-		managers = Managers{}
+		managers = ManagedFields{}
 	}
-	conflicts := Managers{}
+	conflicts := ManagedFields{}
 	type Versioned struct {
 		oldObject typed.TypedValue
 		newObject typed.TypedValue
@@ -90,15 +90,15 @@ func (s *Updater) update(oldObject, newObject typed.TypedValue, managers Manager
 // that you intend to persist (after applying the patch if this is for a
 // PATCH call), and liveObject must be the original object (empty if
 // this is a CREATE call).
-func (s *Updater) Update(liveObject, newObject typed.TypedValue, managers Managers, manager string) (Managers, error) {
+func (s *Updater) Update(liveObject, newObject typed.TypedValue, managers ManagedFields, manager string) (ManagedFields, error) {
 	var err error
 	managers, err = s.update(liveObject, newObject, managers, manager, true)
 	if err != nil {
-		return Managers{}, err
+		return ManagedFields{}, err
 	}
 	compare, err := liveObject.Compare(newObject)
 	if err != nil {
-		return Managers{}, fmt.Errorf("failed to compare live and new objects: %v", err)
+		return ManagedFields{}, fmt.Errorf("failed to compare live and new objects: %v", err)
 	}
 	if _, ok := managers[manager]; !ok {
 		managers[manager] = &VersionedSet{
@@ -113,21 +113,21 @@ func (s *Updater) Update(liveObject, newObject typed.TypedValue, managers Manage
 // Apply should be called when Apply is run, given the current object as
 // well as the configuration that is applied. This will merge the object
 // and return it.
-func (s *Updater) Apply(liveObject, configObject typed.TypedValue, managers Managers, manager string, force bool) (typed.TypedValue, Managers, error) {
+func (s *Updater) Apply(liveObject, configObject typed.TypedValue, managers ManagedFields, manager string, force bool) (typed.TypedValue, ManagedFields, error) {
 	newObject, err := liveObject.Merge(configObject)
 	if err != nil {
-		return typed.TypedValue{}, Managers{}, fmt.Errorf("failed to merge config: %v", err)
+		return typed.TypedValue{}, ManagedFields{}, fmt.Errorf("failed to merge config: %v", err)
 	}
 	managers, err = s.update(liveObject, newObject, managers, manager, force)
 	if err != nil {
-		return typed.TypedValue{}, Managers{}, err
+		return typed.TypedValue{}, ManagedFields{}, err
 	}
 
 	// TODO: Remove unconflicting removed fields
 
 	set, err := configObject.ToFieldSet()
 	if err != nil {
-		return typed.TypedValue{}, Managers{}, fmt.Errorf("failed to get field set: %v", err)
+		return typed.TypedValue{}, ManagedFields{}, fmt.Errorf("failed to get field set: %v", err)
 	}
 	managers[manager] = &VersionedSet{
 		Set:        set,

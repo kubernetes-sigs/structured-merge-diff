@@ -27,23 +27,23 @@ import (
 func TestManagersDifference(t *testing.T) {
 	tests := []struct {
 		name string
-		lhs  merge.Managers
-		rhs  merge.Managers
-		out  merge.Managers
+		lhs  merge.ManagedFields
+		rhs  merge.ManagedFields
+		out  merge.ManagedFields
 	}{
 		{
 			name: "Empty sets",
-			out:  merge.Managers{},
+			out:  merge.ManagedFields{},
 		},
 		{
 			name: "Empty RHS",
-			lhs: merge.Managers{
+			lhs: merge.ManagedFields{
 				"default": &merge.VersionedSet{
 					Set:        _NS(_P("numeric"), _P("string"), _P("bool")),
 					APIVersion: "v1",
 				},
 			},
-			out: merge.Managers{
+			out: merge.ManagedFields{
 				"default": &merge.VersionedSet{
 					Set:        _NS(_P("numeric"), _P("string"), _P("bool")),
 					APIVersion: "v1",
@@ -52,13 +52,13 @@ func TestManagersDifference(t *testing.T) {
 		},
 		{
 			name: "Empty LHS",
-			rhs: merge.Managers{
+			rhs: merge.ManagedFields{
 				"default": &merge.VersionedSet{
 					Set:        _NS(_P("numeric"), _P("string"), _P("bool")),
 					APIVersion: "v1",
 				},
 			},
-			out: merge.Managers{
+			out: merge.ManagedFields{
 				"default": &merge.VersionedSet{
 					Set:        _NS(_P("numeric"), _P("string"), _P("bool")),
 					APIVersion: "v1",
@@ -67,19 +67,19 @@ func TestManagersDifference(t *testing.T) {
 		},
 		{
 			name: "Different managers",
-			lhs: merge.Managers{
+			lhs: merge.ManagedFields{
 				"one": &merge.VersionedSet{
 					Set:        _NS(_P("numeric"), _P("string"), _P("bool")),
 					APIVersion: "v1",
 				},
 			},
-			rhs: merge.Managers{
+			rhs: merge.ManagedFields{
 				"two": &merge.VersionedSet{
 					Set:        _NS(_P("numeric"), _P("string"), _P("bool")),
 					APIVersion: "v1",
 				},
 			},
-			out: merge.Managers{
+			out: merge.ManagedFields{
 				"one": &merge.VersionedSet{
 					Set:        _NS(_P("numeric"), _P("string"), _P("bool")),
 					APIVersion: "v1",
@@ -92,19 +92,19 @@ func TestManagersDifference(t *testing.T) {
 		},
 		{
 			name: "Same manager, different version",
-			lhs: merge.Managers{
+			lhs: merge.ManagedFields{
 				"one": &merge.VersionedSet{
 					Set:        _NS(_P("numeric"), _P("string"), _P("integer")),
 					APIVersion: "v1",
 				},
 			},
-			rhs: merge.Managers{
+			rhs: merge.ManagedFields{
 				"one": &merge.VersionedSet{
 					Set:        _NS(_P("numeric"), _P("string"), _P("bool")),
 					APIVersion: "v2",
 				},
 			},
-			out: merge.Managers{
+			out: merge.ManagedFields{
 				"one": &merge.VersionedSet{
 					Set:        _NS(_P("numeric"), _P("string"), _P("bool")),
 					APIVersion: "v2",
@@ -113,19 +113,19 @@ func TestManagersDifference(t *testing.T) {
 		},
 		{
 			name: "Set difference",
-			lhs: merge.Managers{
+			lhs: merge.ManagedFields{
 				"one": &merge.VersionedSet{
 					Set:        _NS(_P("numeric"), _P("string")),
 					APIVersion: "v1",
 				},
 			},
-			rhs: merge.Managers{
+			rhs: merge.ManagedFields{
 				"one": &merge.VersionedSet{
 					Set:        _NS(_P("string"), _P("bool")),
 					APIVersion: "v1",
 				},
 			},
-			out: merge.Managers{
+			out: merge.ManagedFields{
 				"one": &merge.VersionedSet{
 					Set:        _NS(_P("numeric"), _P("bool")),
 					APIVersion: "v1",

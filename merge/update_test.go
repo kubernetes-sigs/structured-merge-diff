@@ -32,7 +32,7 @@ type State struct {
 	// Typename is the typename used to create objects in the
 	// schema.
 	Typename string
-	Managers merge.Managers
+	Managers merge.ManagedFields
 	Updater  *merge.Updater
 }
 

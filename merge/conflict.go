@@ -75,7 +75,7 @@ func (conflicts Conflicts) Error() string {
 }
 
 // ConflictsFromManagers creates a list of conflicts given Managers sets.
-func ConflictsFromManagers(sets Managers) Conflicts {
+func ConflictsFromManagers(sets ManagedFields) Conflicts {
 	conflicts := []Conflict{}
 
 	for manager, set := range sets {

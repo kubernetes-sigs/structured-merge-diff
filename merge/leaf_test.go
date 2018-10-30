@@ -78,7 +78,7 @@ bool: false`)
 		t.Fatalf("Expected live and config to be the same: %v", comparison)
 	}
 
-	wanted := merge.Managers{
+	wanted := merge.ManagedFields{
 		"default": &merge.VersionedSet{
 			Set: _NS(
 				_P("numeric"), _P("string"), _P("bool"),
@@ -140,7 +140,7 @@ bool: true`)
 	if !comparison.IsSame() {
 		t.Fatalf("Expected live and config to be the same: %v", comparison)
 	}
-	wanted := merge.Managers{
+	wanted := merge.ManagedFields{
 		"default": &merge.VersionedSet{
 			Set: _NS(
 				_P("numeric"), _P("string"),
@@ -216,7 +216,7 @@ bool: true`)
 	if !comparison.IsSame() {
 		t.Fatalf("Expected live and config to be the same: %v", comparison)
 	}
-	wanted := merge.Managers{
+	wanted := merge.ManagedFields{
 		"default": &merge.VersionedSet{
 			Set: _NS(
 				_P("numeric"), _P("string"),
@@ -271,7 +271,7 @@ bool: true`)
 		t.Fatalf("Expected live and config to be the same: %v", comparison)
 	}
 
-	wanted := merge.Managers{
+	wanted := merge.ManagedFields{
 		"default": &merge.VersionedSet{
 			Set: _NS(
 				_P("string"),

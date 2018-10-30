@@ -24,16 +24,16 @@ type VersionedSet struct {
 	APIVersion APIVersion
 }
 
-// Managers is a map from manager to VersionedSet (what they own in
+// ManagedFields is a map from manager to VersionedSet (what they own in
 // what version).
-type Managers map[string]*VersionedSet
+type ManagedFields map[string]*VersionedSet
 
 // Difference returns a symmetric difference between two Managers. If a
 // given user's entry has version X in lhs and version Y in rhs, then
 // the return value for that user will be from rhs. If the difference for
 // a user is an empty set, that user will not be inserted in the map.
-func (lhs Managers) Difference(rhs Managers) Managers {
-	diff := Managers{}
+func (lhs ManagedFields) Difference(rhs ManagedFields) ManagedFields {
+	diff := ManagedFields{}
 
 	for manager, left := range lhs {
 		right, ok := rhs[manager]
