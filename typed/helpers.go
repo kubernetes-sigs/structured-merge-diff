@@ -131,17 +131,17 @@ func (ef errorFormatter) validateScalar(t schema.Scalar, v *value.Value, prefix 
 	}
 	switch t {
 	case schema.Numeric:
-		if v.Float == nil && v.Int == nil {
+		if v.FloatValue == nil && v.IntValue == nil {
 			// TODO: should the schema separate int and float?
-			return ef.errorf("%vexpected numeric (int or float), got %v", prefix, v.HumanReadable())
+			return ef.errorf("%vexpected numeric (int or float), got %v", prefix, v)
 		}
 	case schema.String:
-		if v.String == nil {
-			return ef.errorf("%vexpected string, got %v", prefix, v.HumanReadable())
+		if v.StringValue == nil {
+			return ef.errorf("%vexpected string, got %v", prefix, v)
 		}
 	case schema.Boolean:
-		if v.Boolean == nil {
-			return ef.errorf("%vexpected boolean, got %v", prefix, v.HumanReadable())
+		if v.BooleanValue == nil {
+			return ef.errorf("%vexpected boolean, got %v", prefix, v)
 		}
 	}
 	return nil
@@ -153,10 +153,10 @@ func listValue(val value.Value) (*value.List, error) {
 	case val.Null:
 		// Null is a valid list.
 		return nil, nil
-	case val.List != nil:
-		return val.List, nil
+	case val.ListValue != nil:
+		return val.ListValue, nil
 	default:
-		return nil, fmt.Errorf("expected list, got %v", val.HumanReadable())
+		return nil, fmt.Errorf("expected list, got %v", val)
 	}
 }
 
@@ -165,10 +165,10 @@ func mapOrStructValue(val value.Value, typeName string) (*value.Map, error) {
 	switch {
 	case val.Null:
 		return nil, nil
-	case val.Map != nil:
-		return val.Map, nil
+	case val.MapValue != nil:
+		return val.MapValue, nil
 	default:
-		return nil, fmt.Errorf("expected %v, got %v", typeName, val.HumanReadable())
+		return nil, fmt.Errorf("expected %v, got %v", typeName, val)
 	}
 }
 
@@ -191,12 +191,12 @@ func keyedAssociativeListItemToPathElement(list schema.List, index int, child va
 		// are illegal.
 		return pe, errors.New("associative list with keys may not have a null element")
 	}
-	if child.Map == nil {
+	if child.MapValue == nil {
 		return pe, errors.New("associative list with keys may not have non-map elements")
 	}
 	for _, fieldName := range list.Keys {
 		var fieldValue value.Value
-		field, ok := child.Map.Get(fieldName)
+		field, ok := child.MapValue.Get(fieldName)
 		if ok {
 			fieldValue = field.Value
 		} else {
@@ -214,10 +214,10 @@ func keyedAssociativeListItemToPathElement(list schema.List, index int, child va
 func setItemToPathElement(list schema.List, index int, child value.Value) (fieldpath.PathElement, error) {
 	pe := fieldpath.PathElement{}
 	switch {
-	case child.Map != nil:
+	case child.MapValue != nil:
 		// TODO: atomic maps should be acceptable.
 		return pe, errors.New("associative list without keys has an element that's a map type")
-	case child.List != nil:
+	case child.ListValue != nil:
 		// Should we support a set of lists? For the moment
 		// let's say we don't.
 		// TODO: atomic lists should be acceptable.

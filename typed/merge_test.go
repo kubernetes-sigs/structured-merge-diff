@@ -357,12 +357,12 @@ func (tt mergeTestCase) test(t *testing.T) {
 			if err != nil {
 				t.Errorf("got validation errors: %v", err)
 			} else {
-				t.Logf("got:\v%v", got.AsValue().HumanReadable())
+				t.Logf("got:\v%v", got.AsValue())
 				gotUS := got.AsValue().ToUnstructured(true)
 				expectUS := out.AsValue().ToUnstructured(true)
 				if !reflect.DeepEqual(gotUS, expectUS) {
 					t.Errorf("Expected\n%v\nbut got\n%v\n",
-						out.AsValue().HumanReadable(), got.AsValue().HumanReadable(),
+						out.AsValue(), got.AsValue(),
 					)
 				}
 			}
