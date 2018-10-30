@@ -24,26 +24,26 @@ import (
 	"sigs.k8s.io/structured-merge-diff/merge"
 )
 
-func TestOwnersDifference(t *testing.T) {
+func TestManagersDifference(t *testing.T) {
 	tests := []struct {
 		name string
-		lhs  merge.Owners
-		rhs  merge.Owners
-		out  merge.Owners
+		lhs  merge.Managers
+		rhs  merge.Managers
+		out  merge.Managers
 	}{
 		{
 			name: "Empty sets",
-			out:  merge.Owners{},
+			out:  merge.Managers{},
 		},
 		{
 			name: "Empty RHS",
-			lhs: merge.Owners{
+			lhs: merge.Managers{
 				"default": &merge.VersionedSet{
 					Set:        _NS(_P("numeric"), _P("string"), _P("bool")),
 					APIVersion: "v1",
 				},
 			},
-			out: merge.Owners{
+			out: merge.Managers{
 				"default": &merge.VersionedSet{
 					Set:        _NS(_P("numeric"), _P("string"), _P("bool")),
 					APIVersion: "v1",
@@ -52,13 +52,13 @@ func TestOwnersDifference(t *testing.T) {
 		},
 		{
 			name: "Empty LHS",
-			rhs: merge.Owners{
+			rhs: merge.Managers{
 				"default": &merge.VersionedSet{
 					Set:        _NS(_P("numeric"), _P("string"), _P("bool")),
 					APIVersion: "v1",
 				},
 			},
-			out: merge.Owners{
+			out: merge.Managers{
 				"default": &merge.VersionedSet{
 					Set:        _NS(_P("numeric"), _P("string"), _P("bool")),
 					APIVersion: "v1",
@@ -67,19 +67,19 @@ func TestOwnersDifference(t *testing.T) {
 		},
 		{
 			name: "Different managers",
-			lhs: merge.Owners{
+			lhs: merge.Managers{
 				"one": &merge.VersionedSet{
 					Set:        _NS(_P("numeric"), _P("string"), _P("bool")),
 					APIVersion: "v1",
 				},
 			},
-			rhs: merge.Owners{
+			rhs: merge.Managers{
 				"two": &merge.VersionedSet{
 					Set:        _NS(_P("numeric"), _P("string"), _P("bool")),
 					APIVersion: "v1",
 				},
 			},
-			out: merge.Owners{
+			out: merge.Managers{
 				"one": &merge.VersionedSet{
 					Set:        _NS(_P("numeric"), _P("string"), _P("bool")),
 					APIVersion: "v1",
@@ -92,19 +92,19 @@ func TestOwnersDifference(t *testing.T) {
 		},
 		{
 			name: "Same manager, different version",
-			lhs: merge.Owners{
+			lhs: merge.Managers{
 				"one": &merge.VersionedSet{
 					Set:        _NS(_P("numeric"), _P("string"), _P("integer")),
 					APIVersion: "v1",
 				},
 			},
-			rhs: merge.Owners{
+			rhs: merge.Managers{
 				"one": &merge.VersionedSet{
 					Set:        _NS(_P("numeric"), _P("string"), _P("bool")),
 					APIVersion: "v2",
 				},
 			},
-			out: merge.Owners{
+			out: merge.Managers{
 				"one": &merge.VersionedSet{
 					Set:        _NS(_P("numeric"), _P("string"), _P("bool")),
 					APIVersion: "v2",
@@ -113,19 +113,19 @@ func TestOwnersDifference(t *testing.T) {
 		},
 		{
 			name: "Set difference",
-			lhs: merge.Owners{
+			lhs: merge.Managers{
 				"one": &merge.VersionedSet{
 					Set:        _NS(_P("numeric"), _P("string")),
 					APIVersion: "v1",
 				},
 			},
-			rhs: merge.Owners{
+			rhs: merge.Managers{
 				"one": &merge.VersionedSet{
 					Set:        _NS(_P("string"), _P("bool")),
 					APIVersion: "v1",
 				},
 			},
-			out: merge.Owners{
+			out: merge.Managers{
 				"one": &merge.VersionedSet{
 					Set:        _NS(_P("numeric"), _P("bool")),
 					APIVersion: "v1",

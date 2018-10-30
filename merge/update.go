@@ -32,57 +32,57 @@ type Updater struct {
 	Converter Converter
 }
 
-func (s *Updater) update(oldObject, newObject typed.TypedValue, owners Owners, workflow string, force bool) (Owners, error) {
-	if owners == nil {
-		owners = Owners{}
+func (s *Updater) update(oldObject, newObject typed.TypedValue, managers Managers, workflow string, force bool) (Managers, error) {
+	if managers == nil {
+		managers = Managers{}
 	}
-	conflicts := Owners{}
+	conflicts := Managers{}
 	type Versioned struct {
 		oldObject typed.TypedValue
 		newObject typed.TypedValue
 	}
 	versions := map[APIVersion]Versioned{}
 
-	for owner, ownerSet := range owners {
-		if owner == workflow {
+	for manager, managerSet := range managers {
+		if manager == workflow {
 			continue
 		}
-		versioned, ok := versions[ownerSet.APIVersion]
+		versioned, ok := versions[managerSet.APIVersion]
 		if !ok {
 			var err error
-			versioned.oldObject, err = s.Converter.Convert(oldObject, ownerSet.APIVersion)
+			versioned.oldObject, err = s.Converter.Convert(oldObject, managerSet.APIVersion)
 			if err != nil {
 				return nil, fmt.Errorf("failed to convert old object: %v", err)
 			}
-			versioned.newObject, err = s.Converter.Convert(newObject, ownerSet.APIVersion)
+			versioned.newObject, err = s.Converter.Convert(newObject, managerSet.APIVersion)
 			if err != nil {
 				return nil, fmt.Errorf("failed to convert new object: %v", err)
 			}
-			versions[ownerSet.APIVersion] = versioned
+			versions[managerSet.APIVersion] = versioned
 		}
 		compare, err := versioned.oldObject.Compare(versioned.newObject)
 		if err != nil {
 			return nil, fmt.Errorf("failed to compare objects: %v", err)
 		}
 
-		conflictSet := ownerSet.Intersection(compare.Modified.Union(compare.Added))
+		conflictSet := managerSet.Intersection(compare.Modified.Union(compare.Added))
 		if !conflictSet.Empty() {
-			conflicts[owner] = &VersionedSet{
+			conflicts[manager] = &VersionedSet{
 				Set:        conflictSet,
-				APIVersion: ownerSet.APIVersion,
+				APIVersion: managerSet.APIVersion,
 			}
 		}
 	}
 
 	if !force && len(conflicts) != 0 {
-		return nil, ConflictsFromOwners(conflicts)
+		return nil, ConflictsFromManagers(conflicts)
 	}
 
-	for owner, conflictSet := range conflicts {
-		owners[owner].Set = owners[owner].Set.Difference(conflictSet.Set)
+	for manager, conflictSet := range conflicts {
+		managers[manager].Set = managers[manager].Set.Difference(conflictSet.Set)
 	}
 
-	return owners, nil
+	return managers, nil
 }
 
 // Update is the method you should call once you've merged your final
@@ -90,48 +90,48 @@ func (s *Updater) update(oldObject, newObject typed.TypedValue, owners Owners, w
 // that you intend to persist (after applying the patch if this is for a
 // PATCH call), and liveObject must be the original object (empty if
 // this is a CREATE call).
-func (s *Updater) Update(liveObject, newObject typed.TypedValue, owners Owners, owner string) (Owners, error) {
+func (s *Updater) Update(liveObject, newObject typed.TypedValue, managers Managers, manager string) (Managers, error) {
 	var err error
-	owners, err = s.update(liveObject, newObject, owners, owner, true)
+	managers, err = s.update(liveObject, newObject, managers, manager, true)
 	if err != nil {
-		return Owners{}, err
+		return Managers{}, err
 	}
 	compare, err := liveObject.Compare(newObject)
 	if err != nil {
-		return Owners{}, fmt.Errorf("failed to compare live and new objects: %v", err)
+		return Managers{}, fmt.Errorf("failed to compare live and new objects: %v", err)
 	}
-	if _, ok := owners[owner]; !ok {
-		owners[owner] = &VersionedSet{
+	if _, ok := managers[manager]; !ok {
+		managers[manager] = &VersionedSet{
 			Set: fieldpath.NewSet(),
 		}
 	}
-	owners[owner].Set = owners[owner].Set.Union(compare.Modified).Union(compare.Added).Difference(compare.Removed)
-	owners[owner].APIVersion = APIVersion("v1") // TODO: We don't support multiple versions yet.
-	return owners, nil
+	managers[manager].Set = managers[manager].Set.Union(compare.Modified).Union(compare.Added).Difference(compare.Removed)
+	managers[manager].APIVersion = APIVersion("v1") // TODO: We don't support multiple versions yet.
+	return managers, nil
 }
 
 // Apply should be called when Apply is run, given the current object as
 // well as the configuration that is applied. This will merge the object
 // and return it.
-func (s *Updater) Apply(liveObject, configObject typed.TypedValue, owners Owners, owner string, force bool) (typed.TypedValue, Owners, error) {
+func (s *Updater) Apply(liveObject, configObject typed.TypedValue, managers Managers, manager string, force bool) (typed.TypedValue, Managers, error) {
 	newObject, err := liveObject.Merge(configObject)
 	if err != nil {
-		return typed.TypedValue{}, Owners{}, fmt.Errorf("failed to merge config: %v", err)
+		return typed.TypedValue{}, Managers{}, fmt.Errorf("failed to merge config: %v", err)
 	}
-	owners, err = s.update(liveObject, newObject, owners, owner, force)
+	managers, err = s.update(liveObject, newObject, managers, manager, force)
 	if err != nil {
-		return typed.TypedValue{}, Owners{}, err
+		return typed.TypedValue{}, Managers{}, err
 	}
 
 	// TODO: Remove unconflicting removed fields
 
 	set, err := configObject.ToFieldSet()
 	if err != nil {
-		return typed.TypedValue{}, Owners{}, fmt.Errorf("failed to get field set: %v", err)
+		return typed.TypedValue{}, Managers{}, fmt.Errorf("failed to get field set: %v", err)
 	}
-	owners[owner] = &VersionedSet{
+	managers[manager] = &VersionedSet{
 		Set:        set,
 		APIVersion: APIVersion("v1"), // TODO: We don't support multiple versions yet.
 	}
-	return newObject, owners, nil
+	return newObject, managers, nil
 }

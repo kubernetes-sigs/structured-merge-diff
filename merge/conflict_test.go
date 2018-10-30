@@ -34,7 +34,7 @@ var (
 )
 
 func TestNewFromSets(t *testing.T) {
-	got := merge.ConflictsFromOwners(merge.Owners{
+	got := merge.ConflictsFromManagers(merge.Managers{
 		"Bob": &merge.VersionedSet{
 			Set: _NS(
 				_P("key"),

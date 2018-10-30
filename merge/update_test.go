@@ -25,14 +25,14 @@ import (
 )
 
 // State of the current test in terms of live object. One can check at
-// any time that Live and Owners match the expectations.
+// any time that Live and Managers match the expectations.
 type State struct {
 	Live   *typed.TypedValue
 	Parser *typed.Parser
 	// Typename is the typename used to create objects in the
 	// schema.
 	Typename string
-	Owners   merge.Owners
+	Managers merge.Managers
 	Updater  *merge.Updater
 }
 
@@ -52,23 +52,23 @@ func (s *State) checkInit() error {
 }
 
 // Update the current state with the passed in object
-func (s *State) Update(obj typed.YAMLObject, owner string) error {
+func (s *State) Update(obj typed.YAMLObject, manager string) error {
 	if err := s.checkInit(); err != nil {
 		return err
 	}
 	tv, err := s.ObjectFactory().FromYAML(obj)
-	owners, err := s.Updater.Update(*s.Live, tv, s.Owners, owner)
+	managers, err := s.Updater.Update(*s.Live, tv, s.Managers, manager)
 	if err != nil {
 		return err
 	}
 	s.Live = &tv
-	s.Owners = owners
+	s.Managers = managers
 
 	return nil
 }
 
 // Apply the passed in object to the current state
-func (s *State) Apply(obj typed.YAMLObject, owner string, force bool) error {
+func (s *State) Apply(obj typed.YAMLObject, manager string, force bool) error {
 	if err := s.checkInit(); err != nil {
 		return err
 	}
@@ -76,12 +76,12 @@ func (s *State) Apply(obj typed.YAMLObject, owner string, force bool) error {
 	if err != nil {
 		return err
 	}
-	new, owners, err := s.Updater.Apply(*s.Live, tv, s.Owners, owner, force)
+	new, managers, err := s.Updater.Apply(*s.Live, tv, s.Managers, manager, force)
 	if err != nil {
 		return err
 	}
 	s.Live = &new
-	s.Owners = owners
+	s.Managers = managers
 
 	return nil
 }

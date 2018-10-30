@@ -24,12 +24,12 @@ import (
 	"sigs.k8s.io/structured-merge-diff/fieldpath"
 )
 
-// Conflict is a conflict on a specific field with the current owner of
+// Conflict is a conflict on a specific field with the current manager of
 // that field. It does implement the error interface so that it can be
 // used as an error.
 type Conflict struct {
-	Owner string
-	Path  fieldpath.Path
+	Manager string
+	Path    fieldpath.Path
 }
 
 // Conflict is an error.
@@ -37,15 +37,15 @@ var _ error = Conflict{}
 
 // Error formats the conflict as an error.
 func (c Conflict) Error() string {
-	return fmt.Sprintf("conflict with %q: %v", c.Owner, c.Path)
+	return fmt.Sprintf("conflict with %q: %v", c.Manager, c.Path)
 }
 
-// Conflicts accumulates multiple conflicts and aggregate them by owners.
+// Conflicts accumulates multiple conflicts and aggregates them by managers.
 type Conflicts []Conflict
 
 var _ error = Conflicts{}
 
-// Error prints the list of conflicts, grouped by sorted owners.
+// Error prints the list of conflicts, grouped by sorted managers.
 func (conflicts Conflicts) Error() string {
 	if len(conflicts) == 1 {
 		return conflicts[0].Error()
@@ -53,36 +53,36 @@ func (conflicts Conflicts) Error() string {
 
 	m := map[string][]fieldpath.Path{}
 	for _, conflict := range conflicts {
-		m[conflict.Owner] = append(m[conflict.Owner], conflict.Path)
+		m[conflict.Manager] = append(m[conflict.Manager], conflict.Path)
 	}
 
-	owners := []string{}
-	for owner := range m {
-		owners = append(owners, owner)
+	managers := []string{}
+	for manager := range m {
+		managers = append(managers, manager)
 	}
 
-	// Print conflicts by sorted owners.
-	sort.Strings(owners)
+	// Print conflicts by sorted managers.
+	sort.Strings(managers)
 
 	messages := []string{}
-	for _, owner := range owners {
-		messages = append(messages, fmt.Sprintf("conflicts with %q:", owner))
-		for _, path := range m[owner] {
+	for _, manager := range managers {
+		messages = append(messages, fmt.Sprintf("conflicts with %q:", manager))
+		for _, path := range m[manager] {
 			messages = append(messages, fmt.Sprintf("- %v", path))
 		}
 	}
 	return strings.Join(messages, "\n")
 }
 
-// ConflictsFromOwners creates a list of conflicts given Owners sets.
-func ConflictsFromOwners(sets Owners) Conflicts {
+// ConflictsFromManagers creates a list of conflicts given Managers sets.
+func ConflictsFromManagers(sets Managers) Conflicts {
 	conflicts := []Conflict{}
 
-	for owner, set := range sets {
+	for manager, set := range sets {
 		set.Iterate(func(p fieldpath.Path) {
 			conflicts = append(conflicts, Conflict{
-				Owner: owner,
-				Path:  p,
+				Manager: manager,
+				Path:    p,
 			})
 		})
 	}
