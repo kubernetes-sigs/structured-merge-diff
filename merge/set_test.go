@@ -17,11 +17,9 @@ limitations under the License.
 package merge_test
 
 import (
-	"reflect"
 	"testing"
 
 	"sigs.k8s.io/structured-merge-diff/fieldpath"
-	"sigs.k8s.io/structured-merge-diff/merge"
 	"sigs.k8s.io/structured-merge-diff/typed"
 )
 
@@ -42,385 +40,291 @@ var setFieldsParser = func() *typed.ParseableType {
 	return parser.Type("sets")
 }()
 
-// Run apply twice with different objects, you own everything
-// and the object looks exactly like the last one applied.
-func TestApplyApplySet(t *testing.T) {
-	state := &State{
-		Updater: &merge.Updater{Converter: dummyConverter{}},
-		Parser:  setFieldsParser,
-	}
-
-	config := typed.YAMLObject(`
+func TestUpdateSet(t *testing.T) {
+	tests := map[string]TestCase{
+		"apply_twice": {
+			Ops: []Operation{
+				Apply{
+					Manager: "default",
+					Object: `
 list:
 - a
-- c`)
-	err := state.Apply(config, "default", false)
-	if err != nil {
-		t.Fatalf("Wanted err = %v, got %v", nil, err)
-	}
-
-	config = typed.YAMLObject(`
+- c`,
+				},
+				Apply{
+					Manager: "default",
+					Object: `
 list:
 - a
 - b
 - c
-- d`)
-	err = state.Apply(config, "default", false)
-	if err != nil {
-		t.Fatalf("Wanted err = %v, got %v", nil, err)
-	}
-
-	comparison, err := state.CompareLive(config)
-	if err != nil {
-		t.Fatalf("Failed to compare live with config: %v", err)
-	}
-	if !comparison.IsSame() {
-		t.Fatalf("Expected live and config to be the same: %v", comparison)
-	}
-
-	wanted := fieldpath.ManagedFields{
-		"default": &fieldpath.VersionedSet{
-			Set: _NS(
-				_P("list", _SV("a")),
-				_P("list", _SV("b")),
-				_P("list", _SV("c")),
-				_P("list", _SV("d")),
-			),
-			APIVersion: "v1",
+- d`,
+				},
+			},
+			Object: `
+list:
+- a
+- b
+- c
+- d`,
+			Managed: fieldpath.ManagedFields{
+				"default": &fieldpath.VersionedSet{
+					Set: _NS(
+						_P("list", _SV("a")),
+						_P("list", _SV("b")),
+						_P("list", _SV("c")),
+						_P("list", _SV("d")),
+					),
+					APIVersion: "v1",
+				},
+			},
 		},
-	}
-	if diff := state.Managers.Difference(wanted); len(diff) != 0 {
-		t.Fatalf("Expected Managers to be %v, got %v", wanted, state.Managers)
-	}
-}
-
-// Apply an object, controller updates a different field, apply again,
-// you own the field you applied, controller owns their own, no conflicts.
-func TestApplyUpdateApplySet(t *testing.T) {
-	state := &State{
-		Updater: &merge.Updater{Converter: dummyConverter{}},
-		Parser:  setFieldsParser,
-	}
-
-	config := typed.YAMLObject(`
+		"apply_update_apply_no_overlap": {
+			Ops: []Operation{
+				Apply{
+					Manager: "default",
+					Object: `
 list:
 - a
-- c`)
-	err := state.Apply(config, "default", false)
-	if err != nil {
-		t.Fatalf("Wanted err = %v, got %v", nil, err)
-	}
-
-	config = typed.YAMLObject(`
+- c`,
+				},
+				Update{
+					Manager: "controller",
+					Object: `
 list:
 - a
 - b
 - c
-- d`)
-	err = state.Update(config, "controller")
-	if err != nil {
-		t.Fatalf("Wanted err = %v, got %v", nil, err)
-	}
-
-	config = typed.YAMLObject(`
+- d`,
+				},
+				Apply{
+					Manager: "default",
+					Object: `
 list:
 - a
 - aprime
 - c
-- cprime`)
-	err = state.Apply(config, "default", false)
-	if err != nil {
-		t.Fatalf("Wanted err = %v, got %v", nil, err)
-	}
-
-	config = typed.YAMLObject(`
+- cprime`,
+				},
+			},
+			Object: `
 list:
 - a
 - aprime
 - b
 - c
 - cprime
-- d`)
-	comparison, err := state.CompareLive(config)
-	if err != nil {
-		t.Fatalf("Failed to compare live with config: %v", err)
-	}
-
-	if !comparison.IsSame() {
-		t.Fatalf("Expected live and config to be the same: %v", comparison)
-	}
-	wanted := fieldpath.ManagedFields{
-		"default": &fieldpath.VersionedSet{
-			Set: _NS(
-				_P("list", _SV("a")),
-				_P("list", _SV("aprime")),
-				_P("list", _SV("c")),
-				_P("list", _SV("cprime")),
-			),
-			APIVersion: "v1",
+- d`,
+			Managed: fieldpath.ManagedFields{
+				"default": &fieldpath.VersionedSet{
+					Set: _NS(
+						_P("list", _SV("a")),
+						_P("list", _SV("aprime")),
+						_P("list", _SV("c")),
+						_P("list", _SV("cprime")),
+					),
+					APIVersion: "v1",
+				},
+				"controller": &fieldpath.VersionedSet{
+					Set: _NS(
+						_P("list", _SV("b")),
+						_P("list", _SV("d")),
+					),
+					APIVersion: "v1",
+				},
+			},
 		},
-		"controller": &fieldpath.VersionedSet{
-			Set: _NS(
-				_P("list", _SV("b")),
-				_P("list", _SV("d")),
-			),
-			APIVersion: "v1",
-		}}
-	if diff := state.Managers.Difference(wanted); len(diff) != 0 {
-		t.Fatalf("Expected Managers to be %v, got %v", wanted, state.Managers)
-	}
-}
-
-// Apply an object, controller adds new fields, apply again with some
-// controller fields. you don't get a conflict, you don't own the
-// fields. order is constant.
-func TestApplyUpdateApplySimilarFieldsSet(t *testing.T) {
-	state := &State{
-		Updater: &merge.Updater{Converter: dummyConverter{}},
-		Parser:  setFieldsParser,
-	}
-
-	config := typed.YAMLObject(`
+		"apply_update_apply_with_overlap": {
+			Ops: []Operation{
+				Apply{
+					Manager: "default",
+					Object: `
 list:
 - a
-- c`)
-	err := state.Apply(config, "default", false)
-	if err != nil {
-		t.Fatalf("Wanted err = %v, got %v", nil, err)
-	}
-
-	config = typed.YAMLObject(`
+- c`,
+				},
+				Update{
+					Manager: "controller",
+					Object: `
 list:
 - a
 - b
 - c
-- d`)
-	err = state.Update(config, "controller")
-	if err != nil {
-		t.Fatalf("Wanted err = %v, got %v", nil, err)
-	}
-
-	config = typed.YAMLObject(`
+- d`,
+				},
+				Apply{
+					Manager: "default",
+					Object: `
 list:
 - a
 - b
-- c`)
-	err = state.Apply(config, "default", false)
-	if err != nil {
-		t.Fatalf("Failed to pply: %v", err)
-	}
-
-	config = typed.YAMLObject(`
+- c`,
+				},
+			},
+			Object: `
 list:
 - a
 - b
 - c
-- d`)
-	comparison, err := state.CompareLive(config)
-	if err != nil {
-		t.Fatalf("Failed to compare live with config: %v", err)
-	}
-
-	if !comparison.IsSame() {
-		t.Fatalf("Expected live and config to be the same: %v", comparison)
-	}
-	wanted := fieldpath.ManagedFields{
-		"default": &fieldpath.VersionedSet{
-			Set: _NS(
-				_P("list", _SV("a")),
-				_P("list", _SV("c")),
-			),
-			APIVersion: "v1",
+- d`,
+			Managed: fieldpath.ManagedFields{
+				"default": &fieldpath.VersionedSet{
+					Set: _NS(
+						_P("list", _SV("a")),
+						_P("list", _SV("b")),
+						_P("list", _SV("c")),
+					),
+					APIVersion: "v1",
+				},
+				"controller": &fieldpath.VersionedSet{
+					Set: _NS(
+						_P("list", _SV("b")),
+						_P("list", _SV("d")),
+					),
+					APIVersion: "v1",
+				},
+			},
 		},
-		"controller": &fieldpath.VersionedSet{
-			Set: _NS(
-				_P("list", _SV("b")),
-				_P("list", _SV("d")),
-			),
-			APIVersion: "v1",
-		}}
-	t.Skip("This test is wrong, user shouldn't own b")
-	if diff := state.Managers.Difference(wanted); len(diff) != 0 {
-		t.Fatalf("Expected Managers to be %v, got %v", wanted, state.Managers)
-	}
-}
-
-// Run apply twice with different objects, you own what you apply and
-// the fields you don't specify anymore are removed.
-func TestApplyApplyRemovedSet(t *testing.T) {
-	state := &State{
-		Updater: &merge.Updater{Converter: dummyConverter{}},
-		Parser:  setFieldsParser,
-	}
-
-	config := typed.YAMLObject(`
+		"apply_twice_reorder": {
+			Ops: []Operation{
+				Apply{
+					Manager: "default",
+					Object: `
 list:
 - a
 - b
 - c
-- d`)
-	err := state.Apply(config, "default", false)
-	if err != nil {
-		t.Fatalf("Wanted err = %v, got %v", nil, err)
-	}
-
-	config = typed.YAMLObject(`
-list:
-- b
-- d`)
-	err = state.Apply(config, "default", false)
-	if err != nil {
-		t.Fatalf("Wanted err = %v, got %v", nil, err)
-	}
-
-	t.Skip("Test doesn't work because items should be removed.")
-	comparison, err := state.CompareLive(config)
-	if err != nil {
-		t.Fatalf("Failed to compare live with config: %v", err)
-	}
-	if !comparison.IsSame() {
-		t.Fatalf("Expected live and config to be the same: %v", comparison)
-	}
-
-	wanted := fieldpath.ManagedFields{
-		"default": &fieldpath.VersionedSet{
-			Set: _NS(
-				_P("list", _SV("b")),
-				_P("list", _SV("d")),
-			),
-			APIVersion: "v1",
-		},
-	}
-	if diff := state.Managers.Difference(wanted); len(diff) != 0 {
-		t.Fatalf("Expected Managers to be %v, got %v", wanted, state.Managers)
-	}
-}
-
-// Run apply twice with different order, no problem.
-func TestApplyApplyDifferentOrderSet(t *testing.T) {
-	state := &State{
-		Updater: &merge.Updater{Converter: dummyConverter{}},
-		Parser:  setFieldsParser,
-	}
-
-	config := typed.YAMLObject(`
-list:
-- a
-- b
-- c
-- d`)
-	err := state.Apply(config, "default", false)
-	if err != nil {
-		t.Fatalf("Wanted err = %v, got %v", nil, err)
-	}
-
-	config = typed.YAMLObject(`
-list:
-- d
-- c
-- b
-- a`)
-	err = state.Apply(config, "default", false)
-	if err != nil {
-		t.Fatalf("Wanted err = %v, got %v", nil, err)
-	}
-
-	comparison, err := state.CompareLive(config)
-	if err != nil {
-		t.Fatalf("Failed to compare live with config: %v", err)
-	}
-	if !comparison.IsSame() {
-		t.Fatalf("Expected live and config to be the same: %v", comparison)
-	}
-
-	wanted := fieldpath.ManagedFields{
-		"default": &fieldpath.VersionedSet{
-			Set: _NS(
-				_P("list", _SV("a")),
-				_P("list", _SV("b")),
-				_P("list", _SV("c")),
-				_P("list", _SV("d")),
-			),
-			APIVersion: "v1",
-		},
-	}
-	if diff := state.Managers.Difference(wanted); len(diff) != 0 {
-		t.Fatalf("Expected Managers to be %v, got %v", wanted, state.Managers)
-	}
-}
-
-// Run apply, controller changes order, apply again and get conflict.
-// Force and your order is restored.
-func TestApplyUpdateApplyDifferentOrderSet(t *testing.T) {
-	state := &State{
-		Updater: &merge.Updater{Converter: dummyConverter{}},
-		Parser:  setFieldsParser,
-	}
-
-	config := typed.YAMLObject(`
-list:
-- a
-- b
-- c
-- d`)
-	err := state.Apply(config, "default", false)
-	if err != nil {
-		t.Fatalf("Wanted err = %v, got %v", nil, err)
-	}
-
-	config = typed.YAMLObject(`
-list:
-- d
-- c
-- b
-- a`)
-	err = state.Update(config, "controller")
-	if err != nil {
-		t.Fatalf("Wanted err = %v, got %v", nil, err)
-	}
-
-	config = typed.YAMLObject(`
+- d`,
+				},
+				Apply{
+					Manager: "default",
+					Object: `
 list:
 - a
 - d
+- c
+- b`,
+				},
+			},
+			Object: `
+list:
+- a
+- d
+- c
+- b`,
+			Managed: fieldpath.ManagedFields{
+				"default": &fieldpath.VersionedSet{
+					Set: _NS(
+						_P("list", _SV("a")),
+						_P("list", _SV("b")),
+						_P("list", _SV("c")),
+						_P("list", _SV("d")),
+					),
+					APIVersion: "v1",
+				},
+			},
+		},
+		"apply_update_apply_reorder": {
+			Ops: []Operation{
+				Apply{
+					Manager: "default",
+					Object: `
+list:
+- a
 - b
-- c`)
-	err = state.Apply(config, "default", false)
-	want := merge.Conflicts{
-		merge.Conflict{Manager: "controller", Path: _P("list")},
-	}
-	t.Skip("We don't create conflict on list ordering yet.")
-	if got := err; !reflect.DeepEqual(err, want) {
-		t.Fatalf("want %v, got %v", want, got)
-	}
-
-	// Force-apply
-	err = state.Apply(config, "default", true)
-	if err != nil {
-		t.Fatalf("Wanted err = %v, got %v", nil, err)
-	}
-
-	comparison, err := state.CompareLive(config)
-	if err != nil {
-		t.Fatalf("Failed to compare live with config: %v", err)
-	}
-	if !comparison.IsSame() {
-		t.Fatalf("Expected live and config to be the same: %v", comparison)
-	}
-
-	wanted := fieldpath.ManagedFields{
-		"default": &fieldpath.VersionedSet{
-			Set: _NS(
-				_P("list"),
-				_P("list", _SV("a")),
-				_P("list", _SV("b")),
-				_P("list", _SV("c")),
-				_P("list", _SV("d")),
-			),
-			APIVersion: "v1",
+- c
+- d`,
+				},
+				Update{
+					Manager: "controller",
+					Object: `
+list:
+- a
+- d
+- c
+- b`,
+				},
+				Apply{
+					Manager: "default",
+					Object: `
+list:
+- a
+- b
+- c
+- d`,
+				},
+			},
+			Object: `
+list:
+- a
+- b
+- c
+- d`,
+			Managed: fieldpath.ManagedFields{
+				"default": &fieldpath.VersionedSet{
+					Set: _NS(
+						_P("list", _SV("a")),
+						_P("list", _SV("b")),
+						_P("list", _SV("c")),
+						_P("list", _SV("d")),
+					),
+					APIVersion: "v1",
+				},
+			},
 		},
 	}
-	if diff := state.Managers.Difference(wanted); len(diff) != 0 {
-		t.Fatalf("Expected Managers to be %v, got %v", wanted, state.Managers)
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			if err := test.Test(setFieldsParser); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+func TestUpdateSetBroken(t *testing.T) {
+	tests := map[string]TestCase{
+		"apply_twice_remove": {
+			Ops: []Operation{
+				Apply{
+					Manager: "default",
+					Object: `
+list:
+- a
+- b
+- c
+- d`,
+				},
+				Apply{
+					Manager: "default",
+					Object: `
+list:
+- a
+- c`,
+				},
+			},
+			Object: `
+list:
+- a
+- c`,
+			Managed: fieldpath.ManagedFields{
+				"default": &fieldpath.VersionedSet{
+					Set: _NS(
+						_P("list", _SV("a")),
+						_P("list", _SV("c")),
+					),
+					APIVersion: "v1",
+				},
+			},
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			if test.Test(setFieldsParser) == nil {
+				t.Fatalf("Broken test passed.")
+			}
+		})
 	}
 }
