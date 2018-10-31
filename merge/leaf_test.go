@@ -25,7 +25,7 @@ import (
 	"sigs.k8s.io/structured-merge-diff/typed"
 )
 
-var leafFieldsParser = func() *typed.Parser {
+var leafFieldsParser = func() *typed.ParseableType {
 	parser, err := typed.NewParser(`types:
 - name: leafFields
   struct:
@@ -42,16 +42,15 @@ var leafFieldsParser = func() *typed.Parser {
 	if err != nil {
 		panic(err)
 	}
-	return parser
+	return parser.Type("leafFields")
 }()
 
 // Run apply twice with different objects, you own everything
 // and the object looks exactly like the last one applied.
 func TestApplyApplyLeaf(t *testing.T) {
 	state := &State{
-		Updater:  &merge.Updater{},
-		Parser:   leafFieldsParser,
-		Typename: "leafFields",
+		Updater: &merge.Updater{},
+		Parser:  leafFieldsParser,
 	}
 
 	config := typed.YAMLObject(`
@@ -96,9 +95,8 @@ bool: false`)
 // you own the field you applied, controller owns their own, no conflicts.
 func TestApplyUpdateApplyLeaf(t *testing.T) {
 	state := &State{
-		Updater:  &merge.Updater{Converter: dummyConverter{}},
-		Parser:   leafFieldsParser,
-		Typename: "leafFields",
+		Updater: &merge.Updater{Converter: dummyConverter{}},
+		Parser:  leafFieldsParser,
 	}
 
 	config := typed.YAMLObject(`
@@ -163,9 +161,8 @@ bool: true`)
 // you get a conflict, apply force, it gets resolved.
 func TestApplyUpdateApplyWithConflictsLeaf(t *testing.T) {
 	state := &State{
-		Updater:  &merge.Updater{Converter: dummyConverter{}},
-		Parser:   leafFieldsParser,
-		Typename: "leafFields",
+		Updater: &merge.Updater{Converter: dummyConverter{}},
+		Parser:  leafFieldsParser,
 	}
 
 	config := typed.YAMLObject(`
@@ -239,9 +236,8 @@ bool: true`)
 // the fields you don't specify anymore are dangling.
 func TestApplyApplyDanglingLeaf(t *testing.T) {
 	state := &State{
-		Updater:  &merge.Updater{},
-		Parser:   leafFieldsParser,
-		Typename: "leafFields",
+		Updater: &merge.Updater{},
+		Parser:  leafFieldsParser,
 	}
 
 	config := typed.YAMLObject(`

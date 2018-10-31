@@ -25,7 +25,7 @@ import (
 	"sigs.k8s.io/structured-merge-diff/typed"
 )
 
-var setFieldsParser = func() *typed.Parser {
+var setFieldsParser = func() *typed.ParseableType {
 	parser, err := typed.NewParser(`types:
 - name: sets
   struct:
@@ -39,16 +39,15 @@ var setFieldsParser = func() *typed.Parser {
 	if err != nil {
 		panic(err)
 	}
-	return parser
+	return parser.Type("sets")
 }()
 
 // Run apply twice with different objects, you own everything
 // and the object looks exactly like the last one applied.
 func TestApplyApplySet(t *testing.T) {
 	state := &State{
-		Updater:  &merge.Updater{Converter: dummyConverter{}},
-		Parser:   setFieldsParser,
-		Typename: "sets",
+		Updater: &merge.Updater{Converter: dummyConverter{}},
+		Parser:  setFieldsParser,
 	}
 
 	config := typed.YAMLObject(`
@@ -99,9 +98,8 @@ list:
 // you own the field you applied, controller owns their own, no conflicts.
 func TestApplyUpdateApplySet(t *testing.T) {
 	state := &State{
-		Updater:  &merge.Updater{Converter: dummyConverter{}},
-		Parser:   setFieldsParser,
-		Typename: "sets",
+		Updater: &merge.Updater{Converter: dummyConverter{}},
+		Parser:  setFieldsParser,
 	}
 
 	config := typed.YAMLObject(`
@@ -178,9 +176,8 @@ list:
 // fields. order is constant.
 func TestApplyUpdateApplySimilarFieldsSet(t *testing.T) {
 	state := &State{
-		Updater:  &merge.Updater{Converter: dummyConverter{}},
-		Parser:   setFieldsParser,
-		Typename: "sets",
+		Updater: &merge.Updater{Converter: dummyConverter{}},
+		Parser:  setFieldsParser,
 	}
 
 	config := typed.YAMLObject(`
@@ -252,9 +249,8 @@ list:
 // the fields you don't specify anymore are removed.
 func TestApplyApplyRemovedSet(t *testing.T) {
 	state := &State{
-		Updater:  &merge.Updater{Converter: dummyConverter{}},
-		Parser:   setFieldsParser,
-		Typename: "sets",
+		Updater: &merge.Updater{Converter: dummyConverter{}},
+		Parser:  setFieldsParser,
 	}
 
 	config := typed.YAMLObject(`
@@ -303,9 +299,8 @@ list:
 // Run apply twice with different order, no problem.
 func TestApplyApplyDifferentOrderSet(t *testing.T) {
 	state := &State{
-		Updater:  &merge.Updater{Converter: dummyConverter{}},
-		Parser:   setFieldsParser,
-		Typename: "sets",
+		Updater: &merge.Updater{Converter: dummyConverter{}},
+		Parser:  setFieldsParser,
 	}
 
 	config := typed.YAMLObject(`
@@ -358,9 +353,8 @@ list:
 // Force and your order is restored.
 func TestApplyUpdateApplyDifferentOrderSet(t *testing.T) {
 	state := &State{
-		Updater:  &merge.Updater{Converter: dummyConverter{}},
-		Parser:   setFieldsParser,
-		Typename: "sets",
+		Updater: &merge.Updater{Converter: dummyConverter{}},
+		Parser:  setFieldsParser,
 	}
 
 	config := typed.YAMLObject(`
