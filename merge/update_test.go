@@ -18,6 +18,7 @@ package merge_test
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 
 	"sigs.k8s.io/structured-merge-diff/fieldpath"
@@ -101,6 +102,110 @@ func (dummyConverter) Convert(v typed.TypedValue, version fieldpath.APIVersion) 
 	return v, nil
 }
 
+// Operation is a step that will run when building a table-driven test.
+type Operation interface {
+	run(*State) error
+}
+
+// Apply is a type of operation. It is a non-forced apply run by a
+// manager with a given object. Since non-forced apply operation can
+// conflict, the user can specify the expected conflicts. If conflicts
+// don't match, an error will occur.
+type Apply struct {
+	Manager   string
+	Object    typed.YAMLObject
+	Conflicts merge.Conflicts
+}
+
+var _ Operation = &Apply{}
+
+func (a Apply) run(state *State) error {
+	err := state.Apply(a.Object, a.Manager, false)
+	if (err != nil || a.Conflicts != nil) && !reflect.DeepEqual(err, a.Conflicts) {
+		return fmt.Errorf("expected conflicts: %v, got %v", a.Conflicts, err)
+	}
+	return nil
+
+}
+
+// ForceApply is a type of operation. It is a forced-apply run by a
+// manager with a given object. Any error will be returned.
+type ForceApply struct {
+	Manager string
+	Object  typed.YAMLObject
+}
+
+var _ Operation = &ForceApply{}
+
+func (f ForceApply) run(state *State) error {
+	return state.Apply(f.Object, f.Manager, true)
+}
+
+// Update is a type of operation. It is a controller type of
+// update. Errors are passed along.
+type Update struct {
+	Manager string
+	Object  typed.YAMLObject
+}
+
+var _ Operation = &Update{}
+
+func (u Update) run(state *State) error {
+	return state.Update(u.Object, u.Manager)
+}
+
+// TestCase is the list of operations that need to be run, as well as
+// the object/managedfields as they are supposed to look like after all
+// the operations have been successfully performed. If Object/Managed is
+// not specified, then the comparison is not performed (any object or
+// managed field will pass). Any error (conflicts aside) happen while
+// running the operation, that error will be returned right away.
+type TestCase struct {
+	// Ops is the list of operations to run sequentially
+	Ops []Operation
+	// Object, if not empty, is the object as it's expected to
+	// be after all the operations are run.
+	Object typed.YAMLObject
+	// Managed, if not nil, is the ManagedFields as expected
+	// after all operations are run.
+	Managed fieldpath.ManagedFields
+}
+
+// Test runs the test-case using the given parser.
+func (tc TestCase) Test(parser *typed.ParseableType) error {
+	state := State{
+		Updater: &merge.Updater{Converter: &dummyConverter{}},
+		Parser:  parser,
+	}
+	// We currently don't have any test that converts, we can take
+	// care of that later.
+	for i, ops := range tc.Ops {
+		err := ops.run(&state)
+		if err != nil {
+			return fmt.Errorf("failed operation %d: %v", i, err)
+		}
+	}
+
+	// If LastObject was specified, compare it with LiveState
+	if tc.Object != typed.YAMLObject("") {
+		comparison, err := state.CompareLive(tc.Object)
+		if err != nil {
+			return fmt.Errorf("failed to compare live with config: %v", err)
+		}
+		if !comparison.IsSame() {
+			return fmt.Errorf("expected live and config to be the same: %v", comparison)
+		}
+	}
+
+	if tc.Managed != nil {
+		if diff := state.Managers.Difference(tc.Managed); len(diff) != 0 {
+			return fmt.Errorf("expected Managers to be %v, got %v", tc.Managed, state.Managers)
+		}
+	}
+
+	return nil
+}
+
 // TestExample shows how to use the test framework
 func TestExample(t *testing.T) {
 	parser, err := typed.NewParser(`types:
@@ -116,37 +221,35 @@ func TestExample(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create parser: %v", err)
 	}
-	state := &State{
-		Updater: &merge.Updater{},
-		Parser:  parser.Type("lists"),
-	}
 
-	config := typed.YAMLObject(`
+	tc := TestCase{
+		Ops: []Operation{
+			Apply{
+				Manager: "default",
+				Object: `
+list:
+- a
+- b
+- c`,
+			},
+			Apply{
+				Manager: "default",
+				Object: `
 list:
 - a
 - b
 - c
-`)
-	err = state.Apply(config, "default", false)
-	if err != nil {
-		t.Fatalf("Wanted err = %v, got %v", nil, err)
-	}
-
-	config = typed.YAMLObject(`
-list:
+- d`,
+			},
+		},
+		Object: `list:
 - a
 - b
 - c
-- d`)
-	err = state.Apply(config, "default", false)
-
-	if err != nil {
-		t.Fatalf("Wanted err = %v, got %v", nil, err)
+- d`,
 	}
 
-	// The following is wrong because the code doesn't work yet.
-	_, err = state.CompareLive(config)
-	if err != nil {
-		t.Fatalf("Failed to compare live with config: %v", err)
+	if err := tc.Test(parser.Type("lists")); err != nil {
+		t.Fatalf("Test failed: %v", err)
 	}
 }
