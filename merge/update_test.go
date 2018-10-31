@@ -19,7 +19,6 @@ package merge_test
 import (
 	"fmt"
 	"reflect"
-	"testing"
 
 	"sigs.k8s.io/structured-merge-diff/fieldpath"
 	"sigs.k8s.io/structured-merge-diff/merge"
@@ -204,52 +203,4 @@ func (tc TestCase) Test(parser *typed.ParseableType) error {
 	}
 
 	return nil
-}
-
-// TestExample shows how to use the test framework
-func TestExample(t *testing.T) {
-	parser, err := typed.NewParser(`types:
-- name: lists
-  struct:
-    fields:
-    - name: list
-      type:
-        list:
-          elementType:
-            scalar: string
-          elementRelationship: associative`)
-	if err != nil {
-		t.Fatalf("Failed to create parser: %v", err)
-	}
-
-	tc := TestCase{
-		Ops: []Operation{
-			Apply{
-				Manager: "default",
-				Object: `
-list:
-- a
-- b
-- c`,
-			},
-			Apply{
-				Manager: "default",
-				Object: `
-list:
-- a
-- b
-- c
-- d`,
-			},
-		},
-		Object: `list:
-- a
-- b
-- c
-- d`,
-	}
-
-	if err := tc.Test(parser.Type("lists")); err != nil {
-		t.Fatalf("Test failed: %v", err)
-	}
 }
