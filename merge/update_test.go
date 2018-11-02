@@ -17,8 +17,10 @@ limitations under the License.
 package merge_test
 
 import (
+	"bytes"
 	"fmt"
 	"reflect"
+	"testing"
 
 	"sigs.k8s.io/structured-merge-diff/fieldpath"
 	"sigs.k8s.io/structured-merge-diff/merge"
@@ -34,6 +36,95 @@ type State struct {
 	Updater  *merge.Updater
 }
 
+// FixTabsOrDie counts the number of tab characters preceding the first line in
+// the given yaml object. It removes that many tabs from every line. It then
+// converts remaining tabs to spaces (two spaces per tab). It panics (it's a
+// test funtion) if it finds mixed tabs and spaces in front of a line, or if
+// some line has fewer tabs than the first line.
+//
+// The purpose of this is to make it easier to read tests.
+func FixTabsOrDie(in typed.YAMLObject) typed.YAMLObject {
+	lines := bytes.Split([]byte(in), []byte{'\n'})
+	if len(lines[0]) == 0 && len(lines) > 1 {
+		lines = lines[1:]
+	}
+	prefix := 0
+	for _, c := range lines[0] {
+		if c != '\t' {
+			break
+		}
+		prefix++
+	}
+	tabsToRemove := bytes.Repeat([]byte{'\t'}, prefix)
+
+	for i := range lines {
+		line := lines[i]
+		if i == len(lines)-1 && len(line) <= prefix && bytes.HasPrefix(tabsToRemove, line) {
+			// It's OK for the last line to be blank (trailing \n)
+			lines[i] = []byte{}
+			break
+		}
+		if !bytes.HasPrefix(line, tabsToRemove) {
+			panic(fmt.Sprintf("line %v doesn't have %v tabs as a prefix:\n%s", i, prefix, in))
+		}
+		line = line[prefix:]
+		indent := 0
+		for _, c := range line {
+			if c == ' ' {
+				panic(fmt.Sprintf("line %v has mixed tabs and spaces:\n%v", i, in))
+			}
+			if c != '\t' {
+				break
+			}
+			indent++
+		}
+		lines[i] = append(bytes.Repeat([]byte{' ', ' '}, indent), line[indent:]...)
+	}
+	return typed.YAMLObject(bytes.Join(lines, []byte{'\n'}))
+}
+
+func TestFixTabs(t *testing.T) {
+	cases := []struct {
+		in, out     typed.YAMLObject
+		shouldPanic bool
+	}{{
+		in:  "\t\ta\n\t\t\tb\n",
+		out: "a\n  b\n",
+	}, {
+		in:  "\n\t\ta\n\t\t\tb\n",
+		out: "a\n  b\n",
+	}, {
+		in:  "\n\t\ta\n\t\t\tb\n\t",
+		out: "a\n  b\n",
+	}, {
+		in:          "\t\ta\n\t\t  b\n",
+		shouldPanic: true,
+	}, {
+		in:          "\t\ta\n\tb\n",
+		shouldPanic: true,
+	}}
+
+	for i := range cases {
+		tt := cases[i]
+		t.Run(fmt.Sprintf("%v - %v", i, []byte(tt.in)), func(t *testing.T) {
+			if tt.shouldPanic {
+				defer func() {
+					if x := recover(); x == nil {
+						t.Errorf("expected a panic, but didn't get one")
+					}
+				}()
+			}
+			got := FixTabsOrDie(tt.in)
+			if e, a := tt.out, got; e != a {
+				t.Errorf("got %v", []byte(a))
+			}
+			if bytes.Contains([]byte(got), []byte{'\t'}) {
+				t.Error("contained a tab")
+			}
+		})
+	}
+}
+
 func (s *State) checkInit() error {
 	if s.Live == nil {
 		obj, err := s.Parser.New()
@@ -47,6 +138,7 @@ func (s *State) checkInit() error {
 
 // Update the current state with the passed in object
 func (s *State) Update(obj typed.YAMLObject, manager string) error {
+	obj = FixTabsOrDie(obj)
 	if err := s.checkInit(); err != nil {
 		return err
 	}
@@ -63,6 +155,7 @@ func (s *State) Update(obj typed.YAMLObject, manager string) error {
 
 // Apply the passed in object to the current state
 func (s *State) Apply(obj typed.YAMLObject, manager string, force bool) error {
+	obj = FixTabsOrDie(obj)
 	if err := s.checkInit(); err != nil {
 		return err
 	}
@@ -83,6 +176,7 @@ func (s *State) Apply(obj typed.YAMLObject, manager string, force bool) error {
 // CompareLive takes a YAML string and returns the comparison with the
 // current live object or an error.
 func (s *State) CompareLive(obj typed.YAMLObject) (*typed.Comparison, error) {
+	obj = FixTabsOrDie(obj)
 	if err := s.checkInit(); err != nil {
 		return nil, err
 	}
