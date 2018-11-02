@@ -43,41 +43,44 @@ type State struct {
 //
 // The purpose of this is to make it easier to read tests.
 func FixTabsOrDie(in typed.YAMLObject) typed.YAMLObject {
-	lines := bytes.Split([]byte(in), []byte{'\n'})
-	if len(lines[0]) == 0 && len(lines) > 1 {
-		lines = lines[1:]
-	}
-	prefix := 0
-	for _, c := range lines[0] {
-		if c != '\t' {
-			break
-		}
-		prefix++
-	}
-	tabsToRemove := bytes.Repeat([]byte{'\t'}, prefix)
-
-	for i := range lines {
-		line := lines[i]
-		if i == len(lines)-1 && len(line) <= prefix && bytes.HasPrefix(tabsToRemove, line) {
-			// It's OK for the last line to be blank (trailing \n)
-			lines[i] = []byte{}
-			break
-		}
-		if !bytes.HasPrefix(line, tabsToRemove) {
-			panic(fmt.Sprintf("line %v doesn't have %v tabs as a prefix:\n%s", i, prefix, in))
-		}
-		line = line[prefix:]
-		indent := 0
+	consumeTabs := func(line []byte) (tabCount int, spacesFound bool) {
 		for _, c := range line {
 			if c == ' ' {
-				panic(fmt.Sprintf("line %v has mixed tabs and spaces:\n%v", i, in))
+				spacesFound = true
 			}
 			if c != '\t' {
 				break
 			}
-			indent++
+			tabCount++
 		}
-		lines[i] = append(bytes.Repeat([]byte{' ', ' '}, indent), line[indent:]...)
+		return tabCount, spacesFound
+	}
+
+	lines := bytes.Split([]byte(in), []byte{'\n'})
+	if len(lines[0]) == 0 && len(lines) > 1 {
+		lines = lines[1:]
+	}
+	prefix, _ := consumeTabs(lines[0])
+	var anySpacesFound bool
+	var anyTabsFound bool
+
+	for i := range lines {
+		line := lines[i]
+		indent, spacesFound := consumeTabs(line)
+		if i == len(lines)-1 && len(line) <= prefix && indent == len(line) {
+			// It's OK for the last line to be blank (trailing \n)
+			lines[i] = []byte{}
+			break
+		}
+		anySpacesFound = anySpacesFound || spacesFound
+		anyTabsFound = anyTabsFound || indent > 0
+		if indent < prefix {
+			panic(fmt.Sprintf("line %v doesn't have %v tabs as a prefix:\n%s", i, prefix, in))
+		}
+		lines[i] = append(bytes.Repeat([]byte{' ', ' '}, indent-prefix), line[indent:]...)
+	}
+	if anyTabsFound && anySpacesFound {
+		panic("mixed tabs and spaces found:\n" + string(in))
 	}
 	return typed.YAMLObject(bytes.Join(lines, []byte{'\n'}))
 }
