@@ -29,6 +29,9 @@ func TestFixTabs(t *testing.T) {
 		in, out     typed.YAMLObject
 		shouldPanic bool
 	}{{
+		in:  "a\n  b\n",
+		out: "a\n  b\n",
+	}, {
 		in:  "\t\ta\n\t\t\tb\n",
 		out: "a\n  b\n",
 	}, {
@@ -47,7 +50,7 @@ func TestFixTabs(t *testing.T) {
 
 	for i := range cases {
 		tt := cases[i]
-		t.Run(fmt.Sprintf("%v - %v", i, []byte(tt.in)), func(t *testing.T) {
+		t.Run(fmt.Sprintf("%v-%v", i, []byte(tt.in)), func(t *testing.T) {
 			if tt.shouldPanic {
 				defer func() {
 					if x := recover(); x == nil {
@@ -57,7 +60,7 @@ func TestFixTabs(t *testing.T) {
 			}
 			got := FixTabsOrDie(tt.in)
 			if e, a := tt.out, got; e != a {
-				t.Errorf("got %v", []byte(a))
+				t.Errorf("mismatch\n   got %v\nwanted %v", []byte(a), []byte(e))
 			}
 			if bytes.Contains([]byte(got), []byte{'\t'}) {
 				t.Error("contained a tab")
