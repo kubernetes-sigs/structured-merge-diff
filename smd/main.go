@@ -22,11 +22,11 @@ import (
 	"flag"
 	"log"
 
-	"sigs.k8s.io/structured-merge-diff/smd/internal"
+	"sigs.k8s.io/structured-merge-diff/internal/cli"
 )
 
 func main() {
-	var o internal.Options
+	var o cli.Options
 	o.AddFlags(flag.CommandLine)
 	flag.Parse()
 

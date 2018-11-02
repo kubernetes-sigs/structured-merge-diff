@@ -22,6 +22,8 @@ import (
 	"sigs.k8s.io/structured-merge-diff/fieldpath"
 	"sigs.k8s.io/structured-merge-diff/merge"
 	"sigs.k8s.io/structured-merge-diff/typed"
+
+	. "sigs.k8s.io/structured-merge-diff/internal/fixture"
 )
 
 var leafFieldsParser = func() *typed.ParseableType {
