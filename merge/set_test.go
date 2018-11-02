@@ -47,26 +47,29 @@ func TestUpdateSet(t *testing.T) {
 				Apply{
 					Manager: "default",
 					Object: `
-list:
-- a
-- c`,
+						list:
+						- a
+						- c
+					`,
 				},
 				Apply{
 					Manager: "default",
 					Object: `
-list:
-- a
-- b
-- c
-- d`,
+						list:
+						- a
+						- b
+						- c
+						- d
+					`,
 				},
 			},
 			Object: `
-list:
-- a
-- b
-- c
-- d`,
+				list:
+				- a
+				- b
+				- c
+				- d
+			`,
 			Managed: fieldpath.ManagedFields{
 				"default": &fieldpath.VersionedSet{
 					Set: _NS(
@@ -84,37 +87,41 @@ list:
 				Apply{
 					Manager: "default",
 					Object: `
-list:
-- a
-- c`,
+						list:
+						- a
+						- c
+					`,
 				},
 				Update{
 					Manager: "controller",
 					Object: `
-list:
-- a
-- b
-- c
-- d`,
+						list:
+						- a
+						- b
+						- c
+						- d
+					`,
 				},
 				Apply{
 					Manager: "default",
 					Object: `
-list:
-- a
-- aprime
-- c
-- cprime`,
+						list:
+						- a
+						- aprime
+						- c
+						- cprime
+					`,
 				},
 			},
 			Object: `
-list:
-- a
-- aprime
-- b
-- c
-- cprime
-- d`,
+				list:
+				- a
+				- aprime
+				- b
+				- c
+				- cprime
+				- d
+			`,
 			Managed: fieldpath.ManagedFields{
 				"default": &fieldpath.VersionedSet{
 					Set: _NS(
@@ -139,34 +146,38 @@ list:
 				Apply{
 					Manager: "default",
 					Object: `
-list:
-- a
-- c`,
+						list:
+						- a
+						- c
+					`,
 				},
 				Update{
 					Manager: "controller",
 					Object: `
-list:
-- a
-- b
-- c
-- d`,
+						list:
+						- a
+						- b
+						- c
+						- d
+					`,
 				},
 				Apply{
 					Manager: "default",
 					Object: `
-list:
-- a
-- b
-- c`,
+						list:
+						- a
+						- b
+						- c
+					`,
 				},
 			},
 			Object: `
-list:
-- a
-- b
-- c
-- d`,
+				list:
+				- a
+				- b
+				- c
+				- d
+			`,
 			Managed: fieldpath.ManagedFields{
 				"default": &fieldpath.VersionedSet{
 					Set: _NS(
@@ -190,28 +201,31 @@ list:
 				Apply{
 					Manager: "default",
 					Object: `
-list:
-- a
-- b
-- c
-- d`,
+						list:
+						- a
+						- b
+						- c
+						- d
+					`,
 				},
 				Apply{
 					Manager: "default",
 					Object: `
-list:
-- a
-- d
-- c
-- b`,
+						list:
+						- a
+						- d
+						- c
+						- b
+					`,
 				},
 			},
 			Object: `
-list:
-- a
-- d
-- c
-- b`,
+				list:
+				- a
+				- d
+				- c
+				- b
+			`,
 			Managed: fieldpath.ManagedFields{
 				"default": &fieldpath.VersionedSet{
 					Set: _NS(
@@ -229,37 +243,41 @@ list:
 				Apply{
 					Manager: "default",
 					Object: `
-list:
-- a
-- b
-- c
-- d`,
+						list:
+						- a
+						- b
+						- c
+						- d
+					`,
 				},
 				Update{
 					Manager: "controller",
 					Object: `
-list:
-- a
-- d
-- c
-- b`,
+						list:
+						- a
+						- d
+						- c
+						- b
+					`,
 				},
 				Apply{
 					Manager: "default",
 					Object: `
-list:
-- a
-- b
-- c
-- d`,
+						list:
+						- a
+						- b
+						- c
+						- d
+					`,
 				},
 			},
 			Object: `
-list:
-- a
-- b
-- c
-- d`,
+				list:
+				- a
+				- b
+				- c
+				- d
+			`,
 			Managed: fieldpath.ManagedFields{
 				"default": &fieldpath.VersionedSet{
 					Set: _NS(
@@ -290,24 +308,27 @@ func TestUpdateSetBroken(t *testing.T) {
 				Apply{
 					Manager: "default",
 					Object: `
-list:
-- a
-- b
-- c
-- d`,
+						list:
+						- a
+						- b
+						- c
+						- d
+					`,
 				},
 				Apply{
 					Manager: "default",
 					Object: `
-list:
-- a
-- c`,
+						list:
+						- a
+						- c
+					`,
 				},
 			},
 			Object: `
-list:
-- a
-- c`,
+				list:
+				- a
+				- c
+			`,
 			Managed: fieldpath.ManagedFields{
 				"default": &fieldpath.VersionedSet{
 					Set: _NS(

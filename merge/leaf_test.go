@@ -51,21 +51,24 @@ func TestUpdateLeaf(t *testing.T) {
 				Apply{
 					Manager: "default",
 					Object: `
-numeric: 1
-string: "string"`,
+						numeric: 1
+						string: "string"
+					`,
 				},
 				Apply{
 					Manager: "default",
 					Object: `
-numeric: 2
-string: "string"
-bool: false`,
+						numeric: 2
+						string: "string"
+						bool: false
+					`,
 				},
 			},
 			Object: `
-numeric: 2
-string: "string"
-bool: false`,
+				numeric: 2
+				string: "string"
+				bool: false
+			`,
 			Managed: fieldpath.ManagedFields{
 				"default": &fieldpath.VersionedSet{
 					Set: _NS(
@@ -80,27 +83,31 @@ bool: false`,
 				Apply{
 					Manager: "default",
 					Object: `
-numeric: 1
-string: "string"`,
+						numeric: 1
+						string: "string"
+					`,
 				},
 				Update{
 					Manager: "controller",
 					Object: `
-numeric: 1
-string: "string"
-bool: true`,
+						numeric: 1
+						string: "string"
+						bool: true
+					`,
 				},
 				Apply{
 					Manager: "default",
 					Object: `
-numeric: 2
-string: "string"`,
+						numeric: 2
+						string: "string"
+					`,
 				},
 			},
 			Object: `
-numeric: 2
-string: "string"
-bool: true`,
+				numeric: 2
+				string: "string"
+				bool: true
+			`,
 			Managed: fieldpath.ManagedFields{
 				"default": &fieldpath.VersionedSet{
 					Set: _NS(
@@ -121,21 +128,24 @@ bool: true`,
 				Apply{
 					Manager: "default",
 					Object: `
-numeric: 1
-string: "string"`,
+						numeric: 1
+						string: "string"
+					`,
 				},
 				Update{
 					Manager: "controller",
 					Object: `
-numeric: 1
-string: "controller string"
-bool: true`,
+						numeric: 1
+						string: "controller string"
+						bool: true
+					`,
 				},
 				Apply{
 					Manager: "default",
 					Object: `
-numeric: 2
-string: "user string"`,
+						numeric: 2
+						string: "user string"
+					`,
 					Conflicts: merge.Conflicts{
 						merge.Conflict{Manager: "controller", Path: _P("string")},
 					},
@@ -143,14 +153,16 @@ string: "user string"`,
 				ForceApply{
 					Manager: "default",
 					Object: `
-numeric: 2
-string: "user string"`,
+						numeric: 2
+						string: "user string"
+					`,
 				},
 			},
 			Object: `
-numeric: 2
-string: "user string"
-bool: true`,
+				numeric: 2
+				string: "user string"
+				bool: true
+			`,
 			Managed: fieldpath.ManagedFields{
 				"default": &fieldpath.VersionedSet{
 					Set: _NS(
@@ -171,20 +183,23 @@ bool: true`,
 				Apply{
 					Manager: "default",
 					Object: `
-numeric: 1
-string: "string"
-bool: false`,
+						numeric: 1
+						string: "string"
+						bool: false
+					`,
 				},
 				Apply{
 					Manager: "default",
 					Object: `
-string: "new string"`,
+						string: "new string"
+					`,
 				},
 			},
 			Object: `
-numeric: 1
-string: "new string"
-bool: false`,
+				numeric: 1
+				string: "new string"
+				bool: false
+			`,
 			Managed: fieldpath.ManagedFields{
 				"default": &fieldpath.VersionedSet{
 					Set: _NS(
@@ -194,7 +209,6 @@ bool: false`,
 				},
 			},
 		},
-
 	}
 
 	for name, test := range tests {
