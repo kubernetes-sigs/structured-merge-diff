@@ -67,7 +67,8 @@ func (w *objectWalker) walk() {
 		// If the map/struct were atomic, we'd break here, but we don't
 		// have a schema, so we can't tell.
 
-		for _, child := range w.value.MapValue.Items {
+		for i := range w.value.MapValue.Items {
+			child := w.value.MapValue.Items[i]
 			w2 := *w
 			w2.path = append(w.path, PathElement{FieldName: &child.Name})
 			w2.value = child.Value
