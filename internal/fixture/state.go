@@ -14,13 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package merge_test
+package fixture
 
 import (
 	"bytes"
 	"fmt"
 	"reflect"
-	"testing"
 
 	"sigs.k8s.io/structured-merge-diff/fieldpath"
 	"sigs.k8s.io/structured-merge-diff/merge"
@@ -81,48 +80,6 @@ func FixTabsOrDie(in typed.YAMLObject) typed.YAMLObject {
 		lines[i] = append(bytes.Repeat([]byte{' ', ' '}, indent), line[indent:]...)
 	}
 	return typed.YAMLObject(bytes.Join(lines, []byte{'\n'}))
-}
-
-func TestFixTabs(t *testing.T) {
-	cases := []struct {
-		in, out     typed.YAMLObject
-		shouldPanic bool
-	}{{
-		in:  "\t\ta\n\t\t\tb\n",
-		out: "a\n  b\n",
-	}, {
-		in:  "\n\t\ta\n\t\t\tb\n",
-		out: "a\n  b\n",
-	}, {
-		in:  "\n\t\ta\n\t\t\tb\n\t",
-		out: "a\n  b\n",
-	}, {
-		in:          "\t\ta\n\t\t  b\n",
-		shouldPanic: true,
-	}, {
-		in:          "\t\ta\n\tb\n",
-		shouldPanic: true,
-	}}
-
-	for i := range cases {
-		tt := cases[i]
-		t.Run(fmt.Sprintf("%v - %v", i, []byte(tt.in)), func(t *testing.T) {
-			if tt.shouldPanic {
-				defer func() {
-					if x := recover(); x == nil {
-						t.Errorf("expected a panic, but didn't get one")
-					}
-				}()
-			}
-			got := FixTabsOrDie(tt.in)
-			if e, a := tt.out, got; e != a {
-				t.Errorf("got %v", []byte(a))
-			}
-			if bytes.Contains([]byte(got), []byte{'\t'}) {
-				t.Error("contained a tab")
-			}
-		})
-	}
 }
 
 func (s *State) checkInit() error {
