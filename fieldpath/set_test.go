@@ -334,3 +334,29 @@ func TestSetIntersectionDifference(t *testing.T) {
 		}
 	})
 }
+
+func TestSetNodeMapIterate(t *testing.T) {
+	set := &SetNodeMap{}
+	toAdd := 5
+	addedElements := make([]string, toAdd)
+	for i := 0; i < toAdd; i++ {
+		p := i
+		pe := PathElement{Index: &p}
+		addedElements[i] = pe.String()
+		_ = set.Descend(pe)
+	}
+
+	iteratedElements := make(map[string]bool, toAdd)
+	set.Iterate(func(pe PathElement) {
+		iteratedElements[pe.String()] = true
+	})
+
+	if len(iteratedElements) != toAdd {
+		t.Errorf("expected %v elements to be iterated over, got %v", toAdd, len(iteratedElements))
+	}
+	for _, pe := range addedElements {
+		if _, ok := iteratedElements[pe]; !ok {
+			t.Errorf("expected to have iterated over %v, but never did", pe)
+		}
+	}
+}
