@@ -290,6 +290,13 @@ func (s *SetNodeMap) Difference(s2 *Set) *SetNodeMap {
 	return out
 }
 
+// Iterate calls f for each PathElement in the set.
+func (s *SetNodeMap) Iterate(f func(PathElement)) {
+	for _, n := range s.members {
+		f(n.pathElement)
+	}
+}
+
 func (s *SetNodeMap) iteratePrefix(prefix Path, f func(Path)) {
 	for _, n := range s.members {
 		pe := n.pathElement
