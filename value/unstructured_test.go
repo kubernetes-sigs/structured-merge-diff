@@ -18,6 +18,7 @@ package value
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 
 	"gopkg.in/yaml.v2"
@@ -132,5 +133,23 @@ func runUnstructuredTestUnordered(t *testing.T, input []byte) {
 
 	if string(dcheck) != string(echeck) {
 		t.Fatalf("From/To were not inverse.\n\ndecoded: %#v\n\nencoded: %#v\n\ndecoded:\n%s\n\nencoded:\n%s", decoded, encoded, dcheck, echeck)
+	}
+}
+
+func TestRoundTrip(t *testing.T) {
+	i := map[string]interface{}{
+		"foo": map[string]interface{}{
+			"bar": map[string]interface{}{
+				"qux": []interface{}{true, false, int64(1), float64(1.1), nil, "1"},
+			},
+		},
+	}
+	v, err := FromUnstructured(i)
+	if err != nil {
+		t.Fatalf("failed to interpret (%v):\n%s", err, i)
+	}
+	o := v.ToUnstructured(false)
+	if !reflect.DeepEqual(i, o) {
+		t.Fatalf("Failed to round-trip.\ninput: %#v\noutput: %#v", i, o)
 	}
 }
