@@ -24,7 +24,7 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-func TestUnstructured(t *testing.T) {
+func TestUnstructuredYAML(t *testing.T) {
 	objects := []string{
 		`{}`,
 		// Valid yaml that isn't parsed right due to our use of MapSlice:
@@ -65,16 +65,16 @@ z:
 		b := []byte(objects[i])
 		t.Run(fmt.Sprintf("unstructured-ordered-%v", i), func(t *testing.T) {
 			t.Parallel()
-			runUnstructuredTestOrdered(t, b)
+			runUnstructuredTestOrderedYAML(t, b)
 		})
 		t.Run(fmt.Sprintf("unstructured-unordered-%v", i), func(t *testing.T) {
 			t.Parallel()
-			runUnstructuredTestUnordered(t, b)
+			runUnstructuredTestUnorderedYAML(t, b)
 		})
 	}
 }
 
-func runUnstructuredTestOrdered(t *testing.T, input []byte) {
+func runUnstructuredTestOrderedYAML(t *testing.T, input []byte) {
 	var decoded interface{}
 	// this enables order sensitivity; note the yaml package is broken
 	// for e.g. documents that have root-level arrays.
@@ -111,7 +111,7 @@ func runUnstructuredTestOrdered(t *testing.T, input []byte) {
 	}
 }
 
-func runUnstructuredTestUnordered(t *testing.T, input []byte) {
+func runUnstructuredTestUnorderedYAML(t *testing.T, input []byte) {
 	var decoded interface{}
 	err := yaml.Unmarshal(input, &decoded)
 	if err != nil {
@@ -151,5 +151,34 @@ func TestRoundTrip(t *testing.T) {
 	o := v.ToUnstructured(false)
 	if !reflect.DeepEqual(i, o) {
 		t.Fatalf("Failed to round-trip.\ninput: %#v\noutput: %#v", i, o)
+	}
+}
+
+func TestToFromJSON(t *testing.T) {
+	js := []string{
+		"null",
+		"1",
+		"1.2",
+		`"something"`,
+		`[1,2,null,"something"]`,
+		`[]`,
+		`{}`,
+		`{"a":[null,1.2],"b":"something"}`,
+	}
+
+	for i, j := range js {
+		t.Run(fmt.Sprintf("Test %d", i), func(t *testing.T) {
+			v, err := FromJSON([]byte(j))
+			if err != nil {
+				t.Fatalf("failed to parse json: %v", err)
+			}
+			o, err := v.ToJSON()
+			if err != nil {
+				t.Fatalf("failed to marshal into json: %v", err)
+			}
+			if !reflect.DeepEqual(j, string(o)) {
+				t.Fatalf("Failed to round-trip.\ninput: %#v\noutput: %#v", j, string(o))
+			}
+		})
 	}
 }
