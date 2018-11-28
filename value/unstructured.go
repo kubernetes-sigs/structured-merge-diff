@@ -58,7 +58,7 @@ func FromYAML(input []byte) (Value, error) {
 func FromJSON(input []byte) (Value, error) {
 	var decoded interface{}
 
-	if err := yaml.Unmarshal(input, &decoded); err != nil {
+	if err := json.Unmarshal(input, &decoded); err != nil {
 		return Value{}, err
 	}
 
