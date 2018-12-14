@@ -20,9 +20,8 @@ import (
 	"testing"
 
 	"sigs.k8s.io/structured-merge-diff/fieldpath"
-	"sigs.k8s.io/structured-merge-diff/typed"
-
 	. "sigs.k8s.io/structured-merge-diff/internal/fixture"
+	"sigs.k8s.io/structured-merge-diff/typed"
 )
 
 var setFieldsParser = func() *typed.ParseableType {
@@ -47,7 +46,8 @@ func TestUpdateSet(t *testing.T) {
 		"apply_twice": {
 			Ops: []Operation{
 				Apply{
-					Manager: "default",
+					Manager:    "default",
+					APIVersion: "v1",
 					Object: `
 						list:
 						- a
@@ -55,7 +55,8 @@ func TestUpdateSet(t *testing.T) {
 					`,
 				},
 				Apply{
-					Manager: "default",
+					Manager:    "default",
+					APIVersion: "v1",
 					Object: `
 						list:
 						- a
@@ -87,7 +88,8 @@ func TestUpdateSet(t *testing.T) {
 		"apply_update_apply_no_overlap": {
 			Ops: []Operation{
 				Apply{
-					Manager: "default",
+					Manager:    "default",
+					APIVersion: "v1",
 					Object: `
 						list:
 						- a
@@ -95,7 +97,8 @@ func TestUpdateSet(t *testing.T) {
 					`,
 				},
 				Update{
-					Manager: "controller",
+					Manager:    "controller",
+					APIVersion: "v1",
 					Object: `
 						list:
 						- a
@@ -105,7 +108,8 @@ func TestUpdateSet(t *testing.T) {
 					`,
 				},
 				Apply{
-					Manager: "default",
+					Manager:    "default",
+					APIVersion: "v1",
 					Object: `
 						list:
 						- a
@@ -146,7 +150,8 @@ func TestUpdateSet(t *testing.T) {
 		"apply_update_apply_with_overlap": {
 			Ops: []Operation{
 				Apply{
-					Manager: "default",
+					Manager:    "default",
+					APIVersion: "v1",
 					Object: `
 						list:
 						- a
@@ -154,7 +159,8 @@ func TestUpdateSet(t *testing.T) {
 					`,
 				},
 				Update{
-					Manager: "controller",
+					Manager:    "controller",
+					APIVersion: "v1",
 					Object: `
 						list:
 						- a
@@ -164,7 +170,8 @@ func TestUpdateSet(t *testing.T) {
 					`,
 				},
 				Apply{
-					Manager: "default",
+					Manager:    "default",
+					APIVersion: "v1",
 					Object: `
 						list:
 						- a
@@ -201,7 +208,8 @@ func TestUpdateSet(t *testing.T) {
 		"apply_twice_reorder": {
 			Ops: []Operation{
 				Apply{
-					Manager: "default",
+					Manager:    "default",
+					APIVersion: "v1",
 					Object: `
 						list:
 						- a
@@ -211,7 +219,8 @@ func TestUpdateSet(t *testing.T) {
 					`,
 				},
 				Apply{
-					Manager: "default",
+					Manager:    "default",
+					APIVersion: "v1",
 					Object: `
 						list:
 						- a
@@ -243,7 +252,8 @@ func TestUpdateSet(t *testing.T) {
 		"apply_update_apply_reorder": {
 			Ops: []Operation{
 				Apply{
-					Manager: "default",
+					Manager:    "default",
+					APIVersion: "v1",
 					Object: `
 						list:
 						- a
@@ -253,7 +263,8 @@ func TestUpdateSet(t *testing.T) {
 					`,
 				},
 				Update{
-					Manager: "controller",
+					Manager:    "controller",
+					APIVersion: "v1",
 					Object: `
 						list:
 						- a
@@ -263,7 +274,8 @@ func TestUpdateSet(t *testing.T) {
 					`,
 				},
 				Apply{
-					Manager: "default",
+					Manager:    "default",
+					APIVersion: "v1",
 					Object: `
 						list:
 						- a
@@ -308,7 +320,8 @@ func TestUpdateSetBroken(t *testing.T) {
 		"apply_twice_remove": {
 			Ops: []Operation{
 				Apply{
-					Manager: "default",
+					Manager:    "default",
+					APIVersion: "v1",
 					Object: `
 						list:
 						- a
@@ -318,7 +331,8 @@ func TestUpdateSetBroken(t *testing.T) {
 					`,
 				},
 				Apply{
-					Manager: "default",
+					Manager:    "default",
+					APIVersion: "v1",
 					Object: `
 						list:
 						- a
