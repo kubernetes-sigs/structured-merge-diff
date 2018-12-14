@@ -20,10 +20,9 @@ import (
 	"testing"
 
 	"sigs.k8s.io/structured-merge-diff/fieldpath"
+	. "sigs.k8s.io/structured-merge-diff/internal/fixture"
 	"sigs.k8s.io/structured-merge-diff/merge"
 	"sigs.k8s.io/structured-merge-diff/typed"
-
-	. "sigs.k8s.io/structured-merge-diff/internal/fixture"
 )
 
 var leafFieldsParser = func() *typed.ParseableType {
@@ -56,6 +55,7 @@ func TestUpdateLeaf(t *testing.T) {
 						numeric: 1
 						string: "string"
 					`,
+					APIVersion: "v1",
 				},
 				Apply{
 					Manager: "default",
@@ -64,6 +64,7 @@ func TestUpdateLeaf(t *testing.T) {
 						string: "string"
 						bool: false
 					`,
+					APIVersion: "v1",
 				},
 			},
 			Object: `
@@ -83,14 +84,16 @@ func TestUpdateLeaf(t *testing.T) {
 		"apply_update_apply_no_conflict": {
 			Ops: []Operation{
 				Apply{
-					Manager: "default",
+					Manager:    "default",
+					APIVersion: "v1",
 					Object: `
 						numeric: 1
 						string: "string"
 					`,
 				},
 				Update{
-					Manager: "controller",
+					Manager:    "controller",
+					APIVersion: "v1",
 					Object: `
 						numeric: 1
 						string: "string"
@@ -98,7 +101,8 @@ func TestUpdateLeaf(t *testing.T) {
 					`,
 				},
 				Apply{
-					Manager: "default",
+					Manager:    "default",
+					APIVersion: "v1",
 					Object: `
 						numeric: 2
 						string: "string"
@@ -128,14 +132,16 @@ func TestUpdateLeaf(t *testing.T) {
 		"apply_update_apply_with_conflict": {
 			Ops: []Operation{
 				Apply{
-					Manager: "default",
+					Manager:    "default",
+					APIVersion: "v1",
 					Object: `
 						numeric: 1
 						string: "string"
 					`,
 				},
 				Update{
-					Manager: "controller",
+					Manager:    "controller",
+					APIVersion: "v1",
 					Object: `
 						numeric: 1
 						string: "controller string"
@@ -143,7 +149,8 @@ func TestUpdateLeaf(t *testing.T) {
 					`,
 				},
 				Apply{
-					Manager: "default",
+					Manager:    "default",
+					APIVersion: "v1",
 					Object: `
 						numeric: 2
 						string: "user string"
@@ -153,7 +160,8 @@ func TestUpdateLeaf(t *testing.T) {
 					},
 				},
 				ForceApply{
-					Manager: "default",
+					Manager:    "default",
+					APIVersion: "v1",
 					Object: `
 						numeric: 2
 						string: "user string"
@@ -183,7 +191,8 @@ func TestUpdateLeaf(t *testing.T) {
 		"apply_twice_dangling": {
 			Ops: []Operation{
 				Apply{
-					Manager: "default",
+					Manager:    "default",
+					APIVersion: "v1",
 					Object: `
 						numeric: 1
 						string: "string"
@@ -191,7 +200,8 @@ func TestUpdateLeaf(t *testing.T) {
 					`,
 				},
 				Apply{
-					Manager: "default",
+					Manager:    "default",
+					APIVersion: "v1",
 					Object: `
 						string: "new string"
 					`,

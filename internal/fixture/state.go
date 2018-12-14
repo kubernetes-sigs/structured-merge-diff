@@ -97,13 +97,13 @@ func (s *State) checkInit() error {
 }
 
 // Update the current state with the passed in object
-func (s *State) Update(obj typed.YAMLObject, manager string) error {
+func (s *State) Update(obj typed.YAMLObject, version fieldpath.APIVersion, manager string) error {
 	obj = FixTabsOrDie(obj)
 	if err := s.checkInit(); err != nil {
 		return err
 	}
 	tv, err := s.Parser.FromYAML(obj)
-	managers, err := s.Updater.Update(*s.Live, tv, s.Managers, manager)
+	managers, err := s.Updater.Update(*s.Live, tv, version, s.Managers, manager)
 	if err != nil {
 		return err
 	}
@@ -114,7 +114,7 @@ func (s *State) Update(obj typed.YAMLObject, manager string) error {
 }
 
 // Apply the passed in object to the current state
-func (s *State) Apply(obj typed.YAMLObject, manager string, force bool) error {
+func (s *State) Apply(obj typed.YAMLObject, version fieldpath.APIVersion, manager string, force bool) error {
 	obj = FixTabsOrDie(obj)
 	if err := s.checkInit(); err != nil {
 		return err
@@ -123,7 +123,7 @@ func (s *State) Apply(obj typed.YAMLObject, manager string, force bool) error {
 	if err != nil {
 		return err
 	}
-	new, managers, err := s.Updater.Apply(*s.Live, tv, s.Managers, manager, force)
+	new, managers, err := s.Updater.Apply(*s.Live, tv, version, s.Managers, manager, force)
 	if err != nil {
 		return err
 	}
@@ -165,15 +165,16 @@ type Operation interface {
 // conflict, the user can specify the expected conflicts. If conflicts
 // don't match, an error will occur.
 type Apply struct {
-	Manager   string
-	Object    typed.YAMLObject
-	Conflicts merge.Conflicts
+	Manager    string
+	APIVersion fieldpath.APIVersion
+	Object     typed.YAMLObject
+	Conflicts  merge.Conflicts
 }
 
 var _ Operation = &Apply{}
 
 func (a Apply) run(state *State) error {
-	err := state.Apply(a.Object, a.Manager, false)
+	err := state.Apply(a.Object, a.APIVersion, a.Manager, false)
 	if (err != nil || a.Conflicts != nil) && !reflect.DeepEqual(err, a.Conflicts) {
 		return fmt.Errorf("expected conflicts: %v, got %v", a.Conflicts, err)
 	}
@@ -184,27 +185,29 @@ func (a Apply) run(state *State) error {
 // ForceApply is a type of operation. It is a forced-apply run by a
 // manager with a given object. Any error will be returned.
 type ForceApply struct {
-	Manager string
-	Object  typed.YAMLObject
+	Manager    string
+	APIVersion fieldpath.APIVersion
+	Object     typed.YAMLObject
 }
 
 var _ Operation = &ForceApply{}
 
 func (f ForceApply) run(state *State) error {
-	return state.Apply(f.Object, f.Manager, true)
+	return state.Apply(f.Object, f.APIVersion, f.Manager, true)
 }
 
 // Update is a type of operation. It is a controller type of
 // update. Errors are passed along.
 type Update struct {
-	Manager string
-	Object  typed.YAMLObject
+	Manager    string
+	APIVersion fieldpath.APIVersion
+	Object     typed.YAMLObject
 }
 
 var _ Operation = &Update{}
 
 func (u Update) run(state *State) error {
-	return state.Update(u.Object, u.Manager)
+	return state.Update(u.Object, u.APIVersion, u.Manager)
 }
 
 // TestCase is the list of operations that need to be run, as well as
