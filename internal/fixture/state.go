@@ -259,5 +259,12 @@ func (tc TestCase) Test(parser *typed.ParseableType) error {
 		}
 	}
 
+	// Fail if any empty sets are present in the managers
+	for manager, set := range state.Managers {
+		if set.Empty() {
+			return fmt.Errorf("expected Managers to have no empty sets, but found one managed by %v", manager)
+		}
+	}
+
 	return nil
 }

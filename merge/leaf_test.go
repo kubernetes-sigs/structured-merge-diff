@@ -221,6 +221,55 @@ func TestUpdateLeaf(t *testing.T) {
 				},
 			},
 		},
+		"update_remove_empty_set": {
+			Ops: []Operation{
+				Apply{
+					Manager:    "default",
+					APIVersion: "v1",
+					Object: `
+						string: "string"
+					`,
+				},
+				Update{
+					Manager:    "controller",
+					APIVersion: "v1",
+					Object: `
+						string: "new string"
+					`,
+				},
+			},
+			Object: `
+				string: "new string"
+			`,
+			Managed: fieldpath.ManagedFields{
+				"controller": &fieldpath.VersionedSet{
+					Set: _NS(
+						_P("string"),
+					),
+					APIVersion: "v1",
+				},
+			},
+		},
+		"apply_remove_empty_set": {
+			Ops: []Operation{
+				Apply{
+					Manager:    "default",
+					APIVersion: "v1",
+					Object: `
+						string: "string"
+					`,
+				},
+				Apply{
+					Manager:    "default",
+					APIVersion: "v1",
+					Object: "",
+				},
+			},
+			Object: `
+				string: "string"
+			`,
+			Managed: fieldpath.ManagedFields{},
+		},
 	}
 
 	for name, test := range tests {
