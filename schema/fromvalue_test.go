@@ -31,26 +31,22 @@ func TestTypeRefFromValue(t *testing.T) {
 		objYAML string
 		typeRef string
 	}{
-		{`a: a`, `
-struct:
+		{
+			objYAML: `[1.0]`,
+			typeRef: `untyped: {}`,
+		}, {
+			objYAML: `null`,
+			typeRef: `untyped: {}`,
+		}, {
+			objYAML: `a: a`,
+			typeRef: `struct:
   fields:
   - name: a
     type:
-      untyped: {}`},
-		{`{"a": [{"a": null}]}`, `
-struct:
-  fields:
-  - name: a
-    type:
-      untyped: {}`},
-		{`{"a": null}`, `
-struct:
-  fields:
-  - name: a
-    type:
-      untyped: {}`},
-		{`{"q": {"y": 6, "b": [7, 8, 9]}}`, `
-struct:
+      untyped: {}`,
+		}, {
+			objYAML: `{"q": {"y": 6, "b": [7, 8, 9]}}`,
+			typeRef: `struct:
   fields:
   - name: q
     type:
@@ -61,7 +57,8 @@ struct:
             untyped: {}
         - name: b
           type:
-            untyped: {}`},
+            untyped: {}`,
+		},
 	}
 
 	for _, tt := range table {
