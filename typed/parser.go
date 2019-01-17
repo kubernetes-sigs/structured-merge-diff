@@ -87,12 +87,6 @@ func (p *ParseableType) IsValid() bool {
 	return ok
 }
 
-// New returns a new empty object with the current schema and the
-// type "typename".
-func (p *ParseableType) New() (TypedValue, error) {
-	return p.FromYAML(YAMLObject("{}"))
-}
-
 // FromYAML parses a yaml string into an object with the current schema
 // and the type "typename" or an error if validation fails.
 func (p *ParseableType) FromYAML(object YAMLObject) (TypedValue, error) {
