@@ -30,7 +30,7 @@ import (
 // any time that Live and Managers match the expectations.
 type State struct {
 	Live     *typed.TypedValue
-	Parser   *typed.ParseableType
+	Parser   typed.ParseableType
 	Managers fieldpath.ManagedFields
 	Updater  *merge.Updater
 }
@@ -87,7 +87,7 @@ func FixTabsOrDie(in typed.YAMLObject) typed.YAMLObject {
 
 func (s *State) checkInit() error {
 	if s.Live == nil {
-		obj, err := s.Parser.New()
+		obj, err := s.Parser.FromYAML("{}")
 		if err != nil {
 			return fmt.Errorf("failed to create new empty object: %v", err)
 		}
@@ -228,7 +228,7 @@ type TestCase struct {
 }
 
 // Test runs the test-case using the given parser.
-func (tc TestCase) Test(parser *typed.ParseableType) error {
+func (tc TestCase) Test(parser typed.ParseableType) error {
 	state := State{
 		Updater: &merge.Updater{Converter: &dummyConverter{}},
 		Parser:  parser,
