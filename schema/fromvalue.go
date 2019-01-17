@@ -20,15 +20,11 @@ import (
 	"sigs.k8s.io/structured-merge-diff/value"
 )
 
-// FromValue creates a schema from a value v
-func FromValue(name string, v value.Value) *Schema {
+// TypeRefFromValue creates an inlined type from a value v
+func TypeRefFromValue(v value.Value) TypeRef {
 	atom := atomFor(v)
-	typeDef := TypeDef{
-		Name: name,
-		Atom: atom,
-	}
-	return &Schema{
-		Types: []TypeDef{typeDef},
+	return TypeRef{
+		Inlined: atom,
 	}
 }
 

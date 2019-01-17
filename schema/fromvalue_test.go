@@ -25,55 +25,43 @@ import (
 	"sigs.k8s.io/structured-merge-diff/value"
 )
 
-const (
-	typeName = "test"
-)
-
-func TestFromValue(t *testing.T) {
+func TestTypeRefFromValue(t *testing.T) {
 
 	table := []struct {
 		objYAML string
-		schema  string
+		typeRef string
 	}{
 		{`a: a`, `
-types: 
-- name: ` + typeName + `
-  struct:
-    fields:
-    - name: a
-      type:
-        untyped: {}`},
+struct:
+  fields:
+  - name: a
+    type:
+      untyped: {}`},
 		{`{"a": [{"a": null}]}`, `
-types: 
-- name: ` + typeName + `
-  struct:
-    fields:
-    - name: a
-      type:
-        untyped: {}`},
+struct:
+  fields:
+  - name: a
+    type:
+      untyped: {}`},
 		{`{"a": null}`, `
-types: 
-- name: ` + typeName + `
-  struct:
-    fields:
-    - name: a
-      type:
-        untyped: {}`},
+struct:
+  fields:
+  - name: a
+    type:
+      untyped: {}`},
 		{`{"q": {"y": 6, "b": [7, 8, 9]}}`, `
-types: 
-- name: ` + typeName + `
-  struct:
-    fields:
-    - name: q
-      type:
-        struct:
-          fields:
-          - name: y
-            type:
-              untyped: {}
-          - name: b
-            type:
-              untyped: {}`},
+struct:
+  fields:
+  - name: q
+    type:
+      struct:
+        fields:
+        - name: y
+          type:
+            untyped: {}
+        - name: b
+          type:
+            untyped: {}`},
 	}
 
 	for _, tt := range table {
@@ -84,10 +72,10 @@ types:
 			if err != nil {
 				t.Fatalf("couldn't parse: %v", err)
 			}
-			got := schema.FromValue(typeName, v)
+			got := schema.TypeRefFromValue(v)
 
-			expected := &schema.Schema{}
-			err = yaml.Unmarshal([]byte(tt.schema), expected)
+			expected := schema.TypeRef{}
+			err = yaml.Unmarshal([]byte(tt.typeRef), &expected)
 			if err != nil {
 				t.Fatalf("couldn't parse: %v", err)
 			}
