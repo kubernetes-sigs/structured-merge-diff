@@ -30,7 +30,7 @@ import (
 // any time that Live and Managers match the expectations.
 type State struct {
 	Live     *typed.TypedValue
-	Parser   *typed.ParseableType
+	Parser   typed.ParseableType
 	Managers fieldpath.ManagedFields
 	Updater  *merge.Updater
 }
@@ -228,7 +228,7 @@ type TestCase struct {
 }
 
 // Test runs the test-case using the given parser.
-func (tc TestCase) Test(parser *typed.ParseableType) error {
+func (tc TestCase) Test(parser typed.ParseableType) error {
 	state := State{
 		Updater: &merge.Updater{Converter: &dummyConverter{}},
 		Parser:  parser,

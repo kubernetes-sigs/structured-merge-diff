@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/structured-merge-diff/typed"
 )
 
-var setFieldsParser = func() *typed.ParseableType {
+var setFieldsParser = func() typed.ParseableType {
 	parser, err := typed.NewParser(`types:
 - name: sets
   struct:

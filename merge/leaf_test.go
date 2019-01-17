@@ -25,7 +25,7 @@ import (
 	"sigs.k8s.io/structured-merge-diff/typed"
 )
 
-var leafFieldsParser = func() *typed.ParseableType {
+var leafFieldsParser = func() typed.ParseableType {
 	parser, err := typed.NewParser(`types:
 - name: leafFields
   struct:
@@ -262,7 +262,7 @@ func TestUpdateLeaf(t *testing.T) {
 				Apply{
 					Manager:    "default",
 					APIVersion: "v1",
-					Object: "",
+					Object:     "",
 				},
 			},
 			Object: `
