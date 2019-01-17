@@ -114,3 +114,34 @@ func (p *parseableType) FromUnstructured(in interface{}) (TypedValue, error) {
 	}
 	return AsTyped(v, &p.parser.Schema, p.typename)
 }
+
+// DeducedParseableType is a ParseableType that deduces the type from
+// the content of the object.
+type DeducedParseableType struct{}
+
+var _ ParseableType = DeducedParseableType{}
+
+// IsValid always returns true for a DeducedParseableType.
+func (p DeducedParseableType) IsValid() bool {
+	return true
+}
+
+// FromYAML parses a yaml string into an object and deduces the type for
+// that object.
+func (p DeducedParseableType) FromYAML(object YAMLObject) (TypedValue, error) {
+	v, err := value.FromYAML([]byte(object))
+	if err != nil {
+		return TypedValue{}, err
+	}
+	return AsTypedDeduced(v), nil
+}
+
+// FromUnstructured converts a go interface to a TypedValue. It will return an
+// error if the input object uses un-handled types.
+func (p DeducedParseableType) FromUnstructured(in interface{}) (TypedValue, error) {
+	v, err := value.FromUnstructured(in)
+	if err != nil {
+		return TypedValue{}, err
+	}
+	return AsTypedDeduced(v), nil
+}
