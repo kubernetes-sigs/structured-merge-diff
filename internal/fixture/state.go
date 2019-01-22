@@ -29,7 +29,7 @@ import (
 // State of the current test in terms of live object. One can check at
 // any time that Live and Managers match the expectations.
 type State struct {
-	Live     *typed.TypedValue
+	Live     typed.TypedValue
 	Parser   typed.ParseableType
 	Managers fieldpath.ManagedFields
 	Updater  *merge.Updater
@@ -91,7 +91,7 @@ func (s *State) checkInit() error {
 		if err != nil {
 			return fmt.Errorf("failed to create new empty object: %v", err)
 		}
-		s.Live = &obj
+		s.Live = obj
 	}
 	return nil
 }
@@ -103,11 +103,11 @@ func (s *State) Update(obj typed.YAMLObject, version fieldpath.APIVersion, manag
 		return err
 	}
 	tv, err := s.Parser.FromYAML(obj)
-	managers, err := s.Updater.Update(*s.Live, tv, version, s.Managers, manager)
+	managers, err := s.Updater.Update(s.Live, tv, version, s.Managers, manager)
 	if err != nil {
 		return err
 	}
-	s.Live = &tv
+	s.Live = tv
 	s.Managers = managers
 
 	return nil
@@ -123,11 +123,11 @@ func (s *State) Apply(obj typed.YAMLObject, version fieldpath.APIVersion, manage
 	if err != nil {
 		return err
 	}
-	new, managers, err := s.Updater.Apply(*s.Live, tv, version, s.Managers, manager, force)
+	new, managers, err := s.Updater.Apply(s.Live, tv, version, s.Managers, manager, force)
 	if err != nil {
 		return err
 	}
-	s.Live = &new
+	s.Live = new
 	s.Managers = managers
 
 	return nil
@@ -249,7 +249,7 @@ func (tc TestCase) Test(parser typed.ParseableType) error {
 			return fmt.Errorf("failed to compare live with config: %v", err)
 		}
 		if !comparison.IsSame() {
-			return fmt.Errorf("expected live and config to be the same: %v", comparison)
+			return fmt.Errorf("expected live and config to be the same:\n%v", comparison)
 		}
 	}
 

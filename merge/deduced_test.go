@@ -25,7 +25,7 @@ import (
 	"sigs.k8s.io/structured-merge-diff/typed"
 )
 
-func TestDeducedTypesBroken(t *testing.T) {
+func TestDeduced(t *testing.T) {
 	tests := map[string]TestCase{
 		"leaf_apply_twice": {
 			Ops: []Operation{
@@ -230,6 +230,89 @@ func TestDeducedTypesBroken(t *testing.T) {
 				},
 			},
 		},
+		"apply_twice_list_is_atomic": {
+			Ops: []Operation{
+				Apply{
+					Manager:    "default",
+					APIVersion: "v1",
+					Object: `
+						list:
+						- a
+						- c
+					`,
+				},
+				Apply{
+					Manager:    "default",
+					APIVersion: "v1",
+					Object: `
+						list:
+						- a
+						- d
+						- c
+						- b
+					`,
+				},
+			},
+			Object: `
+				list:
+				- a
+				- d
+				- c
+				- b
+			`,
+			Managed: fieldpath.ManagedFields{
+				"default": &fieldpath.VersionedSet{
+					Set:        _NS(_P("list")),
+					APIVersion: "v1",
+				},
+			},
+		},
+		"apply_update_apply_list": {
+			Ops: []Operation{
+				Apply{
+					Manager:    "default",
+					APIVersion: "v1",
+					Object: `
+						list:
+						- a
+						- c
+					`,
+				},
+				Update{
+					Manager:    "controller",
+					APIVersion: "v1",
+					Object: `
+						list:
+						- a
+						- b
+						- c
+						- d
+					`,
+				},
+				ForceApply{
+					Manager:    "default",
+					APIVersion: "v1",
+					Object: `
+						list:
+						- a
+						- b
+						- c
+					`,
+				},
+			},
+			Object: `
+				list:
+				- a
+				- b
+				- c
+			`,
+			Managed: fieldpath.ManagedFields{
+				"default": &fieldpath.VersionedSet{
+					Set:        _NS(_P("list")),
+					APIVersion: "v1",
+				},
+			},
+		},
 		"leaf_apply_remove_empty_set": {
 			Ops: []Operation{
 				Apply{
@@ -242,7 +325,7 @@ func TestDeducedTypesBroken(t *testing.T) {
 				Apply{
 					Manager:    "default",
 					APIVersion: "v1",
-					Object:     "",
+					Object:     ``,
 				},
 			},
 			Object: `
@@ -250,274 +333,12 @@ func TestDeducedTypesBroken(t *testing.T) {
 			`,
 			Managed: fieldpath.ManagedFields{},
 		},
-
-		"apply_twice": {
-			Ops: []Operation{
-				Apply{
-					Manager:    "default",
-					APIVersion: "v1",
-					Object: `
-						list:
-						- a
-						- c
-					`,
-				},
-				Apply{
-					Manager:    "default",
-					APIVersion: "v1",
-					Object: `
-						list:
-						- a
-						- b
-						- c
-						- d
-					`,
-				},
-			},
-			Object: `
-				list:
-				- a
-				- b
-				- c
-				- d
-			`,
-			Managed: fieldpath.ManagedFields{
-				"default": &fieldpath.VersionedSet{
-					Set: _NS(
-						_P("list", _SV("a")),
-						_P("list", _SV("b")),
-						_P("list", _SV("c")),
-						_P("list", _SV("d")),
-					),
-					APIVersion: "v1",
-				},
-			},
-		},
-		"apply_update_apply_no_overlap": {
-			Ops: []Operation{
-				Apply{
-					Manager:    "default",
-					APIVersion: "v1",
-					Object: `
-						list:
-						- a
-						- c
-					`,
-				},
-				Update{
-					Manager:    "controller",
-					APIVersion: "v1",
-					Object: `
-						list:
-						- a
-						- b
-						- c
-						- d
-					`,
-				},
-				Apply{
-					Manager:    "default",
-					APIVersion: "v1",
-					Object: `
-						list:
-						- a
-						- aprime
-						- c
-						- cprime
-					`,
-				},
-			},
-			Object: `
-				list:
-				- a
-				- aprime
-				- b
-				- c
-				- cprime
-				- d
-			`,
-			Managed: fieldpath.ManagedFields{
-				"default": &fieldpath.VersionedSet{
-					Set: _NS(
-						_P("list", _SV("a")),
-						_P("list", _SV("aprime")),
-						_P("list", _SV("c")),
-						_P("list", _SV("cprime")),
-					),
-					APIVersion: "v1",
-				},
-				"controller": &fieldpath.VersionedSet{
-					Set: _NS(
-						_P("list", _SV("b")),
-						_P("list", _SV("d")),
-					),
-					APIVersion: "v1",
-				},
-			},
-		},
-		"apply_update_apply_with_overlap": {
-			Ops: []Operation{
-				Apply{
-					Manager:    "default",
-					APIVersion: "v1",
-					Object: `
-						list:
-						- a
-						- c
-					`,
-				},
-				Update{
-					Manager:    "controller",
-					APIVersion: "v1",
-					Object: `
-						list:
-						- a
-						- b
-						- c
-						- d
-					`,
-				},
-				Apply{
-					Manager:    "default",
-					APIVersion: "v1",
-					Object: `
-						list:
-						- a
-						- b
-						- c
-					`,
-				},
-			},
-			Object: `
-				list:
-				- a
-				- b
-				- c
-				- d
-			`,
-			Managed: fieldpath.ManagedFields{
-				"default": &fieldpath.VersionedSet{
-					Set: _NS(
-						_P("list", _SV("a")),
-						_P("list", _SV("b")),
-						_P("list", _SV("c")),
-					),
-					APIVersion: "v1",
-				},
-				"controller": &fieldpath.VersionedSet{
-					Set: _NS(
-						_P("list", _SV("b")),
-						_P("list", _SV("d")),
-					),
-					APIVersion: "v1",
-				},
-			},
-		},
-		"apply_twice_reorder": {
-			Ops: []Operation{
-				Apply{
-					Manager:    "default",
-					APIVersion: "v1",
-					Object: `
-						list:
-						- a
-						- b
-						- c
-						- d
-					`,
-				},
-				Apply{
-					Manager:    "default",
-					APIVersion: "v1",
-					Object: `
-						list:
-						- a
-						- d
-						- c
-						- b
-					`,
-				},
-			},
-			Object: `
-				list:
-				- a
-				- d
-				- c
-				- b
-			`,
-			Managed: fieldpath.ManagedFields{
-				"default": &fieldpath.VersionedSet{
-					Set: _NS(
-						_P("list", _SV("a")),
-						_P("list", _SV("b")),
-						_P("list", _SV("c")),
-						_P("list", _SV("d")),
-					),
-					APIVersion: "v1",
-				},
-			},
-		},
-		"apply_update_apply_reorder": {
-			Ops: []Operation{
-				Apply{
-					Manager:    "default",
-					APIVersion: "v1",
-					Object: `
-						list:
-						- a
-						- b
-						- c
-						- d
-					`,
-				},
-				Update{
-					Manager:    "controller",
-					APIVersion: "v1",
-					Object: `
-						list:
-						- a
-						- d
-						- c
-						- b
-					`,
-				},
-				Apply{
-					Manager:    "default",
-					APIVersion: "v1",
-					Object: `
-						list:
-						- a
-						- b
-						- c
-						- d
-					`,
-				},
-			},
-			Object: `
-				list:
-				- a
-				- b
-				- c
-				- d
-			`,
-			Managed: fieldpath.ManagedFields{
-				"default": &fieldpath.VersionedSet{
-					Set: _NS(
-						_P("list", _SV("a")),
-						_P("list", _SV("b")),
-						_P("list", _SV("c")),
-						_P("list", _SV("d")),
-					),
-					APIVersion: "v1",
-				},
-			},
-		},
 	}
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			if test.Test(typed.DeducedParseableType{}) == nil {
-				t.Fatal("Broken test passed")
+			if err := test.Test(typed.DeducedParseableType{}); err != nil {
+				t.Fatal(err)
 			}
 		})
 	}
