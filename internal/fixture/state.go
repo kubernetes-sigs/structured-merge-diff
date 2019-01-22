@@ -249,7 +249,7 @@ func (tc TestCase) Test(parser typed.ParseableType) error {
 			return fmt.Errorf("failed to compare live with config: %v", err)
 		}
 		if !comparison.IsSame() {
-			return fmt.Errorf("expected live and config to be the same: %v", comparison)
+			return fmt.Errorf("expected live and config to be the same:\n%v", comparison)
 		}
 	}
 
