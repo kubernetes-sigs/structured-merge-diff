@@ -304,19 +304,6 @@ func TestUpdateSet(t *testing.T) {
 				},
 			},
 		},
-	}
-
-	for name, test := range tests {
-		t.Run(name, func(t *testing.T) {
-			if err := test.Test(setFieldsParser); err != nil {
-				t.Fatal(err)
-			}
-		})
-	}
-}
-
-func TestUpdateSetBroken(t *testing.T) {
-	tests := map[string]TestCase{
 		"apply_twice_remove": {
 			Ops: []Operation{
 				Apply{
@@ -359,8 +346,8 @@ func TestUpdateSetBroken(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			if test.Test(setFieldsParser) == nil {
-				t.Fatalf("Broken test passed.")
+			if err := test.Test(setFieldsParser); err != nil {
+				t.Fatal(err)
 			}
 		})
 	}

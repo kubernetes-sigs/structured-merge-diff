@@ -90,6 +90,12 @@ func (s *Updater) update(oldObject, newObject typed.TypedValue, version fieldpat
 		}
 	}
 
+	if _, ok := managers[workflow]; !ok {
+		managers[workflow] = &fieldpath.VersionedSet{
+			Set: fieldpath.NewSet(),
+		}
+	}
+
 	return managers, nil
 }
 
@@ -107,11 +113,6 @@ func (s *Updater) Update(liveObject, newObject typed.TypedValue, version fieldpa
 	compare, err := liveObject.Compare(newObject)
 	if err != nil {
 		return fieldpath.ManagedFields{}, fmt.Errorf("failed to compare live and new objects: %v", err)
-	}
-	if _, ok := managers[manager]; !ok {
-		managers[manager] = &fieldpath.VersionedSet{
-			Set: fieldpath.NewSet(),
-		}
 	}
 	managers[manager].Set = managers[manager].Set.Union(compare.Modified).Union(compare.Added).Difference(compare.Removed)
 	managers[manager].APIVersion = version
@@ -133,9 +134,10 @@ func (s *Updater) Apply(liveObject, configObject typed.TypedValue, version field
 	if err != nil {
 		return nil, fieldpath.ManagedFields{}, err
 	}
-
-	// TODO: Remove unconflicting removed fields
-
+	newObject, err = s.removeDisownedItems(newObject, configObject, managers[manager])
+	if err != nil {
+		return nil, fieldpath.ManagedFields{}, fmt.Errorf("failed to remove fields: %v", err)
+	}
 	set, err := configObject.ToFieldSet()
 	if err != nil {
 		return nil, fieldpath.ManagedFields{}, fmt.Errorf("failed to get field set: %v", err)
@@ -148,4 +150,16 @@ func (s *Updater) Apply(liveObject, configObject typed.TypedValue, version field
 		delete(managers, manager)
 	}
 	return newObject, managers, nil
+}
+
+func (s *Updater) removeDisownedItems(merged, applied typed.TypedValue, lastSet *fieldpath.VersionedSet) (typed.TypedValue, error) {
+	convertedApplied, err := s.Converter.Convert(applied, lastSet.APIVersion)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert applied config to last applied version: %v", err)
+	}
+	appliedSet, err := convertedApplied.ToFieldSet()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create field set from applied config in last applied version: %v", err)
+	}
+	return merged.RemoveItems(lastSet.Set.Difference(appliedSet)), nil
 }
