@@ -19,8 +19,8 @@ package typed
 import (
 	"reflect"
 
-	"sigs.k8s.io/structured-merge-diff/value"
 	"sigs.k8s.io/structured-merge-diff/fieldpath"
+	"sigs.k8s.io/structured-merge-diff/value"
 )
 
 // deducedTypedValue holds a value and guesses what it is and what to
@@ -130,7 +130,7 @@ func added(lhs, rhs value.Value, path fieldpath.Path, set *fieldpath.Set) {
 	} else if lhs.MapValue == nil && rhs.MapValue != nil {
 		// From leaf to map, add leaf fields of map.
 		fieldsetDeduced(rhs, path, set)
-	} else if lhs.MapValue != nil  && rhs.MapValue == nil {
+	} else if lhs.MapValue != nil && rhs.MapValue == nil {
 		// Went from map to field, add field.
 		set.Insert(path)
 	} else {
@@ -150,7 +150,7 @@ func added(lhs, rhs value.Value, path fieldpath.Path, set *fieldpath.Set) {
 }
 
 func modified(lhs, rhs value.Value, path fieldpath.Path, set *fieldpath.Set) {
-	if lhs.MapValue == nil && rhs.MapValue == nil  {
+	if lhs.MapValue == nil && rhs.MapValue == nil {
 		if !reflect.DeepEqual(lhs, rhs) {
 			set.Insert(path)
 		}
@@ -169,4 +169,10 @@ func modified(lhs, rhs value.Value, path fieldpath.Path, set *fieldpath.Set) {
 			modified(v.Value, child.Value, np, set)
 		}
 	}
+}
+
+// RemoveItems does nothing because all lists in a deducedTypedValue are considered atomic,
+// and there are no maps because it is indistinguishable from a struct.
+func (dv deducedTypedValue) RemoveItems(_ *fieldpath.Set) TypedValue {
+	return dv
 }
