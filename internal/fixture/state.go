@@ -147,11 +147,14 @@ func (s *State) CompareLive(obj typed.YAMLObject) (*typed.Comparison, error) {
 	return s.Live.Compare(tv)
 }
 
-// dummyConverter doesn't convert, it just returns the same exact object no matter what.
+// dummyConverter doesn't convert, it just returns the same exact object, as long as a version is provided.
 type dummyConverter struct{}
 
 // Convert returns the object given in input, not doing any conversion.
 func (dummyConverter) Convert(v typed.TypedValue, version fieldpath.APIVersion) (typed.TypedValue, error) {
+	if len(version) == 0 {
+		return nil, fmt.Errorf("cannot convert to invalid version: %q", version)
+	}
 	return v, nil
 }
 

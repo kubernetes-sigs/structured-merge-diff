@@ -153,6 +153,9 @@ func (s *Updater) Apply(liveObject, configObject typed.TypedValue, version field
 }
 
 func (s *Updater) removeDisownedItems(merged, applied typed.TypedValue, lastSet *fieldpath.VersionedSet) (typed.TypedValue, error) {
+	if lastSet.Set.Empty() {
+		return merged, nil
+	}
 	convertedApplied, err := s.Converter.Convert(applied, lastSet.APIVersion)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert applied config to last applied version: %v", err)
