@@ -24,6 +24,7 @@ import (
 // needs to be able to convert objects from one version to another.
 type Converter interface {
 	Convert(object typed.TypedValue, version fieldpath.APIVersion) (typed.TypedValue, error)
+	IsMissingVersionError(error) bool
 }
 
 // Updater is the object used to compute updated FieldSets and also
@@ -57,10 +58,18 @@ func (s *Updater) update(oldObject, newObject typed.TypedValue, version fieldpat
 			var err error
 			versioned.oldObject, err = s.Converter.Convert(oldObject, managerSet.APIVersion)
 			if err != nil {
+				if s.Converter.IsMissingVersionError(err) {
+					delete(managers, manager)
+					continue
+				}
 				return nil, fmt.Errorf("failed to convert old object: %v", err)
 			}
 			versioned.newObject, err = s.Converter.Convert(newObject, managerSet.APIVersion)
 			if err != nil {
+				if s.Converter.IsMissingVersionError(err) {
+					delete(managers, manager)
+					continue
+				}
 				return nil, fmt.Errorf("failed to convert new object: %v", err)
 			}
 			versions[managerSet.APIVersion] = versioned
@@ -158,6 +167,9 @@ func (s *Updater) removeDisownedItems(merged, applied typed.TypedValue, lastSet 
 	}
 	convertedApplied, err := s.Converter.Convert(applied, lastSet.APIVersion)
 	if err != nil {
+		if s.Converter.IsMissingVersionError(err) {
+			return merged, nil
+		}
 		return nil, fmt.Errorf("failed to convert applied config to last applied version: %v", err)
 	}
 	appliedSet, err := convertedApplied.ToFieldSet()
