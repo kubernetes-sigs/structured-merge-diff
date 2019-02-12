@@ -158,6 +158,10 @@ func (dummyConverter) Convert(v typed.TypedValue, version fieldpath.APIVersion) 
 	return v, nil
 }
 
+func (dummyConverter) IsMissingVersionError(err error) bool {
+	return false
+}
+
 // Operation is a step that will run when building a table-driven test.
 type Operation interface {
 	run(*State) error
