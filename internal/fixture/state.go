@@ -35,52 +35,37 @@ type State struct {
 	Updater  *merge.Updater
 }
 
-// FixTabsOrDie counts the number of tab characters preceding the first line in
-// the given yaml object. It removes that many tabs from every line. It then
-// converts remaining tabs to spaces (two spaces per tab). It panics (it's a
-// test funtion) if it finds mixed tabs and spaces in front of a line, or if
-// some line has fewer tabs than the first line.
+// FixTabsOrDie counts the number of tab characters preceding the first
+// line in the given yaml object. It removes that many tabs from every
+// line. It panics (it's a test funtion) if some line has fewer tabs
+// than the first line.
 //
 // The purpose of this is to make it easier to read tests.
 func FixTabsOrDie(in typed.YAMLObject) typed.YAMLObject {
-	consumeTabs := func(line []byte) (tabCount int, spacesFound bool) {
-		for _, c := range line {
-			if c == ' ' {
-				spacesFound = true
-			}
-			if c != '\t' {
-				break
-			}
-			tabCount++
-		}
-		return tabCount, spacesFound
-	}
-
 	lines := bytes.Split([]byte(in), []byte{'\n'})
 	if len(lines[0]) == 0 && len(lines) > 1 {
 		lines = lines[1:]
 	}
-	prefix, _ := consumeTabs(lines[0])
-	var anySpacesFound bool
-	var anyTabsFound bool
-
+	// Create prefix made of tabs that we want to remove.
+	var prefix []byte
+	for _, c := range lines[0] {
+		if c != '\t' {
+			break
+		}
+		prefix = append(prefix, byte('\t'))
+	}
+	// Remove prefix from all tabs, fail otherwise.
 	for i := range lines {
 		line := lines[i]
-		indent, spacesFound := consumeTabs(line)
-		if i == len(lines)-1 && len(line) <= prefix && indent == len(line) {
-			// It's OK for the last line to be blank (trailing \n)
+		// It's OK for the last line to be blank (trailing \n)
+		if i == len(lines)-1 && len(line) <= len(prefix) && bytes.TrimSpace(line) == nil {
 			lines[i] = []byte{}
 			break
 		}
-		anySpacesFound = anySpacesFound || spacesFound
-		anyTabsFound = anyTabsFound || indent > 0
-		if indent < prefix {
-			panic(fmt.Sprintf("line %v doesn't have %v tabs as a prefix:\n%s", i, prefix, in))
+		if !bytes.HasPrefix(line, prefix) {
+			panic(fmt.Errorf("line %d doesn't start with expected number (%d) of tabs: %v", i, len(prefix), line))
 		}
-		lines[i] = append(bytes.Repeat([]byte{' ', ' '}, indent-prefix), line[indent:]...)
-	}
-	if anyTabsFound && anySpacesFound {
-		panic("mixed tabs and spaces found:\n" + string(in))
+		lines[i] = line[len(prefix):]
 	}
 	return typed.YAMLObject(bytes.Join(lines, []byte{'\n'}))
 }
