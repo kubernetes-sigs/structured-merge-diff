@@ -20,16 +20,18 @@ import (
 )
 
 type removingWalker struct {
-	value    *value.Value
-	schema   *schema.Schema
-	toRemove *fieldpath.Set
+	value  *value.Value
+	schema *schema.Schema
+	lhs    *fieldpath.Set
+	rhs    *fieldpath.Set
 }
 
-func removeItemsWithSchema(value *value.Value, toRemove *fieldpath.Set, schema *schema.Schema, typeRef schema.TypeRef) {
+func removeItemsWithSchema(value *value.Value, lhs *fieldpath.Set, rhs *fieldpath.Set, schema *schema.Schema, typeRef schema.TypeRef) {
 	w := &removingWalker{
-		value:    value,
-		schema:   schema,
-		toRemove: toRemove,
+		value:  value,
+		schema: schema,
+		lhs:    lhs,
+		rhs:    rhs,
 	}
 	resolveSchema(schema, typeRef, w)
 }
@@ -56,8 +58,10 @@ func (w *removingWalker) doStruct(t schema.Struct) ValidationErrors {
 	for i, _ := range s.Items {
 		item := s.Items[i]
 		pe := fieldpath.PathElement{FieldName: &item.Name}
-		if subset := w.toRemove.WithPrefix(pe); !subset.Empty() {
-			removeItemsWithSchema(&s.Items[i].Value, subset, w.schema, fieldTypes[item.Name])
+		subsetLHS := w.lhs.WithPrefix(pe)
+		subsetRHS := w.rhs.WithPrefix(pe)
+		if !subsetLHS.Empty() {
+			removeItemsWithSchema(&s.Items[i].Value, subsetLHS, subsetRHS, w.schema, fieldTypes[item.Name])
 		}
 	}
 	return nil
@@ -76,12 +80,13 @@ func (w *removingWalker) doList(t schema.List) (errs ValidationErrors) {
 		item := l.Items[i]
 		// Ignore error because we have already validated this list
 		pe, _ := listItemToPathElement(t, i, item)
-		path, _ := fieldpath.MakePath(pe)
-		if w.toRemove.Has(path) {
-			continue
-		}
-		if subset := w.toRemove.WithPrefix(pe); !subset.Empty() {
-			removeItemsWithSchema(&l.Items[i], subset, w.schema, t.ElementType)
+		subsetLHS := w.lhs.WithPrefix(pe)
+		subsetRHS := w.rhs.WithPrefix(pe)
+		if !subsetLHS.Empty() {
+			if subsetRHS.Empty() {
+				continue
+			}
+			removeItemsWithSchema(&l.Items[i], subsetLHS, subsetRHS, w.schema, t.ElementType)
 		}
 		newItems = append(newItems, l.Items[i])
 	}
@@ -101,12 +106,13 @@ func (w *removingWalker) doMap(t schema.Map) ValidationErrors {
 	for i, _ := range m.Items {
 		item := m.Items[i]
 		pe := fieldpath.PathElement{FieldName: &item.Name}
-		path, _ := fieldpath.MakePath(pe)
-		if w.toRemove.Has(path) {
-			continue
-		}
-		if subset := w.toRemove.WithPrefix(pe); !subset.Empty() {
-			removeItemsWithSchema(&m.Items[i].Value, subset, w.schema, t.ElementType)
+		subsetLHS := w.lhs.WithPrefix(pe)
+		subsetRHS := w.rhs.WithPrefix(pe)
+		if !subsetLHS.Empty() {
+			if subsetRHS.Empty() {
+				continue
+			}
+			removeItemsWithSchema(&m.Items[i].Value, subsetLHS, subsetRHS, w.schema, t.ElementType)
 		}
 		newMap.Set(item.Name, m.Items[i].Value)
 	}
