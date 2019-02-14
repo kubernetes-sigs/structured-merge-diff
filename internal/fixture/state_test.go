@@ -17,7 +17,6 @@ limitations under the License.
 package fixture
 
 import (
-	"bytes"
 	"fmt"
 	"testing"
 
@@ -33,16 +32,16 @@ func TestFixTabs(t *testing.T) {
 		out: "a\n  b\n",
 	}, {
 		in:  "\t\ta\n\t\t\tb\n",
-		out: "a\n  b\n",
+		out: "a\n\tb\n",
 	}, {
-		in:  "\n\t\ta\n\t\t\tb\n",
-		out: "a\n  b\n",
+		in:  "\n\t\ta\n\t\tb\n",
+		out: "a\nb\n",
 	}, {
 		in:  "\n\t\ta\n\t\t\tb\n\t",
-		out: "a\n  b\n",
+		out: "a\n\tb\n",
 	}, {
-		in:          "\t\ta\n\t\t  b\n",
-		shouldPanic: true,
+		in:  "\t\ta\n\t\t  b\n",
+		out: "a\n  b\n",
 	}, {
 		in:          "\t\ta\n\tb\n",
 		shouldPanic: true,
@@ -61,9 +60,6 @@ func TestFixTabs(t *testing.T) {
 			got := FixTabsOrDie(tt.in)
 			if e, a := tt.out, got; e != a {
 				t.Errorf("mismatch\n   got %v\nwanted %v", []byte(a), []byte(e))
-			}
-			if bytes.Contains([]byte(got), []byte{'\t'}) {
-				t.Error("contained a tab")
 			}
 		})
 	}
