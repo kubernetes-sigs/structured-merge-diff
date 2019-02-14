@@ -152,6 +152,25 @@ type Operation interface {
 	run(*State) error
 }
 
+func hasConflict(conflicts merge.Conflicts, conflict merge.Conflict) bool {
+	for i := range conflicts {
+		if reflect.DeepEqual(conflict, conflicts[i]) {
+			return true
+		}
+	}
+	return false
+}
+
+func addedConflicts(one, other merge.Conflicts) merge.Conflicts {
+	added := merge.Conflicts{}
+	for _, conflict := range other {
+		if !hasConflict(one, conflict) {
+			added = append(added, conflict)
+		}
+	}
+	return added
+}
+
 // Apply is a type of operation. It is a non-forced apply run by a
 // manager with a given object. Since non-forced apply operation can
 // conflict, the user can specify the expected conflicts. If conflicts
@@ -167,8 +186,24 @@ var _ Operation = &Apply{}
 
 func (a Apply) run(state *State) error {
 	err := state.Apply(a.Object, a.APIVersion, a.Manager, false)
-	if (err != nil || a.Conflicts != nil) && !reflect.DeepEqual(err, a.Conflicts) {
-		return fmt.Errorf("expected conflicts: %v, got %v", a.Conflicts, err)
+	if err != nil {
+		if _, ok := err.(merge.Conflicts); !ok {
+			return err
+		}
+	}
+	if a.Conflicts != nil {
+		conflicts := merge.Conflicts{}
+		if err != nil {
+			conflicts = err.(merge.Conflicts)
+		}
+		if len(addedConflicts(a.Conflicts, conflicts)) != 0 || len(addedConflicts(conflicts, a.Conflicts)) != 0 {
+			return fmt.Errorf("Expected conflicts:\n%v\ngot\n%v\nadded:\n%v\nremoved:\n%v",
+				a.Conflicts.Error(),
+				conflicts.Error(),
+				addedConflicts(a.Conflicts, conflicts).Error(),
+				addedConflicts(conflicts, a.Conflicts).Error(),
+			)
+		}
 	}
 	return nil
 
