@@ -21,7 +21,151 @@ import (
 
 	"sigs.k8s.io/structured-merge-diff/fieldpath"
 	. "sigs.k8s.io/structured-merge-diff/internal/fixture"
+	"sigs.k8s.io/structured-merge-diff/merge"
 )
+
+func TestMultipleAppliersSet(t *testing.T) {
+	tests := map[string]TestCase{
+		"remove_one": {
+			Ops: []Operation{
+				Apply{
+					Manager:    "apply-one",
+					APIVersion: "v1",
+					Object: `
+						list:
+						- name: a
+						- name: b
+					`,
+				},
+				Apply{
+					Manager:    "apply-two",
+					APIVersion: "v2",
+					Object: `
+						list:
+						- name: c
+					`,
+				},
+				Apply{
+					Manager:    "apply-one",
+					APIVersion: "v3",
+					Object: `
+						list:
+						- name: a
+					`,
+				},
+			},
+			Object: `
+				list:
+				- name: a
+				- name: c
+			`,
+			Managed: fieldpath.ManagedFields{
+				"apply-one": &fieldpath.VersionedSet{
+					Set: _NS(
+						_P("list", _KBF("name", _SV("a")), "name"),
+					),
+					APIVersion: "v3",
+				},
+				"apply-two": &fieldpath.VersionedSet{
+					Set: _NS(
+						_P("list", _KBF("name", _SV("c")), "name"),
+					),
+					APIVersion: "v2",
+				},
+			},
+		},
+		"same_value_no_conflict": {
+			Ops: []Operation{
+				Apply{
+					Manager:    "apply-one",
+					APIVersion: "v1",
+					Object: `
+						list:
+						- name: a
+						  value: 0
+					`,
+				},
+				Apply{
+					Manager:    "apply-two",
+					APIVersion: "v2",
+					Object: `
+						list:
+						- name: a
+						  value: 0
+					`,
+				},
+			},
+			Object: `
+				list:
+				- name: a
+				  value: 0
+			`,
+			Managed: fieldpath.ManagedFields{
+				"apply-one": &fieldpath.VersionedSet{
+					Set: _NS(
+						_P("list", _KBF("name", _SV("a")), "name"),
+						_P("list", _KBF("name", _SV("a")), "value"),
+					),
+					APIVersion: "v1",
+				},
+				"apply-two": &fieldpath.VersionedSet{
+					Set: _NS(
+						_P("list", _KBF("name", _SV("a")), "name"),
+						_P("list", _KBF("name", _SV("a")), "value"),
+					),
+					APIVersion: "v2",
+				},
+			},
+		},
+		"change_value_yes_conflict": {
+			Ops: []Operation{
+				Apply{
+					Manager:    "apply-one",
+					APIVersion: "v1",
+					Object: `
+						list:
+						- name: a
+						  value: 0
+					`,
+				},
+				Apply{
+					Manager:    "apply-two",
+					APIVersion: "v2",
+					Object: `
+						list:
+						- name: a
+						  value: 1
+					`,
+					Conflicts: merge.Conflicts{
+						merge.Conflict{Manager: "apply-one", Path: _P("list", _KBF("name", _SV("a")), "value")},
+					},
+				},
+			},
+			Object: `
+				list:
+				- name: a
+				  value: 0
+			`,
+			Managed: fieldpath.ManagedFields{
+				"apply-one": &fieldpath.VersionedSet{
+					Set: _NS(
+						_P("list", _KBF("name", _SV("a")), "name"),
+						_P("list", _KBF("name", _SV("a")), "value"),
+					),
+					APIVersion: "v1",
+				},
+			},
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			if err := test.Test(associativeListParser); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
 
 func TestMultipleAppliersSetBroken(t *testing.T) {
 	tests := map[string]TestCase{
@@ -32,9 +176,9 @@ func TestMultipleAppliersSetBroken(t *testing.T) {
 					APIVersion: "v1",
 					Object: `
 						list:
-						- a
-						- b
-						- c
+						- name: a
+						- name: b
+						- name: c
 					`,
 				},
 				Apply{
@@ -42,8 +186,8 @@ func TestMultipleAppliersSetBroken(t *testing.T) {
 					APIVersion: "v2",
 					Object: `
 						list:
-						- c
-						- d
+						- name: c
+						- name: d
 					`,
 				},
 				Apply{
@@ -51,27 +195,27 @@ func TestMultipleAppliersSetBroken(t *testing.T) {
 					APIVersion: "v3",
 					Object: `
 						list:
-						- a
+						- name: a
 					`,
 				},
 			},
 			Object: `
 				list:
-				- a
-				- c
-				- d
+				- name: a
+				- name: c
+				- name: d
 			`,
 			Managed: fieldpath.ManagedFields{
 				"apply-one": &fieldpath.VersionedSet{
 					Set: _NS(
-						_P("list", _SV("a")),
+						_P("list", _KBF("name", _SV("a")), "name"),
 					),
 					APIVersion: "v3",
 				},
 				"apply-two": &fieldpath.VersionedSet{
 					Set: _NS(
-						_P("list", _SV("c")),
-						_P("list", _SV("d")),
+						_P("list", _KBF("name", _SV("c")), "name"),
+						_P("list", _KBF("name", _SV("d")), "name"),
 					),
 					APIVersion: "v2",
 				},
@@ -81,7 +225,7 @@ func TestMultipleAppliersSetBroken(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			if test.Test(setFieldsParser) == nil {
+			if test.Test(associativeListParser) == nil {
 				t.Fatal("Broken test passed")
 			}
 		})
