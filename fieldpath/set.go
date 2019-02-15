@@ -159,7 +159,10 @@ func (s *Set) iteratePrefix(prefix Path, f func(Path)) {
 func (s *Set) WithPrefix(pe PathElement) *Set {
 	subset, ok := s.Children.Get(pe)
 	if !ok {
-		return NewSet()
+		subset = NewSet()
+	}
+	if s.Members.Has(pe) {
+		subset.Insert(MakePathOrDie(""))
 	}
 	return subset
 }

@@ -176,5 +176,5 @@ func (s *Updater) removeDisownedItems(merged, applied typed.TypedValue, lastSet 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create field set from applied config in last applied version: %v", err)
 	}
-	return merged.RemoveItems(lastSet.Set.Difference(appliedSet)), nil
+	return merged.RemoveItems(lastSet.Set, appliedSet), nil
 }
