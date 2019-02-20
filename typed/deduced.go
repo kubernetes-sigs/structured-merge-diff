@@ -173,6 +173,6 @@ func modified(lhs, rhs value.Value, path fieldpath.Path, set *fieldpath.Set) {
 
 // RemoveItems does nothing because all lists in a deducedTypedValue are considered atomic,
 // and there are no maps because it is indistinguishable from a struct.
-func (dv deducedTypedValue) RemoveItems(_ *fieldpath.Set, _ *fieldpath.Set) TypedValue {
+func (dv deducedTypedValue) RemoveItems(_ *fieldpath.Set) TypedValue {
 	return dv
 }

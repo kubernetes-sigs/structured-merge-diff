@@ -53,8 +53,8 @@ type TypedValue interface {
 	// match), or an error will be returned. Validation errors will be returned if
 	// the objects don't conform to the schema.
 	Compare(rhs TypedValue) (c *Comparison, err error)
-	// RemoveItems removes each list or map item from the value that has children in lhs and not in rhs.
-	RemoveItems(lhs *fieldpath.Set, rhs *fieldpath.Set) TypedValue
+	// RemoveItems removes each provided list or map item from the value.
+	RemoveItems(items *fieldpath.Set) TypedValue
 }
 
 // AsTyped accepts a value and a type and returns a TypedValue. 'v' must have
@@ -161,9 +161,9 @@ func (tv typedValue) Compare(rhs TypedValue) (c *Comparison, err error) {
 	return c, nil
 }
 
-// RemoveItems removes each list or map item from the value that has children in lhs and not in rhs.
-func (tv typedValue) RemoveItems(lhs *fieldpath.Set, rhs *fieldpath.Set) TypedValue {
-	removeItemsWithSchema(&tv.value, lhs, rhs, tv.schema, tv.typeRef)
+// RemoveItems removes each provided list or map item from the value.
+func (tv typedValue) RemoveItems(items *fieldpath.Set) TypedValue {
+	removeItemsWithSchema(&tv.value, items, tv.schema, tv.typeRef)
 	return tv
 }
 
