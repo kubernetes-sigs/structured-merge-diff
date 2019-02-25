@@ -86,6 +86,7 @@ func TestUpdateAssociativeLists(t *testing.T) {
 			Managed: fieldpath.ManagedFields{
 				"default": &fieldpath.VersionedSet{
 					Set: _NS(
+						_P("list", _KBF("name", _SV("b"))),
 						_P("list", _KBF("name", _SV("b")), "name"),
 						_P("list", _KBF("name", _SV("b")), "value"),
 					),
