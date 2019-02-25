@@ -38,6 +38,7 @@ func (s *Updater) update(oldObject, newObject typed.TypedValue, version fieldpat
 		managers = fieldpath.ManagedFields{}
 	}
 	conflicts := fieldpath.ManagedFields{}
+	removed := fieldpath.ManagedFields{}
 	type Versioned struct {
 		oldObject typed.TypedValue
 		newObject typed.TypedValue
@@ -86,6 +87,13 @@ func (s *Updater) update(oldObject, newObject typed.TypedValue, version fieldpat
 				APIVersion: managerSet.APIVersion,
 			}
 		}
+
+		if !compare.Removed.Empty() {
+			removed[manager] = &fieldpath.VersionedSet{
+				Set:        compare.Removed,
+				APIVersion: managerSet.APIVersion,
+			}
+		}
 	}
 
 	if !force && len(conflicts) != 0 {
@@ -94,14 +102,15 @@ func (s *Updater) update(oldObject, newObject typed.TypedValue, version fieldpat
 
 	for manager, conflictSet := range conflicts {
 		managers[manager].Set = managers[manager].Set.Difference(conflictSet.Set)
-		if managers[manager].Set.Empty() {
-			delete(managers, manager)
-		}
 	}
 
-	if _, ok := managers[workflow]; !ok {
-		managers[workflow] = &fieldpath.VersionedSet{
-			Set: fieldpath.NewSet(),
+	for manager, removedSet := range removed {
+		managers[manager].Set = managers[manager].Set.Difference(removedSet.Set)
+	}
+
+	for manager := range managers {
+		if managers[manager].Set.Empty() {
+			delete(managers, manager)
 		}
 	}
 
@@ -123,6 +132,11 @@ func (s *Updater) Update(liveObject, newObject typed.TypedValue, version fieldpa
 	if err != nil {
 		return fieldpath.ManagedFields{}, fmt.Errorf("failed to compare live and new objects: %v", err)
 	}
+	if _, ok := managers[manager]; !ok {
+		managers[manager] = &fieldpath.VersionedSet{
+			Set: fieldpath.NewSet(),
+		}
+	}
 	managers[manager].Set = managers[manager].Set.Union(compare.Modified).Union(compare.Added).Difference(compare.Removed)
 	managers[manager].APIVersion = version
 	if managers[manager].Set.Empty() {
@@ -139,42 +153,117 @@ func (s *Updater) Apply(liveObject, configObject typed.TypedValue, version field
 	if err != nil {
 		return nil, fieldpath.ManagedFields{}, fmt.Errorf("failed to merge config: %v", err)
 	}
-	managers, err = s.update(liveObject, newObject, version, managers, manager, force)
-	if err != nil {
-		return nil, fieldpath.ManagedFields{}, err
-	}
-	newObject, err = s.removeDisownedItems(newObject, configObject, managers[manager])
-	if err != nil {
-		return nil, fieldpath.ManagedFields{}, fmt.Errorf("failed to remove fields: %v", err)
-	}
 	set, err := configObject.ToFieldSet()
 	if err != nil {
 		return nil, fieldpath.ManagedFields{}, fmt.Errorf("failed to get field set: %v", err)
 	}
-	managers[manager] = &fieldpath.VersionedSet{
+	appliedSet := &fieldpath.VersionedSet{
 		Set:        set,
 		APIVersion: version,
+		Applied:    true,
 	}
+	newObject, err = s.prune(newObject, managers, manager, appliedSet)
+	if err != nil {
+		return nil, fieldpath.ManagedFields{}, fmt.Errorf("failed to prune fields: %v", err)
+	}
+	managers, err = s.update(liveObject, newObject, version, managers, manager, force)
+	if err != nil {
+		return nil, fieldpath.ManagedFields{}, err
+	}
+	managers[manager] = appliedSet
 	if managers[manager].Set.Empty() {
 		delete(managers, manager)
 	}
 	return newObject, managers, nil
 }
 
-func (s *Updater) removeDisownedItems(merged, applied typed.TypedValue, lastSet *fieldpath.VersionedSet) (typed.TypedValue, error) {
-	if lastSet.Set.Empty() {
+func (s *Updater) prune(merged typed.TypedValue, managers fieldpath.ManagedFields, applyingManager string, appliedSet *fieldpath.VersionedSet) (typed.TypedValue, error) {
+	lastSet := managers[applyingManager]
+	if lastSet == nil || lastSet.Set.Empty() {
 		return merged, nil
 	}
-	convertedApplied, err := s.Converter.Convert(applied, lastSet.APIVersion)
+	convertedMerged, err := s.Converter.Convert(merged, lastSet.APIVersion)
 	if err != nil {
 		if s.Converter.IsMissingVersionError(err) {
 			return merged, nil
 		}
-		return nil, fmt.Errorf("failed to convert applied config to last applied version: %v", err)
+		return nil, fmt.Errorf("failed to convert merged object to last applied version: %v", err)
 	}
-	appliedSet, err := convertedApplied.ToFieldSet()
+	pruned := convertedMerged.RemoveItems(lastSet.Set)
+	pruned, err = s.addBackOwnedItems(convertedMerged, pruned, managers, applyingManager, appliedSet)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create field set from applied config in last applied version: %v", err)
+		return nil, fmt.Errorf("failed add back owned items: %v", err)
 	}
-	return merged.RemoveItems(lastSet.Set.Difference(appliedSet)), nil
+	pruned, err = s.addBackDanglingItems(convertedMerged, pruned, lastSet)
+	if err != nil {
+		return nil, fmt.Errorf("failed add back dangling items: %v", err)
+	}
+	return s.Converter.Convert(pruned, appliedSet.APIVersion)
+}
+
+func (s *Updater) addBackOwnedItems(merged, pruned typed.TypedValue, managedFields fieldpath.ManagedFields, applyingManager string, appliedSet *fieldpath.VersionedSet) (typed.TypedValue, error) {
+	var err error
+	managersAtVersion := map[fieldpath.APIVersion][]string{}
+	for manager, managerSet := range managedFields {
+		if !managerSet.Applied {
+			continue
+		}
+		if manager == applyingManager {
+			managerSet = appliedSet
+		}
+		managersAtVersion[managerSet.APIVersion] = append(managersAtVersion[managerSet.APIVersion], manager)
+	}
+	for version, managers := range managersAtVersion {
+		merged, err = s.Converter.Convert(merged, version)
+		if err != nil {
+			if s.Converter.IsMissingVersionError(err) {
+				continue
+			}
+			return nil, fmt.Errorf("failed to convert merged object at version %v: %v", version, err)
+		}
+		pruned, err = s.Converter.Convert(pruned, version)
+		if err != nil {
+			if s.Converter.IsMissingVersionError(err) {
+				continue
+			}
+			return nil, fmt.Errorf("failed to convert pruned object at version %v: %v", version, err)
+		}
+		mergedSet, err := merged.ToFieldSet()
+		if err != nil {
+			return nil, fmt.Errorf("failed to create field set from merged object at version %v: %v", version, err)
+		}
+		prunedSet, err := pruned.ToFieldSet()
+		if err != nil {
+			return nil, fmt.Errorf("failed to create field set from pruned object at version %v: %v", version, err)
+		}
+		toAddBack := prunedSet
+		for _, manager := range managers {
+			managerSet := managedFields[manager]
+			if manager == applyingManager {
+				managerSet = appliedSet
+			}
+			toAddBack = toAddBack.Union(managerSet.Set)
+		}
+		pruned = merged.RemoveItems(mergedSet.Difference(toAddBack))
+	}
+	return pruned, nil
+}
+
+func (s *Updater) addBackDanglingItems(merged, pruned typed.TypedValue, lastSet *fieldpath.VersionedSet) (typed.TypedValue, error) {
+	convertedPruned, err := s.Converter.Convert(pruned, lastSet.APIVersion)
+	if err != nil {
+		if s.Converter.IsMissingVersionError(err) {
+			return merged, nil
+		}
+		return nil, fmt.Errorf("failed to convert pruned object to last applied version: %v", err)
+	}
+	prunedSet, err := convertedPruned.ToFieldSet()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create field set from pruned object in last applied version: %v", err)
+	}
+	mergedSet, err := merged.ToFieldSet()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create field set from merged object in last applied version: %v", err)
+	}
+	return merged.RemoveItems(mergedSet.Difference(prunedSet).Intersection(lastSet.Set)), nil
 }
