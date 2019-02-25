@@ -88,6 +88,10 @@ func (s *State) Update(obj typed.YAMLObject, version fieldpath.APIVersion, manag
 		return err
 	}
 	tv, err := s.Parser.FromYAML(obj)
+	s.Live , err = s.Updater.Converter.Convert(s.Live, version)
+	if err != nil {
+		return err
+	}
 	managers, err := s.Updater.Update(s.Live, tv, version, s.Managers, manager)
 	if err != nil {
 		return err
@@ -105,6 +109,10 @@ func (s *State) Apply(obj typed.YAMLObject, version fieldpath.APIVersion, manage
 		return err
 	}
 	tv, err := s.Parser.FromYAML(obj)
+	if err != nil {
+		return err
+	}
+	s.Live , err = s.Updater.Converter.Convert(s.Live, version)
 	if err != nil {
 		return err
 	}
@@ -134,6 +142,8 @@ func (s *State) CompareLive(obj typed.YAMLObject) (*typed.Comparison, error) {
 
 // dummyConverter doesn't convert, it just returns the same exact object, as long as a version is provided.
 type dummyConverter struct{}
+
+var _ merge.Converter = dummyConverter{}
 
 // Convert returns the object given in input, not doing any conversion.
 func (dummyConverter) Convert(v typed.TypedValue, version fieldpath.APIVersion) (typed.TypedValue, error) {
@@ -187,7 +197,7 @@ var _ Operation = &Apply{}
 func (a Apply) run(state *State) error {
 	err := state.Apply(a.Object, a.APIVersion, a.Manager, false)
 	if err != nil {
-		if _, ok := err.(merge.Conflicts); !ok {
+		if _, ok := err.(merge.Conflicts); !ok || a.Conflicts == nil {
 			return err
 		}
 	}
@@ -254,10 +264,15 @@ type TestCase struct {
 	Managed fieldpath.ManagedFields
 }
 
-// Test runs the test-case using the given parser.
+// Test runs the test-case using the given parser and a dummy converter.
 func (tc TestCase) Test(parser typed.ParseableType) error {
+	return tc.TestWithConverter(parser, &dummyConverter{})
+}
+
+// TestWithConverter runs the test-case using the given parser and converter.
+func (tc TestCase) TestWithConverter(parser typed.ParseableType, converter merge.Converter) error {
 	state := State{
-		Updater: &merge.Updater{Converter: &dummyConverter{}},
+		Updater: &merge.Updater{Converter: converter},
 		Parser:  parser,
 	}
 	// We currently don't have any test that converts, we can take
