@@ -292,6 +292,7 @@ func TestSetIntersectionDifference(t *testing.T) {
 			MakePathOrDie("foo", 0),
 			MakePathOrDie("b0", nameFirst),
 			MakePathOrDie("bar", "c0"),
+			MakePathOrDie("cp", nameFirst, "child"),
 		)
 
 		got := s1.Difference(s2)
