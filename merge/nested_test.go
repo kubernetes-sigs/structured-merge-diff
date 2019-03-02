@@ -41,6 +41,9 @@ var nestedTypeParser = func() typed.ParseableType {
       - name: mapOfMaps
         type:
           namedType: mapOfMaps
+      - name: mapOfMapsRecursive
+        type:
+          namedType: mapOfMapsRecursive
 - name: listOfLists
   list:
     elementType:
@@ -89,6 +92,11 @@ var nestedTypeParser = func() typed.ParseableType {
     elementType:
       namedType: map
     elementRelationship: associative
+- name: mapOfMapsRecursive
+  map:
+    elementType:
+      namedType: mapOfMapsRecursive
+    elementRelationship: associative
 `)
 	if err != nil {
 		panic(err)
@@ -133,6 +141,7 @@ func TestUpdateNestedType(t *testing.T) {
 			Managed: fieldpath.ManagedFields{
 				"default": &fieldpath.VersionedSet{
 					Set: _NS(
+						_P("listOfLists", _KBF("name", _SV("a"))),
 						_P("listOfLists", _KBF("name", _SV("a")), "name"),
 						_P("listOfLists", _KBF("name", _SV("a")), "value", _SV("a")),
 						_P("listOfLists", _KBF("name", _SV("a")), "value", _SV("c")),
@@ -176,6 +185,7 @@ func TestUpdateNestedType(t *testing.T) {
 			Managed: fieldpath.ManagedFields{
 				"default": &fieldpath.VersionedSet{
 					Set: _NS(
+						_P("listOfLists", _KBF("name", _SV("b"))),
 						_P("listOfLists", _KBF("name", _SV("b")), "name"),
 						_P("listOfLists", _KBF("name", _SV("b")), "value", _SV("a")),
 						_P("listOfLists", _KBF("name", _SV("b")), "value", _SV("c")),
@@ -219,6 +229,7 @@ func TestUpdateNestedType(t *testing.T) {
 			Managed: fieldpath.ManagedFields{
 				"default": &fieldpath.VersionedSet{
 					Set: _NS(
+						_P("listOfMaps", _KBF("name", _SV("a"))),
 						_P("listOfMaps", _KBF("name", _SV("a")), "name"),
 						_P("listOfMaps", _KBF("name", _SV("a")), "value", "a"),
 						_P("listOfMaps", _KBF("name", _SV("a")), "value", "c"),
@@ -262,6 +273,7 @@ func TestUpdateNestedType(t *testing.T) {
 			Managed: fieldpath.ManagedFields{
 				"default": &fieldpath.VersionedSet{
 					Set: _NS(
+						_P("listOfMaps", _KBF("name", _SV("b"))),
 						_P("listOfMaps", _KBF("name", _SV("b")), "name"),
 						_P("listOfMaps", _KBF("name", _SV("b")), "value", "a"),
 						_P("listOfMaps", _KBF("name", _SV("b")), "value", "c"),
@@ -302,6 +314,7 @@ func TestUpdateNestedType(t *testing.T) {
 			Managed: fieldpath.ManagedFields{
 				"default": &fieldpath.VersionedSet{
 					Set: _NS(
+						_P("mapOfLists", "a"),
 						_P("mapOfLists", "a", _SV("a")),
 						_P("mapOfLists", "a", _SV("c")),
 					),
@@ -341,6 +354,7 @@ func TestUpdateNestedType(t *testing.T) {
 			Managed: fieldpath.ManagedFields{
 				"default": &fieldpath.VersionedSet{
 					Set: _NS(
+						_P("mapOfLists", "b"),
 						_P("mapOfLists", "b", _SV("a")),
 						_P("mapOfLists", "b", _SV("c")),
 					),
@@ -380,6 +394,7 @@ func TestUpdateNestedType(t *testing.T) {
 			Managed: fieldpath.ManagedFields{
 				"default": &fieldpath.VersionedSet{
 					Set: _NS(
+						_P("mapOfMaps", "a"),
 						_P("mapOfMaps", "a", "a"),
 						_P("mapOfMaps", "a", "c"),
 					),
@@ -419,8 +434,49 @@ func TestUpdateNestedType(t *testing.T) {
 			Managed: fieldpath.ManagedFields{
 				"default": &fieldpath.VersionedSet{
 					Set: _NS(
+						_P("mapOfMaps", "b"),
 						_P("mapOfMaps", "b", "a"),
 						_P("mapOfMaps", "b", "c"),
+					),
+					APIVersion: "v1",
+				},
+			},
+		},
+		"mapOfMapsRecursive_change_middle_key": {
+			Ops: []Operation{
+				Apply{
+					Manager: "default",
+					Object: `
+						mapOfMapsRecursive:
+						  a:
+						    b:
+						      c:
+					`,
+					APIVersion: "v1",
+				},
+				Apply{
+					Manager: "default",
+					Object: `
+						mapOfMapsRecursive:
+						  a:
+						    d:
+						      c:
+					`,
+					APIVersion: "v1",
+				},
+			},
+			Object: `
+				mapOfMapsRecursive:
+				  a:
+				    d:
+				      c:
+			`,
+			Managed: fieldpath.ManagedFields{
+				"default": &fieldpath.VersionedSet{
+					Set: _NS(
+						_P("mapOfMapsRecursive", "a"),
+						_P("mapOfMapsRecursive", "a", "d"),
+						_P("mapOfMapsRecursive", "a", "d", "c"),
 					),
 					APIVersion: "v1",
 				},
