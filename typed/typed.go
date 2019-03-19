@@ -60,10 +60,10 @@ type TypedValue interface {
 // AsTyped accepts a value and a type and returns a TypedValue. 'v' must have
 // type 'typeName' in the schema. An error is returned if the v doesn't conform
 // to the schema.
-func AsTyped(v value.Value, s *schema.Schema, typeName string) (TypedValue, error) {
+func AsTyped(v value.Value, s *schema.Schema, typeRef schema.TypeRef) (TypedValue, error) {
 	tv := typedValue{
 		value:   v,
-		typeRef: schema.TypeRef{NamedType: &typeName},
+		typeRef: typeRef,
 		schema:  s,
 	}
 	if err := tv.Validate(); err != nil {
@@ -76,10 +76,10 @@ func AsTyped(v value.Value, s *schema.Schema, typeName string) (TypedValue, erro
 // conforms to the schema, for cases where that has already been checked or
 // where you're going to call a method that validates as a side-effect (like
 // ToFieldSet).
-func AsTypedUnvalidated(v value.Value, s *schema.Schema, typeName string) TypedValue {
+func AsTypedUnvalidated(v value.Value, s *schema.Schema, typeRef schema.TypeRef) TypedValue {
 	tv := typedValue{
 		value:   v,
-		typeRef: schema.TypeRef{NamedType: &typeName},
+		typeRef: typeRef,
 		schema:  s,
 	}
 	return tv

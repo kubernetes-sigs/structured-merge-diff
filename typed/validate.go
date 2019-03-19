@@ -228,5 +228,9 @@ func (v validatingObjectWalker) doUntyped(t schema.Untyped) (errs ValidationErro
 		// fields.
 		v.doLeaf()
 	}
+	if t.ElementRelationship == schema.Deduced {
+		v.typeRef = schema.DeduceType(&v.value)
+		return v.validate()
+	}
 	return nil
 }

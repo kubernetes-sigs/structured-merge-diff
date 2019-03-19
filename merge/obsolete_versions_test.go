@@ -53,7 +53,7 @@ func TestObsoleteVersions(t *testing.T) {
 	}
 	state := fixture.State{
 		Updater: &merge.Updater{Converter: converter},
-		Parser:  typed.DeducedParseableType{},
+		Parser:  typed.DeducedParseableType,
 	}
 
 	if err := state.Update(typed.YAMLObject(`{"v1": 0}`), fieldpath.APIVersion("v1"), "v1"); err != nil {

@@ -122,6 +122,11 @@ func (w *removingWalker) doMap(t schema.Map) ValidationErrors {
 	return nil
 }
 
-func (*removingWalker) doUntyped(_ schema.Untyped) ValidationErrors { return nil }
+func (w *removingWalker) doUntyped(t schema.Untyped) ValidationErrors {
+	if t.ElementRelationship == schema.Deduced {
+		resolveSchema(w.schema, schema.DeduceType(w.value), w)
+	}
+	return nil
+}
 
 func (*removingWalker) errorf(_ string, _ ...interface{}) ValidationErrors { return nil }
