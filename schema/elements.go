@@ -113,8 +113,9 @@ type UnionField struct {
 	// is the serialized form of the field.
 	FieldName string `yaml:"fieldName"`
 	// DiscriminatedBy is the value of the discriminator to select that
-	// field.
-	DiscriminatedBy string `yaml:"DiscriminatedBy"`
+	// field. If the union doesn't have a discriminator, this field is
+	// ignored.
+	DiscriminatedBy string `yaml:"discriminatedBy"`
 }
 
 // Union, or oneof, means that only one of multiple fields of a structure can be
@@ -135,11 +136,10 @@ type Union struct {
 	// below.
 	Discriminator *string `yaml:"discriminator,omitempty"`
 
-	// This is the list of fields that belong to this union. This fields are
-	// required to not be part of another union, or be the discriminator for
-	// another union. All the fields present in here have to be part of the
-	// parent structure. Discriminator (if oneOf has one), is NOT included
-	// in this list. The value for field is how we map the name of the field
+	// This is the list of fields that belong to this union. All the
+	// fields present in here have to be part of the parent
+	// structure. Discriminator (if oneOf has one), is NOT included in
+	// this list. The value for field is how we map the name of the field
 	// to actual value for discriminator.
 	Fields []UnionField `yaml:"fields,omitempty"`
 }

@@ -90,6 +90,15 @@ var SchemaSchemaYAML = `types:
     - name: elementRelationship
       type:
         scalar: string
+- name: unionField
+  struct:
+    fields:
+    - name: fieldName
+      type:
+        scalar: string
+    - name: discriminatedBy
+      type:
+        scalar: string
 - name: union
   struct:
     fields:
@@ -98,9 +107,12 @@ var SchemaSchemaYAML = `types:
         scalar: string
     - name: fields
       type:
-        map:
+        list:
+          elementRelationship: associative
           elementType:
-            scalar: string
+            namedType: unionField
+          keys:
+          - fieldName
 - name: structField
   struct:
     fields:
