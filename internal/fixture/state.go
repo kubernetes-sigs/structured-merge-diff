@@ -29,7 +29,7 @@ import (
 // State of the current test in terms of live object. One can check at
 // any time that Live and Managers match the expectations.
 type State struct {
-	Live     typed.TypedValue
+	Live     *typed.TypedValue
 	Parser   typed.ParseableType
 	Managers fieldpath.ManagedFields
 	Updater  *merge.Updater
@@ -146,7 +146,7 @@ type dummyConverter struct{}
 var _ merge.Converter = dummyConverter{}
 
 // Convert returns the object given in input, not doing any conversion.
-func (dummyConverter) Convert(v typed.TypedValue, version fieldpath.APIVersion) (typed.TypedValue, error) {
+func (dummyConverter) Convert(v *typed.TypedValue, version fieldpath.APIVersion) (*typed.TypedValue, error) {
 	if len(version) == 0 {
 		return nil, fmt.Errorf("cannot convert to invalid version: %q", version)
 	}

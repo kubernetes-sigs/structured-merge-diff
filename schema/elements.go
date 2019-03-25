@@ -16,6 +16,8 @@ limitations under the License.
 
 package schema
 
+import "sigs.k8s.io/structured-merge-diff/value"
+
 // Schema is a list of named types.
 type Schema struct {
 	Types []TypeDef `yaml:"types,omitempty"`
@@ -77,6 +79,8 @@ const (
 	// Separable means the items of the container type have no particular
 	// relationship (default behavior for maps and structs).
 	Separable = ElementRelationship("separable")
+	// Deduced only applies to untyped (see the documentation there).
+	Deduced = ElementRelationship("deduced")
 )
 
 // Struct represents a type which is composed of a number of different fields.
@@ -180,15 +184,43 @@ type Map struct {
 type Untyped struct {
 	// ElementRelationship states the relationship between the items, if
 	// container-typed data happens to be present here.
+	// * `deduced` implies that the behavior is based on the type of data.
+	//   Structs and maps are both treated as a `separable` Map with `deduced` Untyped elements.
+	//   Lists and Scalars are both treated as an `atomic` Untyped.
 	// * `atomic` implies that all elements depend on each other, and this
 	//   is effectively a scalar / leaf field; it doesn't make sense for
 	//   separate actors to set the elements.
 	// TODO: support "guess" (guesses at associative list keys)
-	// TODO: support "lookup" (calls a lookup function to figure out the
-	//       schema based on the data)
 	// The default behavior for untyped data is `atomic`; it's permitted to
 	// leave this unset to get the default behavior.
 	ElementRelationship ElementRelationship `yaml:"elementRelationship,omitempty"`
+}
+
+// DeduceType determines the behavior based on a value.
+func DeduceType(v *value.Value) TypeRef {
+	if v != nil && v.MapValue != nil {
+		return TypeRef{
+			Inlined: Atom{
+				Map: &Map{
+					ElementType: TypeRef{
+						Inlined: Atom{
+							Untyped: &Untyped{
+								ElementRelationship: Deduced,
+							},
+						},
+					},
+					ElementRelationship: Separable,
+				},
+			},
+		}
+	}
+	return TypeRef{
+		Inlined: Atom{
+			Untyped: &Untyped{
+				ElementRelationship: Atomic,
+			},
+		},
+	}
 }
 
 // FindNamedType is a convenience function that returns the referenced TypeDef,

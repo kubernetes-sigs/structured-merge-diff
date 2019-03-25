@@ -32,7 +32,7 @@ type specificVersionConverter struct {
 	AcceptedVersions []fieldpath.APIVersion
 }
 
-func (d *specificVersionConverter) Convert(object typed.TypedValue, version fieldpath.APIVersion) (typed.TypedValue, error) {
+func (d *specificVersionConverter) Convert(object *typed.TypedValue, version fieldpath.APIVersion) (*typed.TypedValue, error) {
 	for _, v := range d.AcceptedVersions {
 		if v == version {
 			return object, nil
@@ -53,7 +53,7 @@ func TestObsoleteVersions(t *testing.T) {
 	}
 	state := fixture.State{
 		Updater: &merge.Updater{Converter: converter},
-		Parser:  typed.DeducedParseableType{},
+		Parser:  typed.DeducedParseableType,
 	}
 
 	if err := state.Update(typed.YAMLObject(`{"v1": 0}`), fieldpath.APIVersion("v1"), "v1"); err != nil {

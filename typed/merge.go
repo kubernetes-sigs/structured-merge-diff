@@ -376,9 +376,6 @@ func (w *mergingWalker) doMap(t schema.Map) (errs ValidationErrors) {
 	var lhs, rhs *value.Map
 	errs = append(errs, w.derefMapOrStruct("lhs: ", "map", w.lhs, &lhs)...)
 	errs = append(errs, w.derefMapOrStruct("rhs: ", "map", w.rhs, &rhs)...)
-	if len(errs) > 0 {
-		return errs
-	}
 
 	// If both lhs and rhs are empty/null, treat it as a
 	// leaf: this helps preserve the empty/null
@@ -395,7 +392,7 @@ func (w *mergingWalker) doMap(t schema.Map) (errs ValidationErrors) {
 		return nil
 	}
 
-	errs = w.visitMapItems(t, lhs, rhs)
+	errs = append(errs, w.visitMapItems(t, lhs, rhs)...)
 
 	return errs
 }
@@ -405,6 +402,18 @@ func (w *mergingWalker) doUntyped(t schema.Untyped) (errs ValidationErrors) {
 		// Untyped sections allow anything, and are considered leaf
 		// fields.
 		w.doLeaf()
+	}
+	if t.ElementRelationship == schema.Deduced {
+		// Merge using the lhs's type on a shallow copy of the merge walker,
+		// to get rid of the merged output 
+		w2 := *w
+		w2.typeRef = schema.DeduceType(w.lhs)
+		w2.merge()
+
+		// Merge using the rhs's type on the real merge walker,
+		// to keep the merged output
+		w.typeRef = schema.DeduceType(w.rhs)
+		w.merge()
 	}
 	return nil
 }

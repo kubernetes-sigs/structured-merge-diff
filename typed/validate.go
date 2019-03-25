@@ -22,7 +22,7 @@ import (
 	"sigs.k8s.io/structured-merge-diff/value"
 )
 
-func (tv typedValue) walker() *validatingObjectWalker {
+func (tv TypedValue) walker() *validatingObjectWalker {
 	return &validatingObjectWalker{
 		value:   tv.value,
 		schema:  tv.schema,
@@ -227,6 +227,10 @@ func (v validatingObjectWalker) doUntyped(t schema.Untyped) (errs ValidationErro
 		// Untyped sections allow anything, and are considered leaf
 		// fields.
 		v.doLeaf()
+	}
+	if t.ElementRelationship == schema.Deduced {
+		v.typeRef = schema.DeduceType(&v.value)
+		return v.validate()
 	}
 	return nil
 }
