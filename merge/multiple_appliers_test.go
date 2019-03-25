@@ -834,7 +834,7 @@ var _ merge.Converter = repeatingConverter{}
 var missingVersionError error = fmt.Errorf("cannot convert to invalid version")
 
 // Convert implements merge.Converter
-func (r repeatingConverter) Convert(v typed.TypedValue, version fieldpath.APIVersion) (typed.TypedValue, error) {
+func (r repeatingConverter) Convert(v *typed.TypedValue, version fieldpath.APIVersion) (*typed.TypedValue, error) {
 	if len(version) < 2 || string(version)[0] != 'v' {
 		return nil, missingVersionError
 	}

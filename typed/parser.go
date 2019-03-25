@@ -77,8 +77,8 @@ func (p *Parser) Type(name string) ParseableType {
 
 // ParseableType allows for easy production of typed objects.
 type ParseableType struct {
-	schema.TypeRef
-	*schema.Schema
+	TypeRef schema.TypeRef
+	Schema  *schema.Schema
 }
 
 // IsValid return true if p's schema and typename are valid.
@@ -89,7 +89,7 @@ func (p ParseableType) IsValid() bool {
 
 // FromYAML parses a yaml string into an object with the current schema
 // and the type "typename" or an error if validation fails.
-func (p ParseableType) FromYAML(object YAMLObject) (TypedValue, error) {
+func (p ParseableType) FromYAML(object YAMLObject) (*TypedValue, error) {
 	v, err := value.FromYAML([]byte(object))
 	if err != nil {
 		return nil, err
@@ -99,7 +99,7 @@ func (p ParseableType) FromYAML(object YAMLObject) (TypedValue, error) {
 
 // FromUnstructured converts a go interface to a TypedValue. It will return an
 // error if the resulting object fails schema validation.
-func (p ParseableType) FromUnstructured(in interface{}) (TypedValue, error) {
+func (p ParseableType) FromUnstructured(in interface{}) (*TypedValue, error) {
 	v, err := value.FromUnstructured(in)
 	if err != nil {
 		return nil, err

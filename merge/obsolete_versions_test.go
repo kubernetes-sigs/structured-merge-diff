@@ -32,7 +32,7 @@ type specificVersionConverter struct {
 	AcceptedVersions []fieldpath.APIVersion
 }
 
-func (d *specificVersionConverter) Convert(object typed.TypedValue, version fieldpath.APIVersion) (typed.TypedValue, error) {
+func (d *specificVersionConverter) Convert(object *typed.TypedValue, version fieldpath.APIVersion) (*typed.TypedValue, error) {
 	for _, v := range d.AcceptedVersions {
 		if v == version {
 			return object, nil
