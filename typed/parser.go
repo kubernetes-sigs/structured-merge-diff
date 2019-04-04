@@ -49,8 +49,6 @@ func createOrDie(schema YAMLObject) *Parser {
 
 var ssParser = createOrDie(YAMLObject(schema.SchemaSchemaYAML))
 
-var untypedSchema = createOrDie(YAMLObject(schema.UntypedYAML)).Schema
-
 // NewParser will build a YAMLParser from a schema. The schema is validated.
 func NewParser(schema YAMLObject) (*Parser, error) {
 	_, err := ssParser.Type("schema").FromYAML(schema)
@@ -61,7 +59,6 @@ func NewParser(schema YAMLObject) (*Parser, error) {
 	if err != nil {
 		return nil, err
 	}
-	p.Schema.Types = append(p.Schema.Types, untypedSchema.Types...)
 	return p, nil
 }
 
@@ -116,4 +113,25 @@ func (p ParseableType) FromUnstructured(in interface{}) (*TypedValue, error) {
 
 // DeducedParseableType is a ParseableType that deduces the type from
 // the content of the object.
-var DeducedParseableType ParseableType = (&Parser{Schema: untypedSchema}).Type(schema.UntypedDeduced)
+var DeducedParseableType ParseableType = createOrDie(YAMLObject(`types:
+- name: __untyped_atomic_
+  scalar: untyped
+  list:
+    elementType:
+      namedType: __untyped_atomic_
+    elementRelationship: atomic
+  map:
+    elementType:
+      namedType: __untyped_atomic_
+    elementRelationship: atomic
+- name: __untyped_deduced_
+  scalar: untyped
+  list:
+    elementType:
+      namedType: __untyped_atomic_
+    elementRelationship: atomic
+  map:
+    elementType:
+      namedType: __untyped_deduced_
+    elementRelationship: separable
+`)).Type("__untyped_deduced_")

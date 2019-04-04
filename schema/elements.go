@@ -177,41 +177,6 @@ type Map struct {
 	ElementRelationship ElementRelationship `yaml:"elementRelationship,omitempty"`
 }
 
-// UntypedAtomic implies that all elements depend on each other, and this
-// is effectively a scalar / leaf field; it doesn't make sense for
-// separate actors to set the elements.
-var UntypedAtomic string = "__untyped_atomic_"
-
-// UntypedDeduced implies that the behavior is based on the type of data.
-// Structs and maps are both treated as a `separable` Map with UntypedDeduced elements.
-// Lists and Scalars are both treated as an UntypedAtomic.
-var UntypedDeduced string = "__untyped_deduced_"
-
-// UntypedYAML can be added to a schema to allow it to reference basic Untyped types
-// which represent types that allow arbitrary content. (Think: plugin objects.)
-var UntypedYAML string = `types:
-- name: __untyped_atomic_
-  scalar: untyped
-  list:
-    elementType:
-      namedType: __untyped_atomic_
-    elementRelationship: atomic
-  map:
-    elementType:
-      namedType: __untyped_atomic_
-    elementRelationship: atomic
-- name: __untyped_deduced_
-  scalar: untyped
-  list:
-    elementType:
-      namedType: __untyped_atomic_
-    elementRelationship: atomic
-  map:
-    elementType:
-      namedType: __untyped_deduced_
-    elementRelationship: separable
-`
-
 // FindNamedType is a convenience function that returns the referenced TypeDef,
 // if it exists, or (nil, false) if it doesn't.
 func (s Schema) FindNamedType(name string) (TypeDef, bool) {

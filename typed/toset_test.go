@@ -61,6 +61,16 @@ var fieldsetCases = []fieldsetTestCase{{
     - name: value
       type:
         namedType: __untyped_atomic_
+- name: __untyped_atomic_
+  scalar: untyped
+  list:
+    elementType:
+      namedType: __untyped_atomic_
+    elementRelationship: atomic
+  map:
+    elementType:
+      namedType: __untyped_atomic_
+    elementRelationship: atomic
 `,
 	pairs: []objSetPair{
 		{`{"key":"foo","value":1}`, _NS(_P("key"), _P("value"))},

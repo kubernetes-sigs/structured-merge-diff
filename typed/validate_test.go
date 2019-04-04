@@ -45,6 +45,16 @@ var validationCases = []validationTestCase{{
     - name: value
       type:
         namedType: __untyped_atomic_
+- name: __untyped_atomic_
+  scalar: untyped
+  list:
+    elementType:
+      namedType: __untyped_atomic_
+    elementRelationship: atomic
+  map:
+    elementType:
+      namedType: __untyped_atomic_
+    elementRelationship: atomic
 `,
 	validObjects: []typed.YAMLObject{
 		`{"key":"foo","value":1}`,
