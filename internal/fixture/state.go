@@ -88,7 +88,7 @@ func (s *State) Update(obj typed.YAMLObject, version fieldpath.APIVersion, manag
 		return err
 	}
 	tv, err := s.Parser.FromYAML(obj)
-	s.Live , err = s.Updater.Converter.Convert(s.Live, version)
+	s.Live, err = s.Updater.Converter.Convert(s.Live, version)
 	if err != nil {
 		return err
 	}
@@ -112,7 +112,7 @@ func (s *State) Apply(obj typed.YAMLObject, version fieldpath.APIVersion, manage
 	if err != nil {
 		return err
 	}
-	s.Live , err = s.Updater.Converter.Convert(s.Live, version)
+	s.Live, err = s.Updater.Converter.Convert(s.Live, version)
 	if err != nil {
 		return err
 	}

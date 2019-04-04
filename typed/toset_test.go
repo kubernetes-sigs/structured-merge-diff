@@ -166,8 +166,8 @@ var fieldsetCases = []fieldsetTestCase{{
 		{`{"arbitraryWavelengthColor":{"IR":255}}`, _NS(_P("arbitraryWavelengthColor"))},
 		{`{"args":[]}`, _NS(_P("args"))},
 		{`{"args":null}`, _NS(_P("args"))},
-		{`{"args":[null]}`,_NS(_P("args"))},
-		{`{"args":[{"key":"a","value":"b"},{"key":"c","value":"d"}]}`,_NS(_P("args"))},
+		{`{"args":[null]}`, _NS(_P("args"))},
+		{`{"args":[{"key":"a","value":"b"},{"key":"c","value":"d"}]}`, _NS(_P("args"))},
 	},
 }, {
 	name:         "associative list",
