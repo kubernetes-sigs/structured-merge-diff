@@ -249,7 +249,6 @@ func (s *Updater) addBackOwnedItems(merged, pruned *typed.TypedValue, managedFie
 	return pruned, nil
 }
 
-
 // addBackDanglingItems makes sure that the only items removed by prune are items that were
 // previously owned by the currently applying manager. This will add back unowned items and items
 // which are owned by Updaters that shouldn't be removed.

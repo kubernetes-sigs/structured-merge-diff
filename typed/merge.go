@@ -405,7 +405,7 @@ func (w *mergingWalker) doUntyped(t schema.Untyped) (errs ValidationErrors) {
 	}
 	if t.ElementRelationship == schema.Deduced {
 		// Merge using the lhs's type on a shallow copy of the merge walker,
-		// to get rid of the merged output 
+		// to get rid of the merged output
 		w2 := *w
 		w2.typeRef = schema.DeduceType(w.lhs)
 		w2.merge()

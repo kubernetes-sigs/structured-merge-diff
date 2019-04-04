@@ -825,7 +825,7 @@ func TestMultipleAppliersRealConversion(t *testing.T) {
 }
 
 // repeatingConverter repeats a single letterkey v times, where v is the version.
-type repeatingConverter struct{
+type repeatingConverter struct {
 	typed.ParseableType
 }
 
@@ -856,7 +856,7 @@ func (r repeatingConverter) Convert(v *typed.TypedValue, version fieldpath.APIVe
 			if len(spaces) == 0 {
 				break
 			}
-			c := line[len(spaces):len(spaces)+1]
+			c := line[len(spaces) : len(spaces)+1]
 			c = strings.Repeat(c, versionNumber)
 			str2 = fmt.Sprintf("%v\n%v%v:", str2, spaces, c)
 		}
@@ -869,15 +869,15 @@ func (r repeatingConverter) Convert(v *typed.TypedValue, version fieldpath.APIVe
 }
 
 func countLeadingSpace(line string) int {
-        spaces := 0
-        for _, letter := range line {
-                if letter == ' ' {
-                        spaces++
-                } else {
-                        break
-                }
-        }
-        return spaces
+	spaces := 0
+	for _, letter := range line {
+		if letter == ' ' {
+			spaces++
+		} else {
+			break
+		}
+	}
+	return spaces
 }
 
 // Convert implements merge.Converter
