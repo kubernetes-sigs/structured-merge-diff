@@ -44,7 +44,7 @@ var validationCases = []validationTestCase{{
         scalar: string
     - name: value
       type:
-        untyped: {}
+        namedType: __untyped_atomic_
 `,
 	validObjects: []typed.YAMLObject{
 		`{"key":"foo","value":1}`,

@@ -16,8 +16,6 @@ limitations under the License.
 
 package schema
 
-import "sigs.k8s.io/structured-merge-diff/value"
-
 // Schema is a list of named types.
 type Schema struct {
 	Types []TypeDef `yaml:"types,omitempty"`
@@ -45,13 +43,15 @@ type TypeRef struct {
 }
 
 // Atom represents the smallest possible pieces of the type system.
+// Each set field in the Atom represents a possible type for the object.
+// If none of the fields are set, any object will fail validation against the atom.
 type Atom struct {
-	// Exactly one of the below must be set.
-	*Scalar  `yaml:"scalar,omitempty"`
-	*Struct  `yaml:"struct,omitempty"`
-	*List    `yaml:"list,omitempty"`
-	*Map     `yaml:"map,omitempty"`
-	*Untyped `yaml:"untyped,omitempty"`
+	*Scalar `yaml:"scalar,omitempty"`
+	*List   `yaml:"list,omitempty"`
+
+	// At most, one of the below must be set, since both look the same when serialized
+	*Struct `yaml:"struct,omitempty"`
+	*Map    `yaml:"map,omitempty"`
 }
 
 // Scalar (AKA "primitive") represents a type which has a single value which is
@@ -67,20 +67,18 @@ const (
 )
 
 // ElementRelationship is an enum of the different possible relationships
-// between the elements of container types (maps, lists, structs, untyped).
+// between the elements of container types (maps, lists, structs).
 type ElementRelationship string
 
 const (
 	// Associative only applies to lists (see the documentation there).
 	Associative = ElementRelationship("associative")
-	// Atomic makes container types (lists, maps, structs, untyped) behave
-	// as scalars / leaf fields (which is the default for untyped data).
+	// Atomic makes container types (lists, maps, structs) behave
+	// as scalars / leaf fields
 	Atomic = ElementRelationship("atomic")
 	// Separable means the items of the container type have no particular
 	// relationship (default behavior for maps and structs).
 	Separable = ElementRelationship("separable")
-	// Deduced only applies to untyped (see the documentation there).
-	Deduced = ElementRelationship("deduced")
 )
 
 // Struct represents a type which is composed of a number of different fields.
@@ -179,49 +177,40 @@ type Map struct {
 	ElementRelationship ElementRelationship `yaml:"elementRelationship,omitempty"`
 }
 
-// Untyped represents types that allow arbitrary content. (Think: plugin
-// objects.)
-type Untyped struct {
-	// ElementRelationship states the relationship between the items, if
-	// container-typed data happens to be present here.
-	// * `deduced` implies that the behavior is based on the type of data.
-	//   Structs and maps are both treated as a `separable` Map with `deduced` Untyped elements.
-	//   Lists and Scalars are both treated as an `atomic` Untyped.
-	// * `atomic` implies that all elements depend on each other, and this
-	//   is effectively a scalar / leaf field; it doesn't make sense for
-	//   separate actors to set the elements.
-	// TODO: support "guess" (guesses at associative list keys)
-	// The default behavior for untyped data is `atomic`; it's permitted to
-	// leave this unset to get the default behavior.
-	ElementRelationship ElementRelationship `yaml:"elementRelationship,omitempty"`
-}
+// UntypedAtomic implies that all elements depend on each other, and this
+// is effectively a scalar / leaf field; it doesn't make sense for
+// separate actors to set the elements.
+var UntypedAtomic string = "__untyped_atomic_"
 
-// DeduceType determines the behavior based on a value.
-func DeduceType(v *value.Value) TypeRef {
-	if v != nil && v.MapValue != nil {
-		return TypeRef{
-			Inlined: Atom{
-				Map: &Map{
-					ElementType: TypeRef{
-						Inlined: Atom{
-							Untyped: &Untyped{
-								ElementRelationship: Deduced,
-							},
-						},
-					},
-					ElementRelationship: Separable,
-				},
-			},
-		}
-	}
-	return TypeRef{
-		Inlined: Atom{
-			Untyped: &Untyped{
-				ElementRelationship: Atomic,
-			},
-		},
-	}
-}
+// UntypedDeduced implies that the behavior is based on the type of data.
+// Structs and maps are both treated as a `separable` Map with UntypedDeduced elements.
+// Lists and Scalars are both treated as an UntypedAtomic.
+var UntypedDeduced string = "__untyped_deduced_"
+
+// UntypedYAML can be added to a schema to allow it to reference basic Untyped types
+// which represent types that allow arbitrary content. (Think: plugin objects.)
+var UntypedYAML string = `types:
+- name: __untyped_atomic_
+  scalar: untyped
+  list:
+    elementType:
+      namedType: __untyped_atomic_
+    elementRelationship: atomic
+  map:
+    elementType:
+      namedType: __untyped_atomic_
+    elementRelationship: atomic
+- name: __untyped_deduced_
+  scalar: untyped
+  list:
+    elementType:
+      namedType: __untyped_atomic_
+    elementRelationship: atomic
+  map:
+    elementType:
+      namedType: __untyped_deduced_
+    elementRelationship: separable
+`
 
 // FindNamedType is a convenience function that returns the referenced TypeDef,
 // if it exists, or (nil, false) if it doesn't.

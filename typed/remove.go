@@ -31,7 +31,7 @@ func removeItemsWithSchema(value *value.Value, toRemove *fieldpath.Set, schema *
 		schema:   schema,
 		toRemove: toRemove,
 	}
-	resolveSchema(schema, typeRef, w)
+	resolveSchema(schema, typeRef, value, w)
 }
 
 // doLeaf should be called on leaves before descending into children, if there
@@ -118,13 +118,6 @@ func (w *removingWalker) doMap(t schema.Map) ValidationErrors {
 	if len(w.value.MapValue.Items) == 0 {
 		w.value.MapValue = nil
 		w.value.Null = true
-	}
-	return nil
-}
-
-func (w *removingWalker) doUntyped(t schema.Untyped) ValidationErrors {
-	if t.ElementRelationship == schema.Deduced {
-		resolveSchema(w.schema, schema.DeduceType(w.value), w)
 	}
 	return nil
 }

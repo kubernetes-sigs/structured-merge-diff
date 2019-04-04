@@ -55,7 +55,7 @@ var symdiffCases = []symdiffTestCase{{
         scalar: string
     - name: value
       type:
-        untyped: {}
+        namedType: __untyped_atomic_
 `,
 	quints: []symdiffQuint{{
 		lhs:      `{"key":"foo","value":1}`,
@@ -111,7 +111,7 @@ var symdiffCases = []symdiffTestCase{{
       type:
         map:
           elementType:
-            untyped: {}
+            namedType: __untyped_atomic_
 `,
 	quints: []symdiffQuint{{
 		lhs:      `{}`,
@@ -157,7 +157,7 @@ var symdiffCases = []symdiffTestCase{{
           fields:
           - name: value
             type:
-              untyped: {}
+              namedType: __untyped_atomic_
 `,
 	quints: []symdiffQuint{{
 		lhs:      `{}`,
@@ -201,7 +201,7 @@ var symdiffCases = []symdiffTestCase{{
       type:
         list:
           elementType:
-            untyped: {}
+            namedType: __untyped_atomic_
           elementRelationship: atomic
 `,
 	quints: []symdiffQuint{{
