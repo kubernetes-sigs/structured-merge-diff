@@ -49,7 +49,17 @@ var mergeCases = []mergeTestCase{{
         scalar: string
     - name: value
       type:
-        untyped: {}
+        namedType: __untyped_atomic_
+- name: __untyped_atomic_
+  scalar: untyped
+  list:
+    elementType:
+      namedType: __untyped_atomic_
+    elementRelationship: atomic
+  map:
+    elementType:
+      namedType: __untyped_atomic_
+    elementRelationship: atomic
 `,
 	triplets: []mergeTriplet{{
 		`{"key":"foo","value":{}}`,
@@ -83,7 +93,17 @@ var mergeCases = []mergeTestCase{{
       type:
         map:
           elementType:
-            untyped: {}
+            namedType: __untyped_atomic_
+- name: __untyped_atomic_
+  scalar: untyped
+  list:
+    elementType:
+      namedType: __untyped_atomic_
+    elementRelationship: atomic
+  map:
+    elementType:
+      namedType: __untyped_atomic_
+    elementRelationship: atomic
 `,
 	triplets: []mergeTriplet{{
 		`{}`,
@@ -119,7 +139,17 @@ var mergeCases = []mergeTestCase{{
           fields:
           - name: value
             type:
-              untyped: {}
+              namedType: __untyped_atomic_
+- name: __untyped_atomic_
+  scalar: untyped
+  list:
+    elementType:
+      namedType: __untyped_atomic_
+    elementRelationship: atomic
+  map:
+    elementType:
+      namedType: __untyped_atomic_
+    elementRelationship: atomic
 `,
 	triplets: []mergeTriplet{{
 		`{}`,
@@ -153,8 +183,18 @@ var mergeCases = []mergeTestCase{{
       type:
         list:
           elementType:
-            untyped: {}
+            namedType: __untyped_atomic_
           elementRelationship: atomic
+- name: __untyped_atomic_
+  scalar: untyped
+  list:
+    elementType:
+      namedType: __untyped_atomic_
+    elementRelationship: atomic
+  map:
+    elementType:
+      namedType: __untyped_atomic_
+    elementRelationship: atomic
 `,
 	triplets: []mergeTriplet{{
 		`{}`,

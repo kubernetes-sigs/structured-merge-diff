@@ -33,9 +33,9 @@ type Parser struct {
 }
 
 // create builds an unvalidated parser.
-func create(schema YAMLObject) (*Parser, error) {
+func create(s YAMLObject) (*Parser, error) {
 	p := Parser{}
-	err := yaml.Unmarshal([]byte(schema), &p.Schema)
+	err := yaml.Unmarshal([]byte(s), &p.Schema)
 	return &p, err
 }
 
@@ -55,7 +55,11 @@ func NewParser(schema YAMLObject) (*Parser, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unable to validate schema: %v", err)
 	}
-	return create(schema)
+	p, err := create(schema)
+	if err != nil {
+		return nil, err
+	}
+	return p, nil
 }
 
 // TypeNames returns a list of types this parser understands.
@@ -109,12 +113,25 @@ func (p ParseableType) FromUnstructured(in interface{}) (*TypedValue, error) {
 
 // DeducedParseableType is a ParseableType that deduces the type from
 // the content of the object.
-var DeducedParseableType ParseableType = ParseableType{
-	TypeRef: schema.TypeRef{
-		Inlined: schema.Atom{
-			Untyped: &schema.Untyped{
-				ElementRelationship: schema.Deduced,
-			},
-		},
-	},
-}
+var DeducedParseableType ParseableType = createOrDie(YAMLObject(`types:
+- name: __untyped_atomic_
+  scalar: untyped
+  list:
+    elementType:
+      namedType: __untyped_atomic_
+    elementRelationship: atomic
+  map:
+    elementType:
+      namedType: __untyped_atomic_
+    elementRelationship: atomic
+- name: __untyped_deduced_
+  scalar: untyped
+  list:
+    elementType:
+      namedType: __untyped_atomic_
+    elementRelationship: atomic
+  map:
+    elementType:
+      namedType: __untyped_deduced_
+    elementRelationship: separable
+`)).Type("__untyped_deduced_")
