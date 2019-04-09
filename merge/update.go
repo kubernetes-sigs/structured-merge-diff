@@ -41,7 +41,7 @@ func (s *Updater) update(oldObject, newObject *typed.TypedValue, version fieldpa
 		newObject *typed.TypedValue
 	}
 	versions := map[fieldpath.APIVersion]Versioned{
-		version: Versioned{
+		version: {
 			oldObject: oldObject,
 			newObject: newObject,
 		},
