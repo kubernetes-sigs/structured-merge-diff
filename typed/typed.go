@@ -146,6 +146,38 @@ func (tv TypedValue) RemoveItems(items *fieldpath.Set) *TypedValue {
 	return &tv
 }
 
+// NormalizeUnions takes the new object and normalizes the union:
+// - If there is a discriminator and its value has changed, clean all
+// fields but the one specified by the discriminator
+// - If there is no discriminator, or it hasn't changed, if new has two
+// of the fields set, remove the one that was set in old.
+// - If there is a discriminator, set it to the value we've kept (if it changed)
+//
+// This can fail if:
+// - Multiple new fields are set,
+// - The discriminator is changed, and at least one new field is set.
+func (tv TypedValue) NormalizeUnions(new *TypedValue) (*TypedValue, error) {
+	var errs ValidationErrors
+	var normalizeFn = func(w *mergingWalker) {
+		if err := normalizeUnion(w); err != nil {
+			errs = append(errs, w.error(err)...)
+		}
+	}
+	out, mergeErrs := merge(&tv, new, func(w *mergingWalker) {
+		if w.rhs != nil {
+			v := *w.rhs
+			w.out = &v
+		}
+	}, normalizeFn)
+	if mergeErrs != nil {
+		errs = append(errs, mergeErrs.(ValidationErrors)...)
+	}
+	if len(errs) > 0 {
+		return nil, errs
+	}
+	return out, nil
+}
+
 func merge(lhs, rhs *TypedValue, rule, postRule mergeRule) (*TypedValue, error) {
 	if lhs.schema != rhs.schema {
 		return nil, errorFormatter{}.
