@@ -177,6 +177,11 @@ func (tv TypedValue) NormalizeUnions(new *TypedValue) (*TypedValue, error) {
 	return out, nil
 }
 
+func (tv TypedValue) Empty() *TypedValue {
+	tv.value = value.Value{Null: true}
+	return &tv
+}
+
 func merge(lhs, rhs *TypedValue, rule, postRule mergeRule) (*TypedValue, error) {
 	if lhs.schema != rhs.schema {
 		return nil, errorFormatter{}.
