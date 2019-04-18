@@ -18,6 +18,7 @@ package typed
 
 import (
 	"fmt"
+	"strings"
 
 	"sigs.k8s.io/structured-merge-diff/schema"
 	"sigs.k8s.io/structured-merge-diff/value"
@@ -108,7 +109,7 @@ func newFieldsSet(m *value.Map, fields []field) fieldsSet {
 	}
 	set := fieldsSet{}
 	for _, f := range fields {
-		if _, ok := m.Get(string(f)); ok {
+		if subField, ok := m.Get(string(f)); ok && !subField.Value.Null {
 			set.Add(f)
 		}
 	}
@@ -152,6 +153,14 @@ func (fs fieldsSet) Difference(o fieldsSet) fieldsSet {
 	return n
 }
 
+func (fs fieldsSet) String() string {
+	s := []string{}
+	for k := range fs {
+		s = append(s, string(k))
+	}
+	return strings.Join(s, ", ")
+}
+
 type union struct {
 	d  *discriminator
 	dn discriminatedNames
@@ -188,7 +197,7 @@ func (u *union) Normalize(old, new, out *value.Map) error {
 	diff := ns.Difference(os)
 
 	if len(ns) > 1 && len(diff) != 1 {
-		return fmt.Errorf("unable to guess new discriminator: %v", diff)
+		return fmt.Errorf("unable to guess new discriminator amongst new fields: %v", diff)
 	}
 
 	discriminator := field("")
@@ -200,7 +209,7 @@ func (u *union) Normalize(old, new, out *value.Map) error {
 
 	if u.d.Get(old) != u.d.Get(new) && u.d.Get(new) != "" {
 		if len(diff) == 1 && u.d.Get(new) != u.dn.toDiscriminated(discriminator) {
-			return fmt.Errorf("discriminator and field changed: %v/%v", discriminator, u.d.Get(new))
+			return fmt.Errorf("discriminator (%v) and field changed (%v)", u.d.Get(new), discriminator)
 		}
 		u.clear(out, u.dn.toField(u.d.Get(new)))
 		return nil

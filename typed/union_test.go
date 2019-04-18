@@ -198,6 +198,12 @@ func TestNormalizeUnions(t *testing.T) {
 			new:  `{"one": 1}`,
 			out:  `{"one": 1, "discriminator": "One"}`,
 		},
+		{
+			name: "new object has three of same union set but one is null",
+			old:  `{"one": 1}`,
+			new:  `{"one": 2, "two": 1, "three": null}`,
+			out:  `{"two": 1, "discriminator": "TWO"}`,
+		},
 		// These use-cases shouldn't happen:
 		{
 			name: "one field removed, discriminator unchanged",
