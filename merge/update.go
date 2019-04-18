@@ -119,16 +119,19 @@ func (s *Updater) update(oldObject, newObject *typed.TypedValue, version fieldpa
 // that you intend to persist (after applying the patch if this is for a
 // PATCH call), and liveObject must be the original object (empty if
 // this is a CREATE call).
-func (s *Updater) Update(liveObject, newObject *typed.TypedValue, version fieldpath.APIVersion, managers fieldpath.ManagedFields, manager string) (fieldpath.ManagedFields, error) {
-	var err error
+func (s *Updater) Update(liveObject, newObject *typed.TypedValue, version fieldpath.APIVersion, managers fieldpath.ManagedFields, manager string) (*typed.TypedValue, fieldpath.ManagedFields, error) {
+	newObject, err := liveObject.NormalizeUnions(newObject)
+	if err != nil {
+		return nil, fieldpath.ManagedFields{}, err
+	}
 	managers = shallowCopyManagers(managers)
 	managers, err = s.update(liveObject, newObject, version, managers, manager, true)
 	if err != nil {
-		return fieldpath.ManagedFields{}, err
+		return nil, fieldpath.ManagedFields{}, err
 	}
 	compare, err := liveObject.Compare(newObject)
 	if err != nil {
-		return fieldpath.ManagedFields{}, fmt.Errorf("failed to compare live and new objects: %v", err)
+		return nil, fieldpath.ManagedFields{}, fmt.Errorf("failed to compare live and new objects: %v", err)
 	}
 	if _, ok := managers[manager]; !ok {
 		managers[manager] = &fieldpath.VersionedSet{
@@ -140,7 +143,7 @@ func (s *Updater) Update(liveObject, newObject *typed.TypedValue, version fieldp
 	if managers[manager].Set.Empty() {
 		delete(managers, manager)
 	}
-	return managers, nil
+	return newObject, managers, nil
 }
 
 // Apply should be called when Apply is run, given the current object as
@@ -148,9 +151,17 @@ func (s *Updater) Update(liveObject, newObject *typed.TypedValue, version fieldp
 // and return it.
 func (s *Updater) Apply(liveObject, configObject *typed.TypedValue, version fieldpath.APIVersion, managers fieldpath.ManagedFields, manager string, force bool) (*typed.TypedValue, fieldpath.ManagedFields, error) {
 	managers = shallowCopyManagers(managers)
+	configObject, err := configObject.Empty().NormalizeUnions(configObject)
+	if err != nil {
+		return nil, fieldpath.ManagedFields{}, err
+	}
 	newObject, err := liveObject.Merge(configObject)
 	if err != nil {
 		return nil, fieldpath.ManagedFields{}, fmt.Errorf("failed to merge config: %v", err)
+	}
+	newObject, err = liveObject.NormalizeUnions(newObject)
+	if err != nil {
+		return nil, fieldpath.ManagedFields{}, err
 	}
 	lastSet := managers[manager]
 	set, err := configObject.ToFieldSet()

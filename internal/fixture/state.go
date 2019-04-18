@@ -92,11 +92,11 @@ func (s *State) Update(obj typed.YAMLObject, version fieldpath.APIVersion, manag
 	if err != nil {
 		return err
 	}
-	managers, err := s.Updater.Update(s.Live, tv, version, s.Managers, manager)
+	newObj, managers, err := s.Updater.Update(s.Live, tv, version, s.Managers, manager)
 	if err != nil {
 		return err
 	}
-	s.Live = tv
+	s.Live = newObj
 	s.Managers = managers
 
 	return nil
