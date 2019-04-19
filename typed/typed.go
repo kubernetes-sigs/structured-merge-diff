@@ -178,6 +178,16 @@ func (tv TypedValue) NormalizeUnions(new *TypedValue) (*TypedValue, error) {
 	return out, nil
 }
 
+// CompleteKeys will traverse tv, filling in any incomplete multi-keys using
+// the values present in defaulted.
+//
+// This can fail if:
+// - Multiple possible matches are found in defaulyed for a single
+//   incomplete multi-key, leading to an ambiguous result.
+func (tv TypedValue) CompleteKeys(defauled *TypedValue) (*TypedValue, error) {
+	return &tv, nil
+}
+
 func merge(lhs, rhs *TypedValue, rule, postRule mergeRule) (*TypedValue, error) {
 	if lhs.schema != rhs.schema {
 		return nil, errorFormatter{}.

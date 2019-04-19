@@ -154,6 +154,15 @@ func (s *Updater) Update(liveObject, newObject *typed.TypedValue, version fieldp
 // well as the configuration that is applied. This will merge the object
 // and return it.
 func (s *Updater) Apply(liveObject, configObject *typed.TypedValue, version fieldpath.APIVersion, managers fieldpath.ManagedFields, manager string, force bool) (*typed.TypedValue, fieldpath.ManagedFields, error) {
+	defaultedConfig, err := s.Defaulter.Default(configObject)
+	if err != nil {
+		return nil, fieldpath.ManagedFields{}, fmt.Errorf("failed to default config: %v", err)
+	}
+	configObject, err = configObject.CompleteKeys(defaultedConfig)
+	if err != nil {
+		return nil, fieldpath.ManagedFields{}, fmt.Errorf("failed to fix incomplete multi-keys: %v", err)
+	}
+
 	managers = shallowCopyManagers(managers)
 	newObject, err := liveObject.Merge(configObject)
 	if err != nil {

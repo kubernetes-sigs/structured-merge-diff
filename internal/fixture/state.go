@@ -157,6 +157,16 @@ func (dummyConverter) IsMissingVersionError(err error) bool {
 	return false
 }
 
+// dummyDefaulter doesn't default, it just returns the same exact object, as long as a version is provided.
+type dummyDefaulter struct{}
+
+var _ merge.Defaulter = dummyDefaulter{}
+
+// Default returns the object given in input, not doing any conversion.
+func (dummyDefaulter) Default(v *typed.TypedValue) (*typed.TypedValue, error) {
+	return v, nil
+}
+
 // Operation is a step that will run when building a table-driven test.
 type Operation interface {
 	run(*State) error
@@ -247,6 +257,17 @@ func (u Update) run(state *State) error {
 	return state.Update(u.Object, u.APIVersion, u.Manager)
 }
 
+// NewState creates a new state from a parser with a dummy converter and defaulter
+func NewState(parser typed.ParseableType) State {
+	return State{
+		Updater: &merge.Updater{
+			Converter: &dummyConverter{},
+			Defaulter: &dummyDefaulter{},
+		},
+		Parser:  parser,
+	}
+}
+
 // TestCase is the list of operations that need to be run, as well as
 // the object/managedfields as they are supposed to look like after all
 // the operations have been successfully performed. If Object/Managed is
@@ -264,17 +285,21 @@ type TestCase struct {
 	Managed fieldpath.ManagedFields
 }
 
-// Test runs the test-case using the given parser and a dummy converter.
+// Test runs the test-case using the given parser and dummy updater.
 func (tc TestCase) Test(parser typed.ParseableType) error {
-	return tc.TestWithConverter(parser, &dummyConverter{})
+	state := NewState(parser)
+	return tc.TestWithState(state)
 }
 
-// TestWithConverter runs the test-case using the given parser and converter.
+// TestWithConverter runs the test-case using the given parser and converter, and a dummy defaulter.
 func (tc TestCase) TestWithConverter(parser typed.ParseableType, converter merge.Converter) error {
-	state := State{
-		Updater: &merge.Updater{Converter: converter},
-		Parser:  parser,
-	}
+	state := NewState(parser)
+	state.Updater.Converter = converter
+	return tc.TestWithState(state)
+}
+
+// TestWithState runs the test-case using the given input state.
+func (tc TestCase) TestWithState(state State) error {
 	// We currently don't have any test that converts, we can take
 	// care of that later.
 	for i, ops := range tc.Ops {
