@@ -22,7 +22,6 @@ import (
 
 	"sigs.k8s.io/structured-merge-diff/fieldpath"
 	"sigs.k8s.io/structured-merge-diff/internal/fixture"
-	"sigs.k8s.io/structured-merge-diff/merge"
 	"sigs.k8s.io/structured-merge-diff/typed"
 )
 
@@ -51,10 +50,8 @@ func TestObsoleteVersions(t *testing.T) {
 	converter := &specificVersionConverter{
 		AcceptedVersions: []fieldpath.APIVersion{"v1", "v2"},
 	}
-	state := fixture.State{
-		Updater: &merge.Updater{Converter: converter},
-		Parser:  typed.DeducedParseableType,
-	}
+	state := fixture.NewState(typed.DeducedParseableType)
+	state.Updater.Converter = converter
 
 	if err := state.Update(typed.YAMLObject(`{"v1": 0}`), fieldpath.APIVersion("v1"), "v1"); err != nil {
 		t.Fatalf("Failed to apply: %v", err)
@@ -105,10 +102,8 @@ func TestApplyObsoleteVersion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create parser: %v", err)
 	}
-	state := fixture.State{
-		Updater: &merge.Updater{Converter: converter},
-		Parser:  parser.Type("sets"),
-	}
+	state := fixture.NewState(parser.Type("sets"))
+	state.Updater.Converter = converter
 
 	if err := state.Apply(typed.YAMLObject(`{"list": ["a", "b", "c", "d"]}`), fieldpath.APIVersion("v1"), "apply", false); err != nil {
 		t.Fatalf("Failed to apply: %v", err)

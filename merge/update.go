@@ -27,10 +27,17 @@ type Converter interface {
 	IsMissingVersionError(error) bool
 }
 
+// Defaulter is an interface to the defaulting logic. The defaulter
+// needs to be able to defaulter objects.
+type Defaulter interface {
+	Default(object *typed.TypedValue) (*typed.TypedValue, error)
+}
+
 // Updater is the object used to compute updated FieldSets and also
 // merge the object on Apply.
 type Updater struct {
 	Converter Converter
+	Defaulter Defaulter
 }
 
 func (s *Updater) update(oldObject, newObject *typed.TypedValue, version fieldpath.APIVersion, managers fieldpath.ManagedFields, workflow string, force bool) (fieldpath.ManagedFields, error) {
