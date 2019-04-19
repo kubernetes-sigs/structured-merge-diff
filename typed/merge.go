@@ -34,6 +34,11 @@ type mergingWalker struct {
 	// How to merge. Called after schema validation for all leaf fields.
 	rule mergeRule
 
+	// If set, called before non-leaf items have been merged. (`out` is
+	// probably not set.)
+	// Might be called on some leaves since inLeaf can be set later.
+	preItemHook mergeRule
+
 	// If set, called after non-leaf items have been merged. (`out` is
 	// probably already set.)
 	postItemHook mergeRule
@@ -71,6 +76,9 @@ func (w *mergingWalker) merge() (errs ValidationErrors) {
 	a, ok := w.schema.Resolve(w.typeRef)
 	if !ok {
 		return w.errorf("schema error: no type found matching: %v", *w.typeRef.NamedType)
+	}
+	if !w.inLeaf && w.preItemHook != nil {
+		w.preItemHook(w)
 	}
 
 	alhs := deduceAtom(a, w.lhs)

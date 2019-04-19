@@ -98,7 +98,7 @@ func (tv TypedValue) ToFieldSet() (*fieldpath.Set, error) {
 // match), or an error will be returned. Validation errors will be returned if
 // the objects don't conform to the schema.
 func (tv TypedValue) Merge(pso *TypedValue) (*TypedValue, error) {
-	return merge(&tv, pso, ruleKeepRHS, nil)
+	return merge(&tv, pso, nil, ruleKeepRHS, nil)
 }
 
 // Compare compares the two objects. See the comments on the `Comparison`
@@ -113,7 +113,7 @@ func (tv TypedValue) Compare(rhs *TypedValue) (c *Comparison, err error) {
 		Modified: fieldpath.NewSet(),
 		Added:    fieldpath.NewSet(),
 	}
-	c.Merged, err = merge(&tv, rhs, func(w *mergingWalker) {
+	c.Merged, err = merge(&tv, rhs, nil, func(w *mergingWalker) {
 		if w.lhs == nil {
 			c.Added.Insert(w.path)
 		} else if w.rhs == nil {
@@ -163,7 +163,7 @@ func (tv TypedValue) NormalizeUnions(new *TypedValue) (*TypedValue, error) {
 			errs = append(errs, w.error(err)...)
 		}
 	}
-	out, mergeErrs := merge(&tv, new, func(w *mergingWalker) {
+	out, mergeErrs := merge(&tv, new, nil, func(w *mergingWalker) {
 		if w.rhs != nil {
 			v := *w.rhs
 			w.out = &v
@@ -185,10 +185,32 @@ func (tv TypedValue) NormalizeUnions(new *TypedValue) (*TypedValue, error) {
 // - Multiple possible matches are found in defaulyed for a single
 //   incomplete multi-key, leading to an ambiguous result.
 func (tv TypedValue) CompleteKeys(defaulted *TypedValue) (*TypedValue, error) {
-	return &tv, nil
+	var errs ValidationErrors
+	var completeFn = func(w *mergingWalker) {
+		if w.lhs != nil {
+			v := *w.lhs
+			w.lhs = &v
+			if err := completeKeys(w); err != nil {
+				errs = append(errs, w.error(err)...)
+			}
+		}
+	}
+	out, mergeErrs := merge(&tv, defaulted, completeFn, func(w *mergingWalker) {
+		if w.lhs != nil {
+			v := *w.lhs
+			w.out = &v
+		}
+	}, nil)
+	if mergeErrs != nil {
+		errs = append(errs, mergeErrs.(ValidationErrors)...)
+	}
+	if len(errs) > 0 {
+		return nil, errs
+	}
+	return out, nil
 }
 
-func merge(lhs, rhs *TypedValue, rule, postRule mergeRule) (*TypedValue, error) {
+func merge(lhs, rhs *TypedValue, preRule, rule, postRule mergeRule) (*TypedValue, error) {
 	if lhs.schema != rhs.schema {
 		return nil, errorFormatter{}.
 			errorf("expected objects with types from the same schema")
@@ -204,6 +226,7 @@ func merge(lhs, rhs *TypedValue, rule, postRule mergeRule) (*TypedValue, error) 
 		schema:       lhs.schema,
 		typeRef:      lhs.typeRef,
 		rule:         rule,
+		preItemHook:  preRule,
 		postItemHook: postRule,
 	}
 	errs := mw.merge()

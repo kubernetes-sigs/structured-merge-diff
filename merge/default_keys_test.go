@@ -42,6 +42,9 @@ var portListParser = func() typed.ParseableType {
                 - name: protocol
                   type:
                     scalar: string
+                - name: extra
+                  type:
+                    scalar: string
             elementRelationship: associative
             keys:
             - port
@@ -63,6 +66,8 @@ func TestDefaultKeysBroken(t *testing.T) {
 					Object: `
 						containerPorts:
 						- port: 80
+						- port: 80
+						  protocol: UDP
 					`,
 				},
 			},
@@ -70,6 +75,8 @@ func TestDefaultKeysBroken(t *testing.T) {
 				containerPorts:
 				- port: 80
 				  protocol: TCP
+				- port: 80
+				  protocol: UDP
 			`,
 			Managed: fieldpath.ManagedFields{
 				"default": &fieldpath.VersionedSet{
@@ -77,6 +84,9 @@ func TestDefaultKeysBroken(t *testing.T) {
 						_P("containerPorts", _KBF("port", _IV(80), "protocol", _SV("TCP"))),
 						_P("containerPorts", _KBF("port", _IV(80), "protocol", _SV("TCP")), "port"),
 						_P("containerPorts", _KBF("port", _IV(80), "protocol", _SV("TCP")), "protocol"),
+						_P("containerPorts", _KBF("port", _IV(80), "protocol", _SV("UDP"))),
+						_P("containerPorts", _KBF("port", _IV(80), "protocol", _SV("UDP")), "port"),
+						_P("containerPorts", _KBF("port", _IV(80), "protocol", _SV("UDP")), "protocol"),
 					),
 					APIVersion: "v1",
 				},
@@ -122,6 +132,9 @@ func (d protocolDefaulter) Default(v *typed.TypedValue) (*typed.TypedValue, erro
 					if item := listValue.Items[i].MapValue; item != nil {
 						if _, ok := item.Get("protocol"); !ok {
 							item.Set("protocol", _SV("TCP"))
+						}
+						if _, ok := item.Get("extra"); !ok {
+							item.Set("extra", _SV("blah"))
 						}
 					}
 				}

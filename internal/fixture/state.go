@@ -264,7 +264,7 @@ func NewState(parser typed.ParseableType) State {
 			Converter: &dummyConverter{},
 			Defaulter: &dummyDefaulter{},
 		},
-		Parser:  parser,
+		Parser: parser,
 	}
 }
 
