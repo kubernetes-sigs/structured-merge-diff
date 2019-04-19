@@ -109,7 +109,7 @@ func (d protocolDefaulter) Default(v *typed.TypedValue) (*typed.TypedValue, erro
 	if err != nil {
 		return nil, err
 	}
-	v2, err := d.ParseableType.FromYAML(typed.YAMLObject(y))
+	v2, err := d.ParseableType.FromYAMLUnvalidated(typed.YAMLObject(y))
 	if err != nil {
 		return nil, err
 	}

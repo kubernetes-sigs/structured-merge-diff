@@ -101,6 +101,16 @@ func (p ParseableType) FromYAML(object YAMLObject) (*TypedValue, error) {
 	return AsTyped(v, p.Schema, p.TypeRef)
 }
 
+// FromYAMLUnvalidated parses a yaml string into an object with the current schema
+// and the type "typename".
+func (p ParseableType) FromYAMLUnvalidated(object YAMLObject) (*TypedValue, error) {
+	v, err := value.FromYAML([]byte(object))
+	if err != nil {
+		return nil, err
+	}
+	return AsTypedUnvalidated(v, p.Schema, p.TypeRef), nil
+}
+
 // FromUnstructured converts a go interface to a TypedValue. It will return an
 // error if the resulting object fails schema validation.
 func (p ParseableType) FromUnstructured(in interface{}) (*TypedValue, error) {

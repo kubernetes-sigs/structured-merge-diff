@@ -108,7 +108,7 @@ func (s *State) Apply(obj typed.YAMLObject, version fieldpath.APIVersion, manage
 	if err := s.checkInit(); err != nil {
 		return err
 	}
-	tv, err := s.Parser.FromYAML(obj)
+	tv, err := s.Parser.FromYAMLUnvalidated(obj)
 	if err != nil {
 		return err
 	}
