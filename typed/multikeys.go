@@ -19,8 +19,10 @@ package typed
 import (
 	"fmt"
 	"reflect"
+	"sort"
 
 	"sigs.k8s.io/structured-merge-diff/schema"
+	"sigs.k8s.io/structured-merge-diff/value"
 )
 
 func completeKeys(w *mergingWalker) error {
@@ -28,62 +30,91 @@ func completeKeys(w *mergingWalker) error {
 	if !found {
 		panic(fmt.Sprintf("Unable to resolve schema in complete keys: %v/%v", w.schema, w.typeRef))
 	}
-	// Multi-keys can only be in assoc. lists, and the list must not have been removed by the defaulter.
-	if atom.List == nil || atom.List.ElementRelationship != schema.Associative || len(atom.List.Keys) <= 1 || w.lhs == nil || w.lhs.ListValue == nil || w.rhs == nil || w.rhs.ListValue == nil {
+	// defaulted keys can only be in a keyed associative lists
+	if atom.List == nil || atom.List.ElementRelationship != schema.Associative || len(atom.List.Keys) == 0 {
 		return nil
 	}
 
-	undefaultedList := w.lhs.ListValue
-	defaultedList := w.rhs.ListValue
+	original := getItems(w.lhs)
+	defaulted := getItems(w.rhs)
 
-	changed := true
-	matchedLHS := map[int]bool{}
-	matchedRHS := map[int]bool{}
-	for changed && len(matchedLHS) < len(undefaultedList.Items) {
-		changed = false
-		for i, lhs := range undefaultedList.Items {
-			if lhs.MapValue == nil {
-				return fmt.Errorf("expected a map or struct but got: %v", lhs)
+	return matchBySpecifiedKeys(original, defaulted, atom.List.Keys)
+}
+
+func getItems(v *value.Value) (mapValues []*value.Map) {
+	if v != nil && v.ListValue != nil {
+		for _, item := range v.ListValue.Items {
+			if item.MapValue != nil {
+				mapValues = append(mapValues, item.MapValue)
 			}
-			if matchedLHS[i] {
+		}
+	}
+	return mapValues
+}
+
+// matchBySpecifiedKeys uses key values from fully specified rhs to fill in all
+// unspecified keys in lhs if possible.
+// TODO: Use a trie on keys instead of an n^2 loop.
+func matchBySpecifiedKeys(original, defaulted []*value.Map, keys []string) error {
+	sortPartialItems(original, keys)
+	matched := map[*value.Map]bool{}
+	for _, lhs := range original {
+		for _, rhs := range defaulted {
+			// match each rhs item at most once
+			if matched[rhs] {
 				continue
 			}
-			possibleMatches := []int{}
-			for j, rhs := range defaultedList.Items {
-				if rhs.MapValue == nil {
-					continue
-				}
-				if matchedRHS[j] {
-					continue
-				}
-				possibleMatch := true
-				for _, key := range atom.List.Keys {
-					if fieldLHS, ok := lhs.MapValue.Get(key); ok {
-						if fieldRHS, ok := rhs.MapValue.Get(key); ok {
-							if !reflect.DeepEqual(fieldLHS, fieldRHS) {
-								possibleMatch = false
-							}
-						}
-					}
-				}
-				if possibleMatch {
-					possibleMatches = append(possibleMatches, j)
-				}
+
+			// if we found a match for lhs, fill in the missing keys
+			if isMatch(lhs, rhs, keys) {
+				matched[rhs] = true
+				fillUnspecifiedKeys(lhs, rhs, keys)
+				break
 			}
-			if len(possibleMatches) == 1 {
-				changed = true
-				matchedLHS[i] = true
-				matchedRHS[possibleMatches[0]] = true
-				for _, key := range atom.List.Keys {
-					if _, ok := lhs.MapValue.Get(key); !ok {
-						if fieldRHS, ok := defaultedList.Items[possibleMatches[0]].MapValue.Get(key); ok {
-							lhs.MapValue.Set(key, fieldRHS.Value)
-						}
-					}
+		}
+	}
+	return nil
+}
+
+// sortPartialItems sorts a slice of list items by the number of keys specified,
+// in descending order (most completely specified first).
+func sortPartialItems(original []*value.Map, keys []string) {
+	sort.Slice(original, func(i, j int) bool {
+		iKeys, jKeys := 0, 0
+		for _, key := range keys {
+			if _, ok := original[i].Get(key); ok {
+				iKeys++
+			}
+			if _, ok := original[j].Get(key); ok {
+				jKeys++
+			}
+		}
+		return iKeys > jKeys
+	})
+}
+
+// isMatch checking if all key values present in lhs match the values in rhs
+func isMatch(lhs, rhs *value.Map, keys []string) bool {
+	for _, key := range keys {
+		if fieldLHS, ok := lhs.Get(key); ok {
+			if fieldRHS, ok := rhs.Get(key); ok {
+				if !reflect.DeepEqual(fieldLHS, fieldRHS) {
+					return false
 				}
 			}
 		}
 	}
+	return true
+}
 
-	return nil
+// fillUnspecifiedKeys uses key values from fully specified rhs to fill in
+// unspecified keys in lhs.
+func fillUnspecifiedKeys(lhs, rhs *value.Map, keys []string) {
+	for _, key := range keys {
+		if _, ok := lhs.Get(key); !ok {
+			if fieldRHS, ok := rhs.Get(key); ok {
+				lhs.Set(key, fieldRHS.Value)
+			}
+		}
+	}
 }
