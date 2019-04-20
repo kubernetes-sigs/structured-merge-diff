@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"sigs.k8s.io/structured-merge-diff/fieldpath"
 	"sigs.k8s.io/structured-merge-diff/merge"
@@ -162,7 +163,7 @@ type dummyDefaulter struct{}
 
 var _ merge.Defaulter = dummyDefaulter{}
 
-// Default returns the object given in input, not doing any conversion.
+// Default returns the object given in input, not doing any defaulting.
 func (dummyDefaulter) Default(v *typed.TypedValue) (*typed.TypedValue, error) {
 	return v, nil
 }
@@ -196,16 +197,20 @@ func addedConflicts(one, other merge.Conflicts) merge.Conflicts {
 // conflict, the user can specify the expected conflicts. If conflicts
 // don't match, an error will occur.
 type Apply struct {
-	Manager    string
-	APIVersion fieldpath.APIVersion
-	Object     typed.YAMLObject
-	Conflicts  merge.Conflicts
+	Manager     string
+	APIVersion  fieldpath.APIVersion
+	Object      typed.YAMLObject
+	Conflicts   merge.Conflicts
+	ExpectError string
 }
 
 var _ Operation = &Apply{}
 
 func (a Apply) run(state *State) error {
 	err := state.Apply(a.Object, a.APIVersion, a.Manager, false)
+	if a.ExpectError != "" {
+		return expectError(err, a.ExpectError)
+	}
 	if err != nil {
 		if _, ok := err.(merge.Conflicts); !ok || a.Conflicts == nil {
 			return err
@@ -226,35 +231,51 @@ func (a Apply) run(state *State) error {
 		}
 	}
 	return nil
-
 }
 
 // ForceApply is a type of operation. It is a forced-apply run by a
 // manager with a given object. Any error will be returned.
 type ForceApply struct {
-	Manager    string
-	APIVersion fieldpath.APIVersion
-	Object     typed.YAMLObject
+	Manager     string
+	APIVersion  fieldpath.APIVersion
+	Object      typed.YAMLObject
+	ExpectError string
 }
 
 var _ Operation = &ForceApply{}
 
 func (f ForceApply) run(state *State) error {
-	return state.Apply(f.Object, f.APIVersion, f.Manager, true)
+	err := state.Apply(f.Object, f.APIVersion, f.Manager, true)
+	if f.ExpectError != "" {
+		return expectError(err, f.ExpectError)
+	}
+	return err
 }
 
 // Update is a type of operation. It is a controller type of
 // update. Errors are passed along.
 type Update struct {
-	Manager    string
-	APIVersion fieldpath.APIVersion
-	Object     typed.YAMLObject
+	Manager     string
+	APIVersion  fieldpath.APIVersion
+	Object      typed.YAMLObject
+	ExpectError string
 }
 
 var _ Operation = &Update{}
 
 func (u Update) run(state *State) error {
-	return state.Update(u.Object, u.APIVersion, u.Manager)
+	err := state.Update(u.Object, u.APIVersion, u.Manager)
+	if u.ExpectError != "" {
+		return expectError(err, u.ExpectError)
+	}
+	return err
+}
+
+func expectError(actual error, expected string) error {
+	if actual == nil || !strings.Contains(actual.Error(), expected) {
+		return fmt.Errorf("Expected error to contain %q but got: %v", expected, actual)
+	}
+	return nil
 }
 
 // NewState creates a new state from a parser with a dummy converter and defaulter
