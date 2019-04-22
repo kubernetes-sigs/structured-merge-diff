@@ -62,10 +62,11 @@ var keyedListParser = func() typed.ParseableType {
 
 func TestCompleteKeys(t *testing.T) {
 	tests := []struct {
-		name      string
-		original  typed.YAMLObject
-		defaulted typed.YAMLObject
-		out       typed.YAMLObject
+		name        string
+		original    typed.YAMLObject
+		defaulted   typed.YAMLObject
+		out         typed.YAMLObject
+		expectError bool
 	}{
 		{
 			name: "all keys specified",
@@ -98,6 +99,76 @@ func TestCompleteKeys(t *testing.T) {
 			`,
 		},
 		{
+			name: "ambiguous keys specified",
+			original: `
+				list:
+				- {a: "1"}
+				- {a: "1", b: "0"}
+			`,
+			defaulted: `
+				list:
+				- {a: "1", b: "0", c: "0", d: "0"}
+				- {a: "1", b: "0", c: "0", d: "1"}
+			`,
+			expectError: true,
+		},
+		{
+			name: "wrong keys specified",
+			original: `
+				list:
+				- {a: "1"}
+				- {a: "1"}
+			`,
+			defaulted: `
+				list:
+				- {a: "1", b: "0", c: "0", d: "0"}
+				- {a: "2", b: "0", c: "0", d: "0"}
+			`,
+			expectError: true,
+		},
+		{
+			name: "more keys is more ambiguous",
+			original: `
+				list:
+				- {a: "1", value: "less keys"}
+				- {b: "0", c: "0", d: "0", value: "more keys"}
+			`,
+			defaulted: `
+				list:
+				- {a: "0", b: "0", c: "0", d: "0"}
+				- {a: "1", b: "0", c: "0", d: "0"}
+			`,
+			out: `
+				list:
+				- {a: "1", b: "0", c: "0", d: "0", value: "less keys"}
+				- {a: "0", b: "0", c: "0", d: "0", value: "more keys"}
+			`,
+		},
+		{
+			name: "resort necessary",
+			original: `
+				list:
+				- {a: "1", value: "A1"}
+				- {a: "2", value: "A2"}
+				- {c: "1", value: "C"}
+				- {b: "1", value: "B"}
+			`,
+			defaulted: `
+				list:
+				- {a: "1", b: "1", c: "0", d: "0"}
+				- {a: "2", b: "1", c: "0", d: "0"}
+				- {a: "0", b: "1", c: "1", d: "0"}
+				- {a: "0", b: "0", c: "1", d: "0"}
+			`,
+			out: `
+				list:
+				- {a: "1", b: "1", c: "0", d: "0", value: "A1"}
+				- {a: "2", b: "1", c: "0", d: "0", value: "A2"}
+				- {a: "0", b: "1", c: "1", d: "0", value: "B"}
+				- {a: "0", b: "0", c: "1", d: "0", value: "C"}
+			`,
+		},
+		{
 			name: "all combinations of keys specified",
 			original: `
 				list:
@@ -121,22 +192,22 @@ func TestCompleteKeys(t *testing.T) {
 			`,
 			defaulted: `
 				list:
-				- {a: "0", b: "0", c: "0", d: "0"}
-				- {a: "0", b: "0", c: "0", d: "1"}
-				- {a: "0", b: "0", c: "1", d: "0"}
-				- {a: "0", b: "0", c: "1", d: "1"}
-				- {a: "0", b: "1", c: "0", d: "0"}
-				- {a: "0", b: "1", c: "0", d: "1"}
-				- {a: "0", b: "1", c: "1", d: "0"}
-				- {a: "0", b: "1", c: "1", d: "1"}
-				- {a: "1", b: "0", c: "0", d: "0"}
-				- {a: "1", b: "0", c: "0", d: "1"}
-				- {a: "1", b: "0", c: "1", d: "0"}
-				- {a: "1", b: "0", c: "1", d: "1"}
-				- {a: "1", b: "1", c: "0", d: "0"}
-				- {a: "1", b: "1", c: "0", d: "1"}
-				- {a: "1", b: "1", c: "1", d: "0"}
 				- {a: "1", b: "1", c: "1", d: "1"}
+				- {a: "1", b: "1", c: "1", d: "0"}
+				- {a: "1", b: "1", c: "0", d: "1"}
+				- {a: "1", b: "1", c: "0", d: "0"}
+				- {a: "1", b: "0", c: "1", d: "1"}
+				- {a: "1", b: "0", c: "1", d: "0"}
+				- {a: "1", b: "0", c: "0", d: "1"}
+				- {a: "1", b: "0", c: "0", d: "0"}
+				- {a: "0", b: "1", c: "1", d: "1"}
+				- {a: "0", b: "1", c: "1", d: "0"}
+				- {a: "0", b: "1", c: "0", d: "1"}
+				- {a: "0", b: "1", c: "0", d: "0"}
+				- {a: "0", b: "0", c: "1", d: "1"}
+				- {a: "0", b: "0", c: "1", d: "0"}
+				- {a: "0", b: "0", c: "0", d: "1"}
+				- {a: "0", b: "0", c: "0", d: "0"}
 			`,
 			out: `
 				list:
@@ -175,15 +246,19 @@ func TestCompleteKeys(t *testing.T) {
 				t.Fatalf("failed to parse out object: %v", err)
 			}
 			got, err := original.CompleteKeys(defaulted)
-			if err != nil {
-				t.Fatalf("failed to complete keys: %v", err)
-			}
-			comparison, err := out.Compare(got)
-			if err != nil {
-				t.Fatalf("failed to compare result and expected: %v", err)
-			}
-			if !comparison.IsSame() {
-				t.Errorf("Result is different from expected:\n%v", comparison)
+			if test.expectError {
+				err = ExpectError(err)
+			} else {
+				if err != nil {
+					t.Fatalf("failed to complete keys: %v", err)
+				}
+				comparison, err := out.Compare(got)
+				if err != nil {
+					t.Fatalf("failed to compare result and expected: %v", err)
+				}
+				if !comparison.IsSame() {
+					t.Errorf("Result is different from expected:\n%v", comparison)
+				}
 			}
 		})
 	}

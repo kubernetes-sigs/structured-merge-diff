@@ -67,7 +67,7 @@ func TestDefaultKeysFlat(t *testing.T) {
 						containerPorts:
 						- protocol: TCP
 					`,
-					ExpectError: "failed to fix incomplete multi-keys",
+					ExpectError: true,
 				},
 			},
 		},
@@ -81,7 +81,7 @@ func TestDefaultKeysFlat(t *testing.T) {
 						- port: 80
 						- port: 80
 					`,
-					ExpectError: "failed to fix incomplete multi-keys",
+					ExpectError: true,
 				},
 			},
 		},
@@ -96,7 +96,7 @@ func TestDefaultKeysFlat(t *testing.T) {
 						- port: 80
 						  protocol: TCP
 					`,
-					ExpectError: "failed to fix incomplete multi-keys",
+					ExpectError: true,
 				},
 			},
 		},

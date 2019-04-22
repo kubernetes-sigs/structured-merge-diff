@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"fmt"
 	"reflect"
-	"strings"
 
 	"sigs.k8s.io/structured-merge-diff/fieldpath"
 	"sigs.k8s.io/structured-merge-diff/merge"
@@ -201,15 +200,15 @@ type Apply struct {
 	APIVersion  fieldpath.APIVersion
 	Object      typed.YAMLObject
 	Conflicts   merge.Conflicts
-	ExpectError string
+	ExpectError bool
 }
 
 var _ Operation = &Apply{}
 
 func (a Apply) run(state *State) error {
 	err := state.Apply(a.Object, a.APIVersion, a.Manager, false)
-	if a.ExpectError != "" {
-		return expectError(err, a.ExpectError)
+	if a.ExpectError {
+		return ExpectError(err)
 	}
 	if err != nil {
 		if _, ok := err.(merge.Conflicts); !ok || a.Conflicts == nil {
@@ -239,15 +238,15 @@ type ForceApply struct {
 	Manager     string
 	APIVersion  fieldpath.APIVersion
 	Object      typed.YAMLObject
-	ExpectError string
+	ExpectError bool
 }
 
 var _ Operation = &ForceApply{}
 
 func (f ForceApply) run(state *State) error {
 	err := state.Apply(f.Object, f.APIVersion, f.Manager, true)
-	if f.ExpectError != "" {
-		return expectError(err, f.ExpectError)
+	if f.ExpectError {
+		return ExpectError(err)
 	}
 	return err
 }
@@ -258,22 +257,22 @@ type Update struct {
 	Manager     string
 	APIVersion  fieldpath.APIVersion
 	Object      typed.YAMLObject
-	ExpectError string
+	ExpectError bool
 }
 
 var _ Operation = &Update{}
 
 func (u Update) run(state *State) error {
 	err := state.Update(u.Object, u.APIVersion, u.Manager)
-	if u.ExpectError != "" {
-		return expectError(err, u.ExpectError)
+	if u.ExpectError {
+		return ExpectError(err)
 	}
 	return err
 }
 
-func expectError(actual error, expected string) error {
-	if actual == nil || !strings.Contains(actual.Error(), expected) {
-		return fmt.Errorf("Expected error to contain %q but got: %v", expected, actual)
+func ExpectError(err error) error {
+	if err == nil {
+		fmt.Errorf("Expected error but got none")
 	}
 	return nil
 }
