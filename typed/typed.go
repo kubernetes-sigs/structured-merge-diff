@@ -159,16 +159,15 @@ func (tv TypedValue) RemoveItems(items *fieldpath.Set) *TypedValue {
 func (tv TypedValue) NormalizeUnions(new *TypedValue) (*TypedValue, error) {
 	var errs ValidationErrors
 	var normalizeFn = func(w *mergingWalker) {
-		if err := normalizeUnion(w); err != nil {
-			errs = append(errs, w.error(err)...)
-		}
-	}
-	out, mergeErrs := merge(&tv, new, func(w *mergingWalker) {
 		if w.rhs != nil {
 			v := *w.rhs
 			w.out = &v
 		}
-	}, normalizeFn)
+		if err := normalizeUnion(w); err != nil {
+			errs = append(errs, w.error(err)...)
+		}
+	}
+	out, mergeErrs := merge(&tv, new, func(w *mergingWalker) {}, normalizeFn)
 	if mergeErrs != nil {
 		errs = append(errs, mergeErrs.(ValidationErrors)...)
 	}
@@ -176,6 +175,11 @@ func (tv TypedValue) NormalizeUnions(new *TypedValue) (*TypedValue, error) {
 		return nil, errs
 	}
 	return out, nil
+}
+
+func (tv TypedValue) Empty() *TypedValue {
+	tv.value = value.Value{Null: true}
+	return &tv
 }
 
 func merge(lhs, rhs *TypedValue, rule, postRule mergeRule) (*TypedValue, error) {
