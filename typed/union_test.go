@@ -39,21 +39,6 @@ var unionParser = func() typed.ParseableType {
     - name: three
       type:
         scalar: numeric
-    - name: nodisc
-      type:
-        namedType: nondiscriminated
-    union:
-      discriminator: discriminator
-      fields:
-      - fieldName: one
-        discriminatedBy: One
-      - fieldName: two
-        discriminatedBy: TWO
-      - fieldName: three
-        discriminatedBy: three
-- name: nondiscriminated
-  struct:
-    fields:
     - name: a
       type:
         scalar: numeric
@@ -63,14 +48,22 @@ var unionParser = func() typed.ParseableType {
     - name: c
       type:
         scalar: numeric
-    union:
+    unions:
+    - discriminator: discriminator
       fields:
+      - fieldName: one
+        discriminatedBy: One
+      - fieldName: two
+        discriminatedBy: TWO
+      - fieldName: three
+        discriminatedBy: three
+    - fields:
       - fieldName: a
         discriminatedBy: A
       - fieldName: b
         discriminatedBy: B
       - fieldName: c
-        discriminatedBy: C]`)
+        discriminatedBy: C`)
 	if err != nil {
 		panic(err)
 	}
@@ -98,9 +91,9 @@ func TestNormalizeUnions(t *testing.T) {
 		},
 		{
 			name: "proper union update, no discriminator",
-			old:  `{"nodisc": {"a": 1}}`,
-			new:  `{"nodisc": {"b": 1}}`,
-			out:  `{"nodisc": {"b": 1}}`,
+			old:  `{"a": 1}`,
+			new:  `{"b": 1}`,
+			out:  `{"b": 1}`,
 		},
 		{
 			name: "proper union update from not-set, setting discriminator",
@@ -111,8 +104,8 @@ func TestNormalizeUnions(t *testing.T) {
 		{
 			name: "proper union update from not-set, no discriminator",
 			old:  `{}`,
-			new:  `{"nodisc": {"b": 1}}`,
-			out:  `{"nodisc": {"b": 1}}`,
+			new:  `{"b": 1}`,
+			out:  `{"b": 1}`,
 		},
 		{
 			name: "remove union, with discriminator",
@@ -134,15 +127,15 @@ func TestNormalizeUnions(t *testing.T) {
 		},
 		{
 			name: "remove union, no discriminator",
-			old:  `{"nodisc": {"b": 1}}`,
+			old:  `{"b": 1}`,
 			new:  `{}`,
 			out:  `{}`,
 		},
 		{
 			name: "dumb client update, no discriminator",
-			old:  `{"nodisc": {"a": 1}}`,
-			new:  `{"nodisc": {"a": 2, "b": 1}}`,
-			out:  `{"nodisc": {"b": 1}}`,
+			old:  `{"a": 1}`,
+			new:  `{"a": 2, "b": 1}`,
+			out:  `{"b": 1}`,
 		},
 		{
 			name: "dumb client update, sets discriminator",
@@ -158,9 +151,9 @@ func TestNormalizeUnions(t *testing.T) {
 		},
 		{
 			name: "multi-discriminator at the same time",
-			old:  `{"one": 1, "nodisc": {"a": 1}}`,
-			new:  `{"one": 1, "three": 1, "nodisc": {"a": 1, "b": 1}}`,
-			out:  `{"three": 1, "discriminator": "three", "nodisc": {"b": 1}}`,
+			old:  `{"one": 1, "a": 1}`,
+			new:  `{"one": 1, "three": 1, "a": 1, "b": 1}`,
+			out:  `{"three": 1, "discriminator": "three", "b": 1}`,
 		},
 		{
 			name: "change discriminator, nothing else",

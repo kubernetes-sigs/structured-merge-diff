@@ -84,9 +84,12 @@ var SchemaSchemaYAML = `types:
             namedType: structField
           elementRelationship: associative
           keys: [ "name" ]
-    - name: union
+    - name: unions
       type:
-        namedType: union
+        list:
+          elementType:
+            namedType: union
+          elementRelationship: atomic
     - name: elementRelationship
       type:
         scalar: string
