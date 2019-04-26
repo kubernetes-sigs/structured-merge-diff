@@ -163,7 +163,7 @@ func (tv TypedValue) NormalizeUnions(new *TypedValue) (*TypedValue, error) {
 			v := *w.rhs
 			w.out = &v
 		}
-		if err := normalizeUnion(w); err != nil {
+		if err := normalizeUnions(w); err != nil {
 			errs = append(errs, w.error(err)...)
 		}
 	}

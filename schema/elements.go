@@ -88,10 +88,12 @@ type Struct struct {
 	// this list defines the canonical field ordering.
 	Fields []StructField `yaml:"fields,omitempty"`
 
-	// Union is a grouping of fields with special rules. It may refer to
+	// A Union is a grouping of fields with special rules. It may refer to
 	// one or more fields in the above list. A given field from the above
 	// list may be referenced in exactly 0 or 1 places in the below list.
-	Union *Union `yaml:"union,omitempty"`
+	// One can have multiple unions in the same struct, but the fields can't
+	// overlap between unions.
+	Unions []Union `yaml:"unions,omitempty"`
 
 	// ElementRelationship states the relationship between the struct's items.
 	// * `separable` (or unset) implies that each element is 100% independent.

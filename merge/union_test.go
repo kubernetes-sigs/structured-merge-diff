@@ -39,13 +39,24 @@ var unionFieldsParser = func() typed.ParseableType {
     - name: type
       type:
         scalar: string
-    union:
-      discriminator: type
+    - name: fieldA
+      type:
+        scalar: string
+    - name: fieldB
+      type:
+        scalar: string
+    unions:
+    - discriminator: type
       fields:
       - fieldName: numeric
         discriminatedBy: Numeric
       - fieldName: string
-        discriminatedBy: String`)
+        discriminatedBy: String
+    - fields:
+      - fieldName: fieldA
+        discriminatedBy: FieldA
+      - fieldName: fieldB
+        discriminatedBy: FieldB`)
 	if err != nil {
 		panic(err)
 	}
@@ -122,6 +133,31 @@ func TestUnion(t *testing.T) {
 					`,
 				},
 			},
+		},
+		"union_apply_multiple_unions": {
+			Ops: []Operation{
+				Apply{
+					Manager:    "default",
+					APIVersion: "v1",
+					Object: `
+						string: "some string"
+						fieldA: "fieldA string"
+					`,
+				},
+				Apply{
+					Manager:    "default",
+					APIVersion: "v1",
+					Object: `
+						numeric: 0
+						fieldB: "fieldB string"
+					`,
+				},
+			},
+			Object: `
+				type: Numeric
+				numeric: 0
+				fieldB: "fieldB string"
+			`,
 		},
 	}
 
