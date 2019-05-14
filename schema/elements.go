@@ -48,9 +48,6 @@ type TypeRef struct {
 type Atom struct {
 	*Scalar `yaml:"scalar,omitempty"`
 	*List   `yaml:"list,omitempty"`
-
-	// At most, one of the below must be set, since both look the same when serialized
-	*Struct `yaml:"struct,omitempty"`
 	*Map    `yaml:"map,omitempty"`
 }
 
@@ -67,23 +64,35 @@ const (
 )
 
 // ElementRelationship is an enum of the different possible relationships
-// between the elements of container types (maps, lists, structs).
+// between the elements of container types (maps, lists).
 type ElementRelationship string
 
 const (
 	// Associative only applies to lists (see the documentation there).
 	Associative = ElementRelationship("associative")
-	// Atomic makes container types (lists, maps, structs) behave
+	// Atomic makes container types (lists, maps) behave
 	// as scalars / leaf fields
 	Atomic = ElementRelationship("atomic")
 	// Separable means the items of the container type have no particular
-	// relationship (default behavior for maps and structs).
+	// relationship (default behavior for maps).
 	Separable = ElementRelationship("separable")
 )
 
-// Struct represents a type which is composed of a number of different fields.
+// Map is a key-value pair. Its default semantics are the same as an
+// associative list, but:
+// * It is serialized differently:
+//     map:  {"k": {"value": "v"}}
+//     list: [{"key": "k", "value": "v"}]
+// * Keys must be string typed.
+// * Keys can't have multiple components.
+//
+// Optionally, maps may be atomic (for example, imagine representing an RGB
+// color value--it doesn't make sense to have different actors own the R and G
+// values).
+//
+// Maps may also represent a type which is composed of a number of different fields.
 // Each field has a name and a type.
-type Struct struct {
+type Map struct {
 	// Each struct field appears exactly once in this list. The order in
 	// this list defines the canonical field ordering.
 	Fields []StructField `yaml:"fields,omitempty"`
@@ -95,14 +104,17 @@ type Struct struct {
 	// overlap between unions.
 	Unions []Union `yaml:"unions,omitempty"`
 
-	// ElementRelationship states the relationship between the struct's items.
+	// ElementType is the type of the structs's unknown fields.
+	ElementType TypeRef `yaml:"elementType,omitempty"`
+
+	// ElementRelationship states the relationship between the map's items.
 	// * `separable` (or unset) implies that each element is 100% independent.
 	// * `atomic` implies that all elements depend on each other, and this
 	//   is effectively a scalar / leaf field; it doesn't make sense for
 	//   separate actors to set the elements. Example: an RGB color struct;
 	//   it would never make sense to "own" only one component of the
 	//   color.
-	// The default behavior for structs is `separable`; it's permitted to
+	// The default behavior for maps is `separable`; it's permitted to
 	// leave this unset to get the default behavior.
 	ElementRelationship ElementRelationship `yaml:"elementRelationship,omitempty"`
 }
@@ -169,50 +181,20 @@ type List struct {
 	// * `atomic`: the list is treated as a single entity, like a scalar.
 	// * `associative`:
 	//   - If the list element is a scalar, the list is treated as a set.
-	//   - If the list element is a struct, the list is treated as a map.
-	//   - The list element must not be a map or a list itself.
+	//   - If the list element is a map, the list is treated as a map.
 	// There is no default for this value for lists; all schemas must
 	// explicitly state the element relationship for all lists.
 	ElementRelationship ElementRelationship `yaml:"elementRelationship,omitempty"`
 
 	// Iff ElementRelationship is `associative`, and the element type is
-	// struct, then Keys must have non-zero length, and it lists the fields
-	// of the element's struct type which are to be used as the keys of the
+	// map, then Keys must have non-zero length, and it lists the fields
+	// of the element's map type which are to be used as the keys of the
 	// list.
 	//
 	// TODO: change this to "non-atomic struct" above and make the code reflect this.
 	//
 	// Each key must refer to a single field name (no nesting, not JSONPath).
 	Keys []string `yaml:"keys,omitempty"`
-}
-
-// Map is a key-value pair. Its default semantics are the same as an
-// associative list, but:
-// * It is serialized differently:
-//     map:  {"k": {"value": "v"}}
-//     list: [{"key": "k", "value": "v"}]
-// * Keys must be string typed.
-// * Keys can't have multiple components.
-//
-// Although serialized the same, maps are different from structs in that each
-// map item must have the same type.
-//
-// Optionally, maps may be atomic (for example, imagine representing an RGB
-// color value--it doesn't make sense to have different actors own the R and G
-// values).
-type Map struct {
-	// ElementType is the type of the list's elements.
-	ElementType TypeRef `yaml:"elementType,omitempty"`
-
-	// ElementRelationship states the relationship between the map's items.
-	// * `separable` implies that each element is 100% independent.
-	// * `atomic` implies that all elements depend on each other, and this
-	//   is effectively a scalar / leaf field; it doesn't make sense for
-	//   separate actors to set the elements.
-	//   TODO: find a simple example.
-	// The default behavior for maps is `separable`; it's permitted to
-	// leave this unset to get the default behavior.
-	ElementRelationship ElementRelationship `yaml:"elementRelationship,omitempty"`
 }
 
 // FindNamedType is a convenience function that returns the referenced TypeDef,
