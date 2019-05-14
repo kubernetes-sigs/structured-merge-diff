@@ -42,7 +42,7 @@ var mergeCases = []mergeTestCase{{
 	rootTypeName: "stringPair",
 	schema: `types:
 - name: stringPair
-  struct:
+  map:
     fields:
     - name: key
       type:
@@ -87,7 +87,7 @@ var mergeCases = []mergeTestCase{{
 	rootTypeName: "nestedMap",
 	schema: `types:
 - name: nestedMap
-  struct:
+  map:
     fields:
     - name: inner
       type:
@@ -131,11 +131,11 @@ var mergeCases = []mergeTestCase{{
 	rootTypeName: "nestedStruct",
 	schema: `types:
 - name: nestedStruct
-  struct:
+  map:
     fields:
     - name: inner
       type:
-        struct:
+        map:
           fields:
           - name: value
             type:
@@ -177,7 +177,7 @@ var mergeCases = []mergeTestCase{{
 	rootTypeName: "nestedList",
 	schema: `types:
 - name: nestedList
-  struct:
+  map:
     fields:
     - name: inner
       type:
@@ -222,7 +222,7 @@ var mergeCases = []mergeTestCase{{
 	rootTypeName: "myStruct",
 	schema: `types:
 - name: myStruct
-  struct:
+  map:
     fields:
     - name: numeric
       type:
@@ -295,7 +295,7 @@ var mergeCases = []mergeTestCase{{
 	rootTypeName: "myRoot",
 	schema: `types:
 - name: myRoot
-  struct:
+  map:
     fields:
     - name: list
       type:
@@ -317,7 +317,7 @@ var mergeCases = []mergeTestCase{{
       scalar: string
     elementRelationship: atomic
 - name: myElement
-  struct:
+  map:
     fields:
     - name: key
       type:

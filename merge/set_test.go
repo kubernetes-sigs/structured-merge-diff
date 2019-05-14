@@ -27,7 +27,7 @@ import (
 var setFieldsParser = func() typed.ParseableType {
 	parser, err := typed.NewParser(`types:
 - name: sets
-  struct:
+  map:
     fields:
     - name: list
       type:

@@ -27,7 +27,7 @@ import (
 var associativeListParser = func() typed.ParseableType {
 	parser, err := typed.NewParser(`types:
 - name: type
-  struct:
+  map:
     fields:
       - name: list
         type:
@@ -40,7 +40,7 @@ var associativeListParser = func() typed.ParseableType {
     keys:
     - name
 - name: myElement
-  struct:
+  map:
     fields:
     - name: name
       type:

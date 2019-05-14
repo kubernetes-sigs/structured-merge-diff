@@ -25,7 +25,7 @@ import (
 var unionParser = func() typed.ParseableType {
 	parser, err := typed.NewParser(`types:
 - name: union
-  struct:
+  map:
     fields:
     - name: discriminator
       type:

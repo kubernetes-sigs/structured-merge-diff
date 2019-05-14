@@ -48,7 +48,7 @@ var symdiffCases = []symdiffTestCase{{
 	rootTypeName: "stringPair",
 	schema: `types:
 - name: stringPair
-  struct:
+  map:
     fields:
     - name: key
       type:
@@ -115,7 +115,7 @@ var symdiffCases = []symdiffTestCase{{
 	rootTypeName: "nestedMap",
 	schema: `types:
 - name: nestedMap
-  struct:
+  map:
     fields:
     - name: inner
       type:
@@ -169,11 +169,11 @@ var symdiffCases = []symdiffTestCase{{
 	rootTypeName: "nestedStruct",
 	schema: `types:
 - name: nestedStruct
-  struct:
+  map:
     fields:
     - name: inner
       type:
-        struct:
+        map:
           fields:
           - name: value
             type:
@@ -215,7 +215,7 @@ var symdiffCases = []symdiffTestCase{{
 	rootTypeName: "nestedList",
 	schema: `types:
 - name: nestedList
-  struct:
+  map:
     fields:
     - name: inner
       type:
@@ -304,7 +304,7 @@ var symdiffCases = []symdiffTestCase{{
 	rootTypeName: "myStruct",
 	schema: `types:
 - name: myStruct
-  struct:
+  map:
     fields:
     - name: numeric
       type:
@@ -386,7 +386,7 @@ var symdiffCases = []symdiffTestCase{{
 	rootTypeName: "myRoot",
 	schema: `types:
 - name: myRoot
-  struct:
+  map:
     fields:
     - name: list
       type:
@@ -408,7 +408,7 @@ var symdiffCases = []symdiffTestCase{{
       scalar: string
     elementRelationship: atomic
 - name: myElement
-  struct:
+  map:
     fields:
     - name: key
       type:
