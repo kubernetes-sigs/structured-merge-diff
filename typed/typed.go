@@ -147,15 +147,13 @@ func (tv TypedValue) RemoveItems(items *fieldpath.Set) *TypedValue {
 }
 
 // NormalizeUnions takes the new object and normalizes the union:
-// - If there is a discriminator and its value has changed, clean all
-// fields but the one specified by the discriminator
-// - If there is no discriminator, or it hasn't changed, if new has two
-// of the fields set, remove the one that was set in old.
-// - If there is a discriminator, set it to the value we've kept (if it changed)
-//
-// This can fail if:
-// - Multiple new fields are set,
-// - The discriminator is changed, and at least one new field is set.
+// - If discriminator changed to non-nil, and a new field has been added
+// that doesn't match, an error is returned,
+// - If discriminator hasn't changed and two fields or more are set, an
+// error is returned,
+// - If discriminator changed to non-nil, all other fields but the
+// discriminated one will be cleared,
+// - Otherwise, If only one field is left, update discriminator to that value.
 func (tv TypedValue) NormalizeUnions(new *TypedValue) (*TypedValue, error) {
 	var errs ValidationErrors
 	var normalizeFn = func(w *mergingWalker) {
@@ -164,6 +162,30 @@ func (tv TypedValue) NormalizeUnions(new *TypedValue) (*TypedValue, error) {
 			w.out = &v
 		}
 		if err := normalizeUnions(w); err != nil {
+			errs = append(errs, w.error(err)...)
+		}
+	}
+	out, mergeErrs := merge(&tv, new, func(w *mergingWalker) {}, normalizeFn)
+	if mergeErrs != nil {
+		errs = append(errs, mergeErrs.(ValidationErrors)...)
+	}
+	if len(errs) > 0 {
+		return nil, errs
+	}
+	return out, nil
+}
+
+// NormalizeUnionsApply specifically normalize unions on apply. It
+// validates that the applied union is correct (there should be no
+// ambiguity there), and clear the fields according to the sent intent.
+func (tv TypedValue) NormalizeUnionsApply(new *TypedValue) (*TypedValue, error) {
+	var errs ValidationErrors
+	var normalizeFn = func(w *mergingWalker) {
+		if w.rhs != nil {
+			v := *w.rhs
+			w.out = &v
+		}
+		if err := normalizeUnionsApply(w); err != nil {
 			errs = append(errs, w.error(err)...)
 		}
 	}

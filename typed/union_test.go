@@ -39,17 +39,18 @@ var unionParser = func() typed.ParseableType {
     - name: three
       type:
         scalar: numeric
+    - name: letter
+      type:
+        scalar: string
     - name: a
       type:
         scalar: numeric
     - name: b
       type:
         scalar: numeric
-    - name: c
-      type:
-        scalar: numeric
     unions:
     - discriminator: discriminator
+      deduceInvalidDiscriminator: true
       fields:
       - fieldName: one
         discriminatedBy: One
@@ -57,13 +58,12 @@ var unionParser = func() typed.ParseableType {
         discriminatedBy: TWO
       - fieldName: three
         discriminatedBy: three
-    - fields:
+    - discriminator: letter
+      fields:
       - fieldName: a
         discriminatedBy: A
       - fieldName: b
-        discriminatedBy: B
-      - fieldName: c
-        discriminatedBy: C`)
+        discriminatedBy: b`)
 	if err != nil {
 		panic(err)
 	}
@@ -84,13 +84,19 @@ func TestNormalizeUnions(t *testing.T) {
 			out:  `{"one": 1, "discriminator": "One"}`,
 		},
 		{
+			name: "nothing changed, non-deduced",
+			old:  `{"a": 1}`,
+			new:  `{"a": 1}`,
+			out:  `{"a": 1}`,
+		},
+		{
 			name: "proper union update, setting discriminator",
 			old:  `{"one": 1}`,
 			new:  `{"two": 1}`,
 			out:  `{"two": 1, "discriminator": "TWO"}`,
 		},
 		{
-			name: "proper union update, no discriminator",
+			name: "proper union update, non-deduced",
 			old:  `{"a": 1}`,
 			new:  `{"b": 1}`,
 			out:  `{"b": 1}`,
@@ -102,7 +108,7 @@ func TestNormalizeUnions(t *testing.T) {
 			out:  `{"two": 1, "discriminator": "TWO"}`,
 		},
 		{
-			name: "proper union update from not-set, no discriminator",
+			name: "proper union update from not-set, non-deduced",
 			old:  `{}`,
 			new:  `{"b": 1}`,
 			out:  `{"b": 1}`,
@@ -126,34 +132,10 @@ func TestNormalizeUnions(t *testing.T) {
 			out:  `{"discriminator": "One"}`,
 		},
 		{
-			name: "remove union, no discriminator",
-			old:  `{"b": 1}`,
-			new:  `{}`,
-			out:  `{}`,
-		},
-		{
-			name: "dumb client update, no discriminator",
-			old:  `{"a": 1}`,
-			new:  `{"a": 2, "b": 1}`,
-			out:  `{"b": 1}`,
-		},
-		{
-			name: "dumb client update, sets discriminator",
-			old:  `{"one": 1}`,
-			new:  `{"one": 2, "two": 1}`,
-			out:  `{"two": 1, "discriminator": "TWO"}`,
-		},
-		{
-			name: "dumb client doesn't update discriminator",
-			old:  `{"one": 1, "discriminator": "One"}`,
-			new:  `{"one": 2, "two": 1, "discriminator": "One"}`,
-			out:  `{"two": 1, "discriminator": "TWO"}`,
-		},
-		{
-			name: "multi-discriminator at the same time",
-			old:  `{"one": 1, "a": 1}`,
-			new:  `{"one": 1, "three": 1, "a": 1, "b": 1}`,
-			out:  `{"three": 1, "discriminator": "three", "b": 1}`,
+			name: "remove union, not discriminator, non-deduced",
+			old:  `{"a": 1, "letter": "A"}`,
+			new:  `{"letter": "A"}`,
+			out:  `{"letter": "A"}`,
 		},
 		{
 			name: "change discriminator, nothing else",
@@ -162,10 +144,22 @@ func TestNormalizeUnions(t *testing.T) {
 			out:  `{"discriminator": "random"}`,
 		},
 		{
+			name: "change discriminator, nothing else, non-deduced",
+			old:  `{"letter": "A"}`,
+			new:  `{"letter": "b"}`,
+			out:  `{"letter": "b"}`,
+		},
+		{
 			name: "change discriminator, nothing else, it drops other field",
 			old:  `{"discriminator": "One", "one": 1}`,
 			new:  `{"discriminator": "random", "one": 1}`,
 			out:  `{"discriminator": "random"}`,
+		},
+		{
+			name: "change discriminator, nothing else, it drops other field, non-deduced",
+			old:  `{"letter": "A", "a": 1}`,
+			new:  `{"letter": "b", "a": 1}`,
+			out:  `{"letter": "b"}`,
 		},
 		{
 			name: "remove discriminator, nothing else",
@@ -174,10 +168,22 @@ func TestNormalizeUnions(t *testing.T) {
 			out:  `{"one": 1, "discriminator": "One"}`,
 		},
 		{
+			name: "remove discriminator, nothing else, non-deduced",
+			old:  `{"letter": "A", "a": 1}`,
+			new:  `{"a": 1}`,
+			out:  `{"a": 1}`,
+		},
+		{
 			name: "remove discriminator, add new field",
 			old:  `{"discriminator": "One", "one": 1}`,
 			new:  `{"two": 1}`,
 			out:  `{"two": 1, "discriminator": "TWO"}`,
+		},
+		{
+			name: "remove discriminator, add new field, non-deduced",
+			old:  `{"letter": "A", "a": 1}`,
+			new:  `{"b": 1}`,
+			out:  `{"b": 1}`,
 		},
 		{
 			name: "both fields removed",
@@ -192,10 +198,10 @@ func TestNormalizeUnions(t *testing.T) {
 			out:  `{"one": 1, "discriminator": "One"}`,
 		},
 		{
-			name: "new object has three of same union set but one is null",
-			old:  `{"one": 1}`,
-			new:  `{"one": 2, "two": 1, "three": null}`,
-			out:  `{"two": 1, "discriminator": "TWO"}`,
+			name: "one field removed, non-deduced",
+			old:  `{"a": 1, "b": 1}`,
+			new:  `{"a": 1}`,
+			out:  `{"a": 1}`,
 		},
 		// These use-cases shouldn't happen:
 		{
@@ -205,16 +211,22 @@ func TestNormalizeUnions(t *testing.T) {
 			out:  `{"one": 1, "discriminator": "One"}`,
 		},
 		{
+			name: "one field removed, discriminator unchanged, non-deduced",
+			old:  `{"a": 1, "b": 1, "letter": "b"}`,
+			new:  `{"a": 1, "letter": "b"}`,
+			out:  `{"a": 1, "letter": "b"}`,
+		},
+		{
 			name: "one field removed, discriminator added",
 			old:  `{"two": 2, "one": 1}`,
 			new:  `{"one": 1, "discriminator": "TWO"}`,
 			out:  `{"discriminator": "TWO"}`,
 		},
 		{
-			name: "old object has two of same union, but we add third",
-			old:  `{"discriminator": "One", "one": 1, "two": 1}`,
-			new:  `{"discriminator": "One", "one": 1, "two": 1, "three": 1}`,
-			out:  `{"discriminator": "three", "three": 1}`,
+			name: "one field removed, discriminator added, non-deduced",
+			old:  `{"b": 2, "a": 1}`,
+			new:  `{"a": 1, "letter": "b"}`,
+			out:  `{"letter": "b"}`,
 		},
 	}
 
@@ -254,9 +266,19 @@ func TestNormalizeUnionError(t *testing.T) {
 		new  typed.YAMLObject
 	}{
 		{
+			name: "dumb client update, no discriminator",
+			old:  `{"one": 1}`,
+			new:  `{"one": 2, "two": 1}`,
+		},
+		{
 			name: "new object has three of same union set",
 			old:  `{"one": 1}`,
 			new:  `{"one": 2, "two": 1, "three": 3}`,
+		},
+		{
+			name: "dumb client doesn't update discriminator",
+			old:  `{"one": 1, "discriminator": "One"}`,
+			new:  `{"one": 2, "two": 1, "discriminator": "One"}`,
 		},
 		{
 			name: "client sends new field that and discriminator change",
@@ -272,6 +294,11 @@ func TestNormalizeUnionError(t *testing.T) {
 			name: "old object has two of same union set",
 			old:  `{"one": 1, "two": 2}`,
 			new:  `{"one": 2, "two": 1}`,
+		},
+		{
+			name: "old object has two of same union, but we add third",
+			old:  `{"discriminator": "One", "one": 1, "two": 1}`,
+			new:  `{"discriminator": "One", "one": 1, "two": 1, "three": 1}`,
 		},
 		{
 			name: "one field removed, 2 left, discriminator unchanged",

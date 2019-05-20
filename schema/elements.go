@@ -133,22 +133,27 @@ type UnionField struct {
 }
 
 // Union, or oneof, means that only one of multiple fields of a structure can be
-// set at a time. For backward compatibility reasons, and to help "dumb clients"
-// which are not aware of the union (or can't be aware of it because they
-// don't know what fields are part of the union), the code tolerates multiple
-// fields to be set but will try to detect which fields must be cleared (there
-// should never be more than two though):
-// - If there is a discriminator and its value has changed, clear all fields
-// but the one specified by the discriminator
-// - If there is no discriminator, or it hasn't changed, if new has two of the
-// fields set, remove the one that was set in old.
-// - If there is a discriminator, set it to the value we've kept (if it changed)
+// set at a time. Setting the discriminator helps clearing oher fields:
+// - If discriminator changed to non-nil, and a new field has been added
+// that doesn't match, an error is returned,
+// - If discriminator hasn't changed and two fields or more are set, an
+// error is returned,
+// - If discriminator changed to non-nil, all other fields but the
+// discriminated one will be cleared,
+// - Otherwise, If only one field is left, update discriminator to that value.
 type Union struct {
 	// Discriminator, if present, is the name of the field that
 	// discriminates fields in the union. The mapping between the value of
 	// the discriminator and the field is done by using the Fields list
 	// below.
 	Discriminator *string `yaml:"discriminator,omitempty"`
+
+	// DeduceInvalidDiscriminator indicates if the discriminator
+	// should be updated automatically based on the fields set. This
+	// typically defaults to false since we don't want to deduce by
+	// default (the behavior exists to maintain compatibility on
+	// existing types and shouldn't be used for new types).
+	DeduceInvalidDiscriminator bool `yaml:"deduceInvalidDiscriminator,omitempty"`
 
 	// This is the list of fields that belong to this union. All the
 	// fields present in here have to be part of the parent
