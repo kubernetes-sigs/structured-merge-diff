@@ -30,7 +30,7 @@ func normalizeUnions(w *mergingWalker) error {
 		panic(fmt.Sprintf("Unable to resolve schema in normalize union: %v/%v", w.schema, w.typeRef))
 	}
 	// Unions can only be in structures, and the struct must not have been removed
-	if atom.Struct == nil || w.out == nil {
+	if atom.Map == nil || w.out == nil {
 		return nil
 	}
 
@@ -38,7 +38,7 @@ func normalizeUnions(w *mergingWalker) error {
 	if w.lhs != nil {
 		old = w.lhs.MapValue
 	}
-	for _, union := range atom.Struct.Unions {
+	for _, union := range atom.Map.Unions {
 		if err := newUnion(&union).Normalize(old, w.rhs.MapValue, w.out.MapValue); err != nil {
 			return err
 		}

@@ -53,7 +53,7 @@ var fieldsetCases = []fieldsetTestCase{{
 	rootTypeName: "stringPair",
 	schema: `types:
 - name: stringPair
-  struct:
+  map:
     fields:
     - name: key
       type:
@@ -84,7 +84,7 @@ var fieldsetCases = []fieldsetTestCase{{
 	rootTypeName: "myStruct",
 	schema: `types:
 - name: myStruct
-  struct:
+  map:
     fields:
     - name: numeric
       type:
@@ -115,7 +115,7 @@ var fieldsetCases = []fieldsetTestCase{{
           elementRelationship: associative
     - name: color
       type:
-        struct:
+        map:
           fields:
           - name: R
             type:
@@ -137,7 +137,7 @@ var fieldsetCases = []fieldsetTestCase{{
       type:
         list:
           elementType:
-            struct:
+            map:
               fields:
               - name: key
                 type:
@@ -184,7 +184,7 @@ var fieldsetCases = []fieldsetTestCase{{
 	rootTypeName: "myRoot",
 	schema: `types:
 - name: myRoot
-  struct:
+  map:
     fields:
     - name: list
       type:
@@ -206,7 +206,7 @@ var fieldsetCases = []fieldsetTestCase{{
       scalar: string
     elementRelationship: atomic
 - name: myElement
-  struct:
+  map:
     fields:
     - name: key
       type:

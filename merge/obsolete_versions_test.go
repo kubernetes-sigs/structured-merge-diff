@@ -94,7 +94,7 @@ func TestApplyObsoleteVersion(t *testing.T) {
 	}
 	parser, err := typed.NewParser(`types:
 - name: sets
-  struct:
+  map:
     fields:
     - name: list
       type:

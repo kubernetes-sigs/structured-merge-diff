@@ -27,7 +27,7 @@ import (
 var nestedTypeParser = func() typed.ParseableType {
 	parser, err := typed.NewParser(`types:
 - name: type
-  struct:
+  map:
     fields:
       - name: listOfLists
         type:
@@ -47,7 +47,7 @@ var nestedTypeParser = func() typed.ParseableType {
 - name: listOfLists
   list:
     elementType:
-      struct:
+      map:
         fields:
         - name: name
           type:
@@ -66,7 +66,7 @@ var nestedTypeParser = func() typed.ParseableType {
 - name: listOfMaps
   list:
     elementType:
-      struct:
+      map:
         fields:
         - name: name
           type:

@@ -24,30 +24,16 @@ import (
 	"sigs.k8s.io/structured-merge-diff/typed"
 )
 
-var associativeListParser = func() typed.ParseableType {
+var preserveUnknownParser = func() typed.ParseableType {
 	parser, err := typed.NewParser(`types:
 - name: type
   map:
     fields:
-      - name: list
+      - name: num
         type:
-          namedType: associativeList
-- name: associativeList
-  list:
+          scalar: numeric
     elementType:
-      namedType: myElement
-    elementRelationship: associative
-    keys:
-    - name
-- name: myElement
-  map:
-    fields:
-    - name: name
-      type:
-        scalar: string
-    - name: value
-      type:
-        scalar: numeric
+      scalar: string
 `)
 	if err != nil {
 		panic(err)
@@ -55,40 +41,36 @@ var associativeListParser = func() typed.ParseableType {
 	return parser.Type("type")
 }()
 
-func TestUpdateAssociativeLists(t *testing.T) {
+func TestPreserveUnknownFields(t *testing.T) {
 	tests := map[string]TestCase{
-		"removing_obsolete_applied_structs": {
+		"preserve_unknown_fields": {
 			Ops: []Operation{
 				Apply{
 					Manager: "default",
 					Object: `
-						list:
-						- name: a
-						  value: 1
+						num: 5
+						unknown: value
 					`,
 					APIVersion: "v1",
 				},
 				Apply{
 					Manager: "default",
 					Object: `
-						list:
-						- name: b
-						  value: 2
+						num: 6
+						unknown: new
 					`,
 					APIVersion: "v1",
 				},
 			},
 			Object: `
-				list:
-				- name: b
-				  value: 2
+				num: 6
+				unknown: new
 			`,
 			Managed: fieldpath.ManagedFields{
 				"default": &fieldpath.VersionedSet{
 					Set: _NS(
-						_P("list", _KBF("name", _SV("b"))),
-						_P("list", _KBF("name", _SV("b")), "name"),
-						_P("list", _KBF("name", _SV("b")), "value"),
+						_P("num"),
+						_P("unknown"),
 					),
 					APIVersion: "v1",
 				},
@@ -98,7 +80,7 @@ func TestUpdateAssociativeLists(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			if err := test.Test(associativeListParser); err != nil {
+			if err := test.Test(preserveUnknownParser); err != nil {
 				t.Fatal(err)
 			}
 		})

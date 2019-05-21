@@ -28,7 +28,7 @@ import (
 var unionFieldsParser = func() typed.ParseableType {
 	parser, err := typed.NewParser(`types:
 - name: unionFields
-  struct:
+  map:
     fields:
     - name: numeric
       type:

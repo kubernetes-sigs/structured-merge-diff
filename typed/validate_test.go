@@ -37,7 +37,7 @@ var validationCases = []validationTestCase{{
 	rootTypeName: "stringPair",
 	schema: `types:
 - name: stringPair
-  struct:
+  map:
     fields:
     - name: key
       type:
@@ -77,7 +77,7 @@ var validationCases = []validationTestCase{{
 	rootTypeName: "myStruct",
 	schema: `types:
 - name: myStruct
-  struct:
+  map:
     fields:
     - name: numeric
       type:
@@ -163,7 +163,7 @@ var validationCases = []validationTestCase{{
 	rootTypeName: "myRoot",
 	schema: `types:
 - name: myRoot
-  struct:
+  map:
     fields:
     - name: list
       type:
@@ -185,7 +185,7 @@ var validationCases = []validationTestCase{{
       scalar: string
     elementRelationship: atomic
 - name: myElement
-  struct:
+  map:
     fields:
     - name: key
       type:
