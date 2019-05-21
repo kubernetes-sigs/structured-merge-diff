@@ -126,10 +126,10 @@ type UnionField struct {
 	// FieldName is the name of the field that is part of the union. This
 	// is the serialized form of the field.
 	FieldName string `yaml:"fieldName"`
-	// DiscriminatedBy is the value of the discriminator to select that
-	// field. If the union doesn't have a discriminator, this field is
-	// ignored.
-	DiscriminatedBy string `yaml:"discriminatedBy"`
+	// Discriminatorvalue is the value of the discriminator to
+	// select that field. If the union doesn't have a discriminator,
+	// this field is ignored.
+	DiscriminatorValue string `yaml:"discriminatorValue"`
 }
 
 // Union, or oneof, means that only one of multiple fields of a structure can be

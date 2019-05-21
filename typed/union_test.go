@@ -53,17 +53,17 @@ var unionParser = func() typed.ParseableType {
       deduceInvalidDiscriminator: true
       fields:
       - fieldName: one
-        discriminatedBy: One
+        discriminatorValue: One
       - fieldName: two
-        discriminatedBy: TWO
+        discriminatorValue: TWO
       - fieldName: three
-        discriminatedBy: three
+        discriminatorValue: three
     - discriminator: letter
       fields:
       - fieldName: a
-        discriminatedBy: A
+        discriminatorValue: A
       - fieldName: b
-        discriminatedBy: b`)
+        discriminatorValue: b`)
 	if err != nil {
 		panic(err)
 	}

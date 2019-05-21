@@ -203,7 +203,7 @@ func newUnion(su *schema.Union) *union {
 	f2d := map[field]discriminated{}
 	for _, f := range su.Fields {
 		u.f = append(u.f, field(f.FieldName))
-		f2d[field(f.FieldName)] = discriminated(f.DiscriminatedBy)
+		f2d[field(f.FieldName)] = discriminated(f.DiscriminatorValue)
 	}
 	u.dn = newDiscriminatedName(f2d)
 	u.deduceInvalidDiscriminator = su.DeduceInvalidDiscriminator
