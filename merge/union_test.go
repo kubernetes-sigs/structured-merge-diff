@@ -47,16 +47,17 @@ var unionFieldsParser = func() typed.ParseableType {
         scalar: string
     unions:
     - discriminator: type
+      deduceInvalidDiscriminator: true
       fields:
       - fieldName: numeric
-        discriminatedBy: Numeric
+        discriminatorValue: Numeric
       - fieldName: string
-        discriminatedBy: String
+        discriminatorValue: String
     - fields:
       - fieldName: fieldA
-        discriminatedBy: FieldA
+        discriminatorValue: FieldA
       - fieldName: fieldB
-        discriminatedBy: FieldB`)
+        discriminatorValue: FieldB`)
 	if err != nil {
 		panic(err)
 	}

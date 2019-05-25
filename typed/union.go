@@ -46,6 +46,28 @@ func normalizeUnions(w *mergingWalker) error {
 	return nil
 }
 
+func normalizeUnionsApply(w *mergingWalker) error {
+	atom, found := w.schema.Resolve(w.typeRef)
+	if !found {
+		panic(fmt.Sprintf("Unable to resolve schema in normalize union: %v/%v", w.schema, w.typeRef))
+	}
+	// Unions can only be in structures, and the struct must not have been removed
+	if atom.Map == nil || w.out == nil {
+		return nil
+	}
+
+	old := &value.Map{}
+	if w.lhs != nil {
+		old = w.lhs.MapValue
+	}
+	for _, union := range atom.Map.Unions {
+		if err := newUnion(&union).NormalizeApply(old, w.rhs.MapValue, w.out.MapValue); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 type discriminated string
 type field string
 
@@ -167,9 +189,10 @@ func (fs fieldsSet) String() string {
 }
 
 type union struct {
-	d  *discriminator
-	dn discriminatedNames
-	f  []field
+	deduceInvalidDiscriminator bool
+	d                          *discriminator
+	dn                         discriminatedNames
+	f                          []field
 }
 
 func newUnion(su *schema.Union) *union {
@@ -180,9 +203,10 @@ func newUnion(su *schema.Union) *union {
 	f2d := map[field]discriminated{}
 	for _, f := range su.Fields {
 		u.f = append(u.f, field(f.FieldName))
-		f2d[field(f.FieldName)] = discriminated(f.DiscriminatedBy)
+		f2d[field(f.FieldName)] = discriminated(f.DiscriminatorValue)
 	}
 	u.dn = newDiscriminatedName(f2d)
+	u.deduceInvalidDiscriminator = su.DeduceInvalidDiscriminator
 	return u
 }
 
@@ -201,29 +225,49 @@ func (u *union) Normalize(old, new, out *value.Map) error {
 	ns := newFieldsSet(new, u.f)
 	diff := ns.Difference(os)
 
-	if len(ns) > 1 && len(diff) != 1 {
-		return fmt.Errorf("unable to guess new discriminator amongst new fields: %v", diff)
-	}
-
-	discriminator := field("")
-	if len(ns) == 1 {
-		discriminator = *ns.One()
-	} else if len(diff) == 1 {
-		discriminator = *diff.One()
-	}
-
 	if u.d.Get(old) != u.d.Get(new) && u.d.Get(new) != "" {
-		if len(diff) == 1 && u.d.Get(new) != u.dn.toDiscriminated(discriminator) {
-			return fmt.Errorf("discriminator (%v) and field changed (%v)", u.d.Get(new), discriminator)
+		if len(diff) == 1 && u.d.Get(new) != u.dn.toDiscriminated(*diff.One()) {
+			return fmt.Errorf("discriminator (%v) and field changed (%v) don't match", u.d.Get(new), diff.One())
+		}
+		if len(diff) > 1 {
+			return fmt.Errorf("multiple new fields added: %v", diff)
 		}
 		u.clear(out, u.dn.toField(u.d.Get(new)))
 		return nil
 	}
 
-	if discriminator != "" {
-		u.clear(out, discriminator)
-		u.d.Set(out, u.dn.toDiscriminated(discriminator))
+	if len(ns) > 1 {
+		return fmt.Errorf("multiple fields set without discriminator change: %v", ns)
 	}
+
+	// Update discriminiator if it needs to be deduced.
+	if u.deduceInvalidDiscriminator && len(ns) == 1 {
+		u.d.Set(out, u.dn.toDiscriminated(*ns.One()))
+	}
+
+	return nil
+}
+
+func (u *union) NormalizeApply(applied, merged, out *value.Map) error {
+	as := newFieldsSet(applied, u.f)
+	if len(as) > 1 {
+		return fmt.Errorf("more than one field of union applied: %v", as)
+	}
+	if len(as) == 0 {
+		// None is set, just leave.
+		return nil
+	}
+	// We have exactly one, discriminiator must match if set
+	if u.d.Get(applied) != "" && u.d.Get(applied) != u.dn.toDiscriminated(*as.One()) {
+		return fmt.Errorf("applied discriminator (%v) doesn't match applied field (%v)", u.d.Get(applied), *as.One())
+	}
+
+	// Update discriminiator if needed
+	if u.deduceInvalidDiscriminator {
+		u.d.Set(out, u.dn.toDiscriminated(*as.One()))
+	}
+	// Clear others fields.
+	u.clear(out, *as.One())
 
 	return nil
 }

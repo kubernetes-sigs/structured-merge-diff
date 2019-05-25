@@ -151,7 +151,7 @@ func (s *Updater) Update(liveObject, newObject *typed.TypedValue, version fieldp
 // and return it.
 func (s *Updater) Apply(liveObject, configObject *typed.TypedValue, version fieldpath.APIVersion, managers fieldpath.ManagedFields, manager string, force bool) (*typed.TypedValue, fieldpath.ManagedFields, error) {
 	managers = shallowCopyManagers(managers)
-	configObject, err := configObject.Empty().NormalizeUnions(configObject)
+	configObject, err := configObject.NormalizeUnionsApply(configObject)
 	if err != nil {
 		return nil, fieldpath.ManagedFields{}, err
 	}
@@ -159,7 +159,7 @@ func (s *Updater) Apply(liveObject, configObject *typed.TypedValue, version fiel
 	if err != nil {
 		return nil, fieldpath.ManagedFields{}, fmt.Errorf("failed to merge config: %v", err)
 	}
-	newObject, err = liveObject.NormalizeUnions(newObject)
+	newObject, err = configObject.NormalizeUnionsApply(newObject)
 	if err != nil {
 		return nil, fieldpath.ManagedFields{}, err
 	}
