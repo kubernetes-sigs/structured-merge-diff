@@ -25,6 +25,12 @@ import (
 	fuzz "github.com/google/gofuzz"
 )
 
+func fuzzInterface(i *interface{}, c fuzz.Continue) {
+	m := map[string]string{}
+	c.Fuzz(&m)
+	*i = &m
+}
+
 func (Schema) Generate(rand *rand.Rand, size int) reflect.Value {
 	s := Schema{}
 	f := fuzz.New().RandSource(rand).MaxDepth(4)
@@ -34,7 +40,7 @@ func (Schema) Generate(rand *rand.Rand, size int) reflect.Value {
 
 func (Map) Generate(rand *rand.Rand, size int) reflect.Value {
 	m := Map{}
-	f := fuzz.New().RandSource(rand).MaxDepth(4)
+	f := fuzz.New().RandSource(rand).MaxDepth(4).Funcs(fuzzInterface)
 	f.Fuzz(&m)
 	return reflect.ValueOf(m)
 }
@@ -49,6 +55,13 @@ func (TypeDef) Generate(rand *rand.Rand, size int) reflect.Value {
 func (Atom) Generate(rand *rand.Rand, size int) reflect.Value {
 	a := Atom{}
 	f := fuzz.New().RandSource(rand).MaxDepth(4)
+	f.Fuzz(&a)
+	return reflect.ValueOf(a)
+}
+
+func (StructField) Generate(rand *rand.Rand, size int) reflect.Value {
+	a := StructField{}
+	f := fuzz.New().RandSource(rand).MaxDepth(4).Funcs(fuzzInterface)
 	f.Fuzz(&a)
 	return reflect.ValueOf(a)
 }
@@ -133,6 +146,7 @@ func TestEquals(t *testing.T) {
 			var y StructField
 			y.Name = x.Name
 			y.Type = x.Type
+			y.Default = x.Default
 			return x.Equals(&y) == reflect.DeepEqual(x, y)
 		},
 		func(x List) bool {
