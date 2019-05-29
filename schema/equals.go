@@ -162,5 +162,21 @@ func (a List) Equals(b List) bool {
 			return false
 		}
 	}
+	for i := range a.DefaultedKeys {
+		if !a.DefaultedKeys[i].Equals(b.DefaultedKeys[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+// Equals returns true iff the two DefaultedFields are equal.
+func (a DefaultedField) Equals(b DefaultedField) bool {
+	if a.FieldName != b.FieldName {
+		return false
+	}
+	if a.DefaultValue != b.DefaultValue {
+		return false
+	}
 	return true
 }

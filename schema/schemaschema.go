@@ -139,6 +139,23 @@ var SchemaSchemaYAML = `types:
         list:
           elementType:
             scalar: string
+    - name: defaultedKeys
+      type:
+        list:
+          elementRelationship: associative
+          elementType:
+            namedType: defaultedField
+          keys:
+          - fieldName
+- name: defaultedField
+  map:
+    fields:
+    - name: fieldName
+      type:
+        scalar: string
+    - name: defaultValue
+      type:
+        scalar: string
 - name: untyped
   map:
     fields:

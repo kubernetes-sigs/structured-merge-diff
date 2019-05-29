@@ -112,6 +112,16 @@ func TestEquals(t *testing.T) {
 			y.ElementType = x.ElementType
 			y.ElementRelationship = x.ElementRelationship
 			y.Keys = x.Keys
+			y.DefaultedKeys = x.DefaultedKeys
+			return x.Equals(y) == reflect.DeepEqual(x, y)
+		},
+		func(x DefaultedField) bool {
+			if !x.Equals(x) {
+				return false
+			}
+			var y DefaultedField
+			y.DefaultValue = x.DefaultValue
+			y.FieldName = x.FieldName
 			return x.Equals(y) == reflect.DeepEqual(x, y)
 		},
 	}

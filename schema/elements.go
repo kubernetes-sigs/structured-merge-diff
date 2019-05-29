@@ -200,6 +200,17 @@ type List struct {
 	//
 	// Each key must refer to a single field name (no nesting, not JSONPath).
 	Keys []string `yaml:"keys,omitempty"`
+
+	// This is the list of key fields that have defaulted values.
+	DefaultedKeys []DefaultedField `yaml:"defaultedKeys,omitempty"`
+}
+
+// DefaultedField is a mapping between a field and it's defaulted value.
+type DefaultedField struct {
+	// FieldName is the name of the field that is defaulted.
+	FieldName string `yaml:"fieldName"`
+	// DefaultValue is the default value used for an uspecified assoc. list key
+	DefaultValue string `yaml:"defaultValue"`
 }
 
 // FindNamedType is a convenience function that returns the referenced TypeDef,

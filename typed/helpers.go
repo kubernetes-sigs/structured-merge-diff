@@ -198,13 +198,22 @@ func mapValue(val value.Value) (*value.Map, error) {
 func keyedAssociativeListItemToPathElement(list schema.List, index int, child value.Value) (fieldpath.PathElement, error) {
 	pe := fieldpath.PathElement{}
 	if child.Null {
-		// For now, the keys are required which means that null entries
-		// are illegal.
+		// null entries are illegal.
 		return pe, errors.New("associative list with keys may not have a null element")
 	}
 	if child.MapValue == nil {
 		return pe, errors.New("associative list with keys may not have non-map elements")
 	}
+
+	defaultedKeys := map[string]value.Value{}
+	for _, defaultedField := range list.DefaultedKeys {
+		defaultValue, err := value.FromJSON([]byte(defaultedField.DefaultValue))
+		if err != nil {
+			return pe, fmt.Errorf("unable to parse default value for key %q: %v", defaultedField.FieldName, err)
+		}
+		defaultedKeys[defaultedField.FieldName] = defaultValue
+	}
+
 	keyMap := &value.Map{}
 	for _, fieldName := range list.Keys {
 		var fieldValue value.Value
@@ -212,8 +221,10 @@ func keyedAssociativeListItemToPathElement(list schema.List, index int, child va
 		if ok {
 			fieldValue = field.Value
 		} else {
-			// Treat keys as required.
-			return pe, fmt.Errorf("associative list with keys has an element that omits key field %q", fieldName)
+			fieldValue, ok = defaultedKeys[fieldName]
+			if !ok {
+				return pe, fmt.Errorf("associative list with keys has an element that omits key field %q", fieldName)
+			}
 		}
 		keyMap.Set(fieldName, fieldValue)
 	}
