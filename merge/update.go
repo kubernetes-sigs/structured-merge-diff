@@ -36,25 +36,23 @@ type Updater struct {
 func (s *Updater) update(oldObject, newObject *typed.TypedValue, version fieldpath.APIVersion, managers fieldpath.ManagedFields, workflow string, force bool) (fieldpath.ManagedFields, error) {
 	conflicts := fieldpath.ManagedFields{}
 	removed := fieldpath.ManagedFields{}
-	type Versioned struct {
-		oldObject *typed.TypedValue
-		newObject *typed.TypedValue
+	compare, err := oldObject.Compare(newObject)
+	if err != nil {
+		return nil, fmt.Errorf("failed to compare objects: %v", err)
 	}
-	versions := map[fieldpath.APIVersion]Versioned{
-		version: {
-			oldObject: oldObject,
-			newObject: newObject,
-		},
+
+	versions := map[fieldpath.APIVersion]*typed.Comparison{
+		version: compare,
 	}
 
 	for manager, managerSet := range managers {
 		if manager == workflow {
 			continue
 		}
-		versioned, ok := versions[managerSet.APIVersion]
+		compare, ok := versions[managerSet.APIVersion]
 		if !ok {
 			var err error
-			versioned.oldObject, err = s.Converter.Convert(oldObject, managerSet.APIVersion)
+			versionedOldObject, err := s.Converter.Convert(oldObject, managerSet.APIVersion)
 			if err != nil {
 				if s.Converter.IsMissingVersionError(err) {
 					delete(managers, manager)
@@ -62,7 +60,7 @@ func (s *Updater) update(oldObject, newObject *typed.TypedValue, version fieldpa
 				}
 				return nil, fmt.Errorf("failed to convert old object: %v", err)
 			}
-			versioned.newObject, err = s.Converter.Convert(newObject, managerSet.APIVersion)
+			versionedNewObject, err := s.Converter.Convert(newObject, managerSet.APIVersion)
 			if err != nil {
 				if s.Converter.IsMissingVersionError(err) {
 					delete(managers, manager)
@@ -70,11 +68,11 @@ func (s *Updater) update(oldObject, newObject *typed.TypedValue, version fieldpa
 				}
 				return nil, fmt.Errorf("failed to convert new object: %v", err)
 			}
-			versions[managerSet.APIVersion] = versioned
-		}
-		compare, err := versioned.oldObject.Compare(versioned.newObject)
-		if err != nil {
-			return nil, fmt.Errorf("failed to compare objects: %v", err)
+			compare, err = versionedOldObject.Compare(versionedNewObject)
+			if err != nil {
+				return nil, fmt.Errorf("failed to compare objects: %v", err)
+			}
+			versions[managerSet.APIVersion] = compare
 		}
 
 		conflictSet := managerSet.Intersection(compare.Modified.Union(compare.Added))
