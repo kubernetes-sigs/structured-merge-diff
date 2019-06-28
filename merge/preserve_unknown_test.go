@@ -67,13 +67,14 @@ func TestPreserveUnknownFields(t *testing.T) {
 				unknown: new
 			`,
 			Managed: fieldpath.ManagedFields{
-				"default": &fieldpath.VersionedSet{
-					Set: _NS(
+				"default": fieldpath.NewVersionedSet(
+					_NS(
 						_P("num"),
 						_P("unknown"),
 					),
-					APIVersion: "v1",
-				},
+					"v1",
+					false,
+				),
 			},
 		},
 	}

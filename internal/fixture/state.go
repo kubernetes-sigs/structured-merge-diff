@@ -303,7 +303,7 @@ func (tc TestCase) TestWithConverter(parser typed.ParseableType, converter merge
 
 	// Fail if any empty sets are present in the managers
 	for manager, set := range state.Managers {
-		if set.Empty() {
+		if set.Set().Empty() {
 			return fmt.Errorf("expected Managers to have no empty sets, but found one managed by %v", manager)
 		}
 	}
