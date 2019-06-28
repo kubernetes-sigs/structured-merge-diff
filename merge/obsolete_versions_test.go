@@ -70,18 +70,20 @@ func TestObsoleteVersions(t *testing.T) {
 	}
 
 	managers := fieldpath.ManagedFields{
-		"v2": &fieldpath.VersionedSet{
-			Set: _NS(
+		"v2": fieldpath.NewVersionedSet(
+			_NS(
 				_P("v2"),
 			),
-			APIVersion: "v2",
-		},
-		"v3": &fieldpath.VersionedSet{
-			Set: _NS(
+			"v2",
+			false,
+		),
+		"v3": fieldpath.NewVersionedSet(
+			_NS(
 				_P("v3"),
 			),
-			APIVersion: "v3",
-		},
+			"v3",
+			false,
+		),
 	}
 	if diff := state.Managers.Difference(managers); len(diff) != 0 {
 		t.Fatalf("expected Managers to be %v, got %v", managers, state.Managers)

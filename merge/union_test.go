@@ -81,12 +81,13 @@ func TestUnion(t *testing.T) {
 				type: Numeric
 			`,
 			Managed: fieldpath.ManagedFields{
-				"default": &fieldpath.VersionedSet{
-					Set: _NS(
+				"default": fieldpath.NewVersionedSet(
+					_NS(
 						_P("numeric"), _P("type"),
 					),
-					APIVersion: "v1",
-				},
+					"v1",
+					false,
+				),
 			},
 		},
 		"union_apply_without_discriminator_conflict": {
@@ -114,12 +115,13 @@ func TestUnion(t *testing.T) {
 				type: String
 			`,
 			Managed: fieldpath.ManagedFields{
-				"controller": &fieldpath.VersionedSet{
-					Set: _NS(
+				"controller": fieldpath.NewVersionedSet(
+					_NS(
 						_P("string"), _P("type"),
 					),
-					APIVersion: "v1",
-				},
+					"v1",
+					false,
+				),
 			},
 		},
 		"union_apply_with_null_value": {

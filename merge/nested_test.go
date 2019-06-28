@@ -139,15 +139,16 @@ func TestUpdateNestedType(t *testing.T) {
 				  - c
 			`,
 			Managed: fieldpath.ManagedFields{
-				"default": &fieldpath.VersionedSet{
-					Set: _NS(
+				"default": fieldpath.NewVersionedSet(
+					_NS(
 						_P("listOfLists", _KBF("name", _SV("a"))),
 						_P("listOfLists", _KBF("name", _SV("a")), "name"),
 						_P("listOfLists", _KBF("name", _SV("a")), "value", _SV("a")),
 						_P("listOfLists", _KBF("name", _SV("a")), "value", _SV("c")),
 					),
-					APIVersion: "v1",
-				},
+					"v1",
+					false,
+				),
 			},
 		},
 		"listOfLists_change_key_and_value": {
@@ -183,15 +184,16 @@ func TestUpdateNestedType(t *testing.T) {
 				  - c
 			`,
 			Managed: fieldpath.ManagedFields{
-				"default": &fieldpath.VersionedSet{
-					Set: _NS(
+				"default": fieldpath.NewVersionedSet(
+					_NS(
 						_P("listOfLists", _KBF("name", _SV("b"))),
 						_P("listOfLists", _KBF("name", _SV("b")), "name"),
 						_P("listOfLists", _KBF("name", _SV("b")), "value", _SV("a")),
 						_P("listOfLists", _KBF("name", _SV("b")), "value", _SV("c")),
 					),
-					APIVersion: "v1",
-				},
+					"v1",
+					false,
+				),
 			},
 		},
 		"listOfMaps_change_value": {
@@ -227,15 +229,16 @@ func TestUpdateNestedType(t *testing.T) {
 				    c: "z"
 			`,
 			Managed: fieldpath.ManagedFields{
-				"default": &fieldpath.VersionedSet{
-					Set: _NS(
+				"default": fieldpath.NewVersionedSet(
+					_NS(
 						_P("listOfMaps", _KBF("name", _SV("a"))),
 						_P("listOfMaps", _KBF("name", _SV("a")), "name"),
 						_P("listOfMaps", _KBF("name", _SV("a")), "value", "a"),
 						_P("listOfMaps", _KBF("name", _SV("a")), "value", "c"),
 					),
-					APIVersion: "v1",
-				},
+					"v1",
+					false,
+				),
 			},
 		},
 		"listOfMaps_change_key_and_value": {
@@ -271,15 +274,16 @@ func TestUpdateNestedType(t *testing.T) {
 				    c: "z"
 			`,
 			Managed: fieldpath.ManagedFields{
-				"default": &fieldpath.VersionedSet{
-					Set: _NS(
+				"default": fieldpath.NewVersionedSet(
+					_NS(
 						_P("listOfMaps", _KBF("name", _SV("b"))),
 						_P("listOfMaps", _KBF("name", _SV("b")), "name"),
 						_P("listOfMaps", _KBF("name", _SV("b")), "value", "a"),
 						_P("listOfMaps", _KBF("name", _SV("b")), "value", "c"),
 					),
-					APIVersion: "v1",
-				},
+					"v1",
+					false,
+				),
 			},
 		},
 		"mapOfLists_change_value": {
@@ -312,14 +316,15 @@ func TestUpdateNestedType(t *testing.T) {
 				  - c
 			`,
 			Managed: fieldpath.ManagedFields{
-				"default": &fieldpath.VersionedSet{
-					Set: _NS(
+				"default": fieldpath.NewVersionedSet(
+					_NS(
 						_P("mapOfLists", "a"),
 						_P("mapOfLists", "a", _SV("a")),
 						_P("mapOfLists", "a", _SV("c")),
 					),
-					APIVersion: "v1",
-				},
+					"v1",
+					false,
+				),
 			},
 		},
 		"mapOfLists_change_key_and_value": {
@@ -352,14 +357,15 @@ func TestUpdateNestedType(t *testing.T) {
 				  - c
 			`,
 			Managed: fieldpath.ManagedFields{
-				"default": &fieldpath.VersionedSet{
-					Set: _NS(
+				"default": fieldpath.NewVersionedSet(
+					_NS(
 						_P("mapOfLists", "b"),
 						_P("mapOfLists", "b", _SV("a")),
 						_P("mapOfLists", "b", _SV("c")),
 					),
-					APIVersion: "v1",
-				},
+					"v1",
+					false,
+				),
 			},
 		},
 		"mapOfMaps_change_value": {
@@ -392,14 +398,15 @@ func TestUpdateNestedType(t *testing.T) {
 				    c: "z"
 			`,
 			Managed: fieldpath.ManagedFields{
-				"default": &fieldpath.VersionedSet{
-					Set: _NS(
+				"default": fieldpath.NewVersionedSet(
+					_NS(
 						_P("mapOfMaps", "a"),
 						_P("mapOfMaps", "a", "a"),
 						_P("mapOfMaps", "a", "c"),
 					),
-					APIVersion: "v1",
-				},
+					"v1",
+					false,
+				),
 			},
 		},
 		"mapOfMaps_change_key_and_value": {
@@ -432,14 +439,15 @@ func TestUpdateNestedType(t *testing.T) {
 				    c: "z"
 			`,
 			Managed: fieldpath.ManagedFields{
-				"default": &fieldpath.VersionedSet{
-					Set: _NS(
+				"default": fieldpath.NewVersionedSet(
+					_NS(
 						_P("mapOfMaps", "b"),
 						_P("mapOfMaps", "b", "a"),
 						_P("mapOfMaps", "b", "c"),
 					),
-					APIVersion: "v1",
-				},
+					"v1",
+					false,
+				),
 			},
 		},
 		"mapOfMapsRecursive_change_middle_key": {
@@ -472,14 +480,15 @@ func TestUpdateNestedType(t *testing.T) {
 				      c:
 			`,
 			Managed: fieldpath.ManagedFields{
-				"default": &fieldpath.VersionedSet{
-					Set: _NS(
+				"default": fieldpath.NewVersionedSet(
+					_NS(
 						_P("mapOfMapsRecursive", "a"),
 						_P("mapOfMapsRecursive", "a", "d"),
 						_P("mapOfMapsRecursive", "a", "d", "c"),
 					),
-					APIVersion: "v1",
-				},
+					"v1",
+					false,
+				),
 			},
 		},
 	}

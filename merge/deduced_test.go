@@ -53,12 +53,13 @@ func TestDeduced(t *testing.T) {
 				bool: false
 			`,
 			Managed: fieldpath.ManagedFields{
-				"default": &fieldpath.VersionedSet{
-					Set: _NS(
+				"default": fieldpath.NewVersionedSet(
+					_NS(
 						_P("numeric"), _P("string"), _P("bool"),
 					),
-					APIVersion: "v1",
-				},
+					"v1",
+					false,
+				),
 			},
 		},
 		"leaf_apply_update_apply_no_conflict": {
@@ -95,18 +96,20 @@ func TestDeduced(t *testing.T) {
 				bool: true
 			`,
 			Managed: fieldpath.ManagedFields{
-				"default": &fieldpath.VersionedSet{
-					Set: _NS(
+				"default": fieldpath.NewVersionedSet(
+					_NS(
 						_P("numeric"), _P("string"),
 					),
-					APIVersion: "v1",
-				},
-				"controller": &fieldpath.VersionedSet{
-					Set: _NS(
+					"v1",
+					false,
+				),
+				"controller": fieldpath.NewVersionedSet(
+					_NS(
 						_P("bool"),
 					),
-					APIVersion: "v1",
-				},
+					"v1",
+					false,
+				),
 			},
 		},
 		"leaf_apply_update_apply_with_conflict": {
@@ -154,18 +157,20 @@ func TestDeduced(t *testing.T) {
 				bool: true
 			`,
 			Managed: fieldpath.ManagedFields{
-				"default": &fieldpath.VersionedSet{
-					Set: _NS(
+				"default": fieldpath.NewVersionedSet(
+					_NS(
 						_P("numeric"), _P("string"),
 					),
-					APIVersion: "v1",
-				},
-				"controller": &fieldpath.VersionedSet{
-					Set: _NS(
+					"v1",
+					false,
+				),
+				"controller": fieldpath.NewVersionedSet(
+					_NS(
 						_P("bool"),
 					),
-					APIVersion: "v1",
-				},
+					"v1",
+					false,
+				),
 			},
 		},
 		"leaf_apply_twice_remove": {
@@ -191,12 +196,13 @@ func TestDeduced(t *testing.T) {
 				string: "new string"
 			`,
 			Managed: fieldpath.ManagedFields{
-				"default": &fieldpath.VersionedSet{
-					Set: _NS(
+				"default": fieldpath.NewVersionedSet(
+					_NS(
 						_P("string"),
 					),
-					APIVersion: "v1",
-				},
+					"v1",
+					false,
+				),
 			},
 		},
 		"leaf_update_remove_empty_set": {
@@ -220,12 +226,13 @@ func TestDeduced(t *testing.T) {
 				string: "new string"
 			`,
 			Managed: fieldpath.ManagedFields{
-				"controller": &fieldpath.VersionedSet{
-					Set: _NS(
+				"controller": fieldpath.NewVersionedSet(
+					_NS(
 						_P("string"),
 					),
-					APIVersion: "v1",
-				},
+					"v1",
+					false,
+				),
 			},
 		},
 		"apply_twice_list_is_atomic": {
@@ -259,10 +266,11 @@ func TestDeduced(t *testing.T) {
 				- b
 			`,
 			Managed: fieldpath.ManagedFields{
-				"default": &fieldpath.VersionedSet{
-					Set:        _NS(_P("list")),
-					APIVersion: "v1",
-				},
+				"default": fieldpath.NewVersionedSet(
+					_NS(_P("list")),
+					"v1",
+					false,
+				),
 			},
 		},
 		"apply_update_apply_list": {
@@ -305,10 +313,11 @@ func TestDeduced(t *testing.T) {
 				- c
 			`,
 			Managed: fieldpath.ManagedFields{
-				"default": &fieldpath.VersionedSet{
-					Set:        _NS(_P("list")),
-					APIVersion: "v1",
-				},
+				"default": fieldpath.NewVersionedSet(
+					_NS(_P("list")),
+					"v1",
+					false,
+				),
 			},
 		},
 		"leaf_apply_remove_empty_set": {
