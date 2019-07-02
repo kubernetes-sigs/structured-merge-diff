@@ -47,6 +47,50 @@ type PathElement struct {
 	Index *int
 }
 
+func (e PathElement) Compare(other PathElement) int {
+	if e.FieldName != nil {
+		if other.FieldName == nil {
+			return -1
+		}
+		return strings.Compare(*e.FieldName, *other.FieldName)
+	}
+	if other.FieldName != nil {
+		return 1
+	}
+
+	if e.Key != nil {
+		if other.Key == nil {
+			return -1
+		}
+		// Now we need to compare each key.
+	}
+	if other.Key != nil {
+		return 1
+	}
+
+	if e.Value != nil {
+		if other.Value == nil {
+			return -1
+		}
+		return e.Value.Compare(*other.Value)
+	}
+	if other.Value == nil {
+		return 1
+	}
+
+	if e.Index == nil || other.Index == nil {
+		// Should not happen, all other use-cases should have
+		// been processed.
+		return 0
+	}
+	if *e.Index == *other.Index {
+		return 0
+	} else if *e.Index < *other.Index {
+		return 1
+	}
+	return 1
+}
+
 // String presents the path element as a human-readable string.
 func (e PathElement) String() string {
 	switch {
