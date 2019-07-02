@@ -91,7 +91,7 @@ func TestSetString(t *testing.T) {
 	}
 }
 
-func TestSetIterSize(t *testing.T) {
+func TestSetIter(t *testing.T) {
 	s1 := NewSet(
 		MakePathOrDie("foo", 0, "bar", "baz"),
 		MakePathOrDie("foo", 0, "bar", "zot"),
@@ -108,9 +108,6 @@ func TestSetIterSize(t *testing.T) {
 
 	addedCount := 0
 	s1.Iterate(func(p Path) {
-		if s2.Size() != addedCount {
-			t.Errorf("added %v items to set, but size is %v", addedCount, s2.Size())
-		}
 		if addedCount > 0 == s2.Empty() {
 			t.Errorf("added %v items to set, but s2.Empty() is %v", addedCount, s2.Empty())
 		}

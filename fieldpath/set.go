@@ -93,19 +93,11 @@ func (s *Set) Difference(s2 *Set) *Set {
 	}
 }
 
-// Size returns the number of members of the set.
-func (s *Set) Size() int {
-	return s.Members.Size() + s.Children.Size()
-}
-
 // Empty returns true if there are no members of the set. It is a separate
 // function from Size since it's common to check whether size > 0, and
 // potentially much faster to return as soon as a single element is found.
 func (s *Set) Empty() bool {
-	if s.Members.Size() > 0 {
-		return false
-	}
-	return s.Children.Empty()
+	return s.Members.Empty() && s.Children.Empty()
 }
 
 // Has returns true if the field referenced by `p` is a member of the set.
@@ -190,15 +182,6 @@ func (s *SetNodeMap) Descend(pe PathElement) *Set {
 		set:         ss,
 	}
 	return ss
-}
-
-// Size returns the sum of the number of members of all subsets.
-func (s *SetNodeMap) Size() int {
-	count := 0
-	for _, v := range s.members {
-		count += v.set.Size()
-	}
-	return count
 }
 
 // Empty returns false if there's at least one member in some child set.

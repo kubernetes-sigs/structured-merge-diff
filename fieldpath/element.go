@@ -152,7 +152,7 @@ func (s *PathElementSet) Difference(s2 *PathElementSet) *PathElementSet {
 }
 
 // Size retuns the number of elements in the set.
-func (s *PathElementSet) Size() int { return len(s.members) }
+func (s *PathElementSet) Empty() bool { return len(s.members) == 0 }
 
 // Has returns true if pe is a member of the set.
 func (s *PathElementSet) Has(pe PathElement) bool {
