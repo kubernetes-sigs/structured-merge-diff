@@ -26,7 +26,7 @@ import (
 
 var (
 	// Short names for readable test cases.
-	_NS = fieldpath.NewSet
+	_NS = fieldpath.NewSetAsList
 	_P  = fieldpath.MakePathOrDie
 )
 

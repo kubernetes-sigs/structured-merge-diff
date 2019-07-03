@@ -38,9 +38,9 @@ type symdiffQuint struct {
 	// Please note that everything is tested both ways--removed and added
 	// are symmetric. So if a test case is covered for one of them, it
 	// covers both.
-	removed  *fieldpath.Set
-	modified *fieldpath.Set
-	added    *fieldpath.Set
+	removed  *fieldpath.SetAsList
+	modified *fieldpath.SetAsList
+	added    *fieldpath.SetAsList
 }
 
 var symdiffCases = []symdiffTestCase{{

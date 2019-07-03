@@ -121,7 +121,7 @@ func TestMergeDeduced(t *testing.T) {
 		}, {
 			`{"string":"aoeu"}`,
 			`{"bool":true}`,
-			`{"string":"aoeu","bool":true}`,
+			`{"bool":true,"string":"aoeu"}`,
 		}, {
 			`{"atomic":["a","b","c"]}`,
 			`{"atomic":["a","b"]}`,

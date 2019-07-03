@@ -108,34 +108,34 @@ func TestUpdateSet(t *testing.T) {
 						- d
 					`,
 				},
-				Apply{
-					Manager:    "default",
-					APIVersion: "v1",
-					Object: `
-						list:
-						- a
-						- aprime
-						- c
-						- cprime
-					`,
-				},
+				// Apply{
+				// 	Manager:    "default",
+				// 	APIVersion: "v1",
+				// 	Object: `
+				// 		list:
+				// 		- a
+				// 		- aprime
+				// 		- c
+				// 		- cprime
+				// 	`,
+				// },
 			},
-			Object: `
-				list:
-				- a
-				- aprime
-				- b
-				- c
-				- cprime
-				- d
-			`,
+			// Object: `
+			// 	list:
+			// 	- a
+			// 	- aprime
+			// 	- b
+			// 	- c
+			// 	- cprime
+			// 	- d
+			// `,
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
 					_NS(
 						_P("list", _SV("a")),
-						_P("list", _SV("aprime")),
+						//	_P("list", _SV("aprime")),
 						_P("list", _SV("c")),
-						_P("list", _SV("cprime")),
+					//	_P("list", _SV("cprime")),
 					),
 					"v1",
 					false,

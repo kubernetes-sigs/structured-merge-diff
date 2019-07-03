@@ -297,7 +297,7 @@ func (tc TestCase) TestWithConverter(parser typed.ParseableType, converter merge
 
 	if tc.Managed != nil {
 		if diff := state.Managers.Difference(tc.Managed); len(diff) != 0 {
-			return fmt.Errorf("expected Managers to be %v, got %v", tc.Managed, state.Managers)
+			return fmt.Errorf("expected Managers to be %v, got %v (diff: %v)", tc.Managed, state.Managers, diff)
 		}
 	}
 

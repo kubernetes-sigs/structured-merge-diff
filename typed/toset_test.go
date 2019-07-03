@@ -27,7 +27,7 @@ import (
 
 type objSetPair struct {
 	object typed.YAMLObject
-	set    *fieldpath.Set
+	set    *fieldpath.SetAsList
 }
 
 type fieldsetTestCase struct {
@@ -39,7 +39,7 @@ type fieldsetTestCase struct {
 
 var (
 	// Short names for readable test cases.
-	_NS  = fieldpath.NewSet
+	_NS  = fieldpath.NewSetAsList
 	_P   = fieldpath.MakePathOrDie
 	_KBF = fieldpath.KeyByFields
 	_SV  = value.StringValue

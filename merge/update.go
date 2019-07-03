@@ -75,7 +75,7 @@ func (s *Updater) update(oldObject, newObject *typed.TypedValue, version fieldpa
 			versions[managerSet.APIVersion()] = compare
 		}
 
-		conflictSet := managerSet.Set().Intersection(compare.Modified.Union(compare.Added))
+		conflictSet := fieldpath.Intersection(managerSet.Set(), fieldpath.Union(compare.Modified.Iterator(), compare.Added.Iterator()).Iterator())
 		if !conflictSet.Empty() {
 			conflicts[manager] = fieldpath.NewVersionedSet(conflictSet, managerSet.APIVersion(), false)
 		}
@@ -90,11 +90,11 @@ func (s *Updater) update(oldObject, newObject *typed.TypedValue, version fieldpa
 	}
 
 	for manager, conflictSet := range conflicts {
-		managers[manager] = fieldpath.NewVersionedSet(managers[manager].Set().Difference(conflictSet.Set()), managers[manager].APIVersion(), managers[manager].Applied())
+		managers[manager] = fieldpath.NewVersionedSet(fieldpath.Difference(managers[manager].Set(), conflictSet.Set()), managers[manager].APIVersion(), managers[manager].Applied())
 	}
 
 	for manager, removedSet := range removed {
-		managers[manager] = fieldpath.NewVersionedSet(managers[manager].Set().Difference(removedSet.Set()), managers[manager].APIVersion(), managers[manager].Applied())
+		managers[manager] = fieldpath.NewVersionedSet(fieldpath.Difference(managers[manager].Set(), removedSet.Set()), managers[manager].APIVersion(), managers[manager].Applied())
 	}
 
 	for manager := range managers {
@@ -126,13 +126,23 @@ func (s *Updater) Update(liveObject, newObject *typed.TypedValue, version fieldp
 		return nil, fieldpath.ManagedFields{}, fmt.Errorf("failed to compare live and new objects: %v", err)
 	}
 	if _, ok := managers[manager]; !ok {
-		managers[manager] = fieldpath.NewVersionedSet(fieldpath.NewSet(), version, false)
+		managers[manager] = fieldpath.NewVersionedSet(fieldpath.NewSetAsList(), version, false)
 	}
 	managers[manager] = fieldpath.NewVersionedSet(
-		managers[manager].Set().Union(compare.Modified).Union(compare.Added).Difference(compare.Removed),
+		fieldpath.Difference(
+			fieldpath.Union(
+				fieldpath.Union(
+					managers[manager].Set(),
+					compare.Modified.Iterator(),
+				).Iterator(),
+				compare.Added.Iterator(),
+			).Iterator(),
+			compare.Removed.Iterator(),
+		),
 		version,
 		false,
 	)
+
 	if managers[manager].Set().Empty() {
 		delete(managers, manager)
 	}

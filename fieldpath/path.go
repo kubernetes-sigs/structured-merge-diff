@@ -32,7 +32,7 @@ func (fp Path) Compare(other Path) int {
 		if i == len(other) {
 			return 1
 		}
-		if comp := pe.Compare(fp[i]); comp != 0 {
+		if comp := pe.Compare(other[i]); comp != 0 {
 			return comp
 		}
 	}
@@ -40,7 +40,6 @@ func (fp Path) Compare(other Path) int {
 		return 0
 	}
 	return -1
-
 }
 
 func (fp Path) String() string {

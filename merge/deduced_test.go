@@ -58,7 +58,7 @@ func TestDeduced(t *testing.T) {
 						_P("numeric"), _P("string"), _P("bool"),
 					),
 					"v1",
-					false,
+					true,
 				),
 			},
 		},

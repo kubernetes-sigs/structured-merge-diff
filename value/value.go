@@ -97,11 +97,22 @@ type List struct {
 	Items []Value
 }
 
+func (l List) SortedItems() []Value {
+	copy := []Value{}
+	for _, item := range l.Items {
+		copy = append(copy, item)
+	}
+	sort.Slice(copy, func(i, j int) bool {
+		return copy[i].Compare(copy[j]) < 0
+	})
+	return copy
+}
+
 // Compare returns an integer comparing two Lists. The result will be 0
 // if l==other, -1 if l < other, and +1 if l > other.
 func (l List) Compare(other List) int {
 	for i, value := range l.Items {
-		if i == len(l.Items) {
+		if i == len(other.Items) {
 			return 1
 		}
 		if comp := value.Compare(other.Items[i]); comp != 0 {
@@ -130,6 +141,10 @@ type Map struct {
 // if m==other, -1 if m < other, and +1 if m > other.
 func (m Map) Compare(other Map) int {
 	return Fields(m.Items).Compare(Fields(other.Items))
+}
+
+func (m *Map) SortedItems() []Field {
+	return Fields(m.Items).SortCopy()
 }
 
 // Get returns the (Field, true) or (nil, false) if it is not present
@@ -246,7 +261,7 @@ func (v Value) Compare(other Value) int {
 		if *v.IntValue == *other.IntValue {
 			return 0
 		} else if *v.IntValue < *other.IntValue {
-			return 1
+			return -1
 		}
 		return 1
 	}
@@ -301,5 +316,9 @@ func (v Value) Compare(other Value) int {
 
 	// At this point they should both be null. But there is nothing
 	// we can do if they are not.
-	return 0
+	if v.Null && other.Null {
+		return 0
+	}
+
+	panic("shouldn't reach")
 }

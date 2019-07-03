@@ -263,7 +263,7 @@ var mergeCases = []mergeTestCase{{
 	}, {
 		`{"string":"aoeu"}`,
 		`{"bool":true}`,
-		`{"string":"aoeu","bool":true}`,
+		`{"bool":true,"string":"aoeu"}`,
 	}, {
 		`{"setStr":["a","b","c"]}`,
 		`{"setStr":["a","b"]}`,
@@ -340,17 +340,17 @@ var mergeCases = []mergeTestCase{{
       scalar: string
 `,
 	triplets: []mergeTriplet{{
-		`{"list":[{"key":"a","id":1,"value":{"a":"a"}}]}`,
-		`{"list":[{"key":"a","id":1,"value":{"a":"a"}}]}`,
-		`{"list":[{"key":"a","id":1,"value":{"a":"a"}}]}`,
+		`{"list":[{"id":1,"key":"a","value":{"a":"a"}}]}`,
+		`{"list":[{"id":1,"key":"a","value":{"a":"a"}}]}`,
+		`{"list":[{"id":1,"key":"a","value":{"a":"a"}}]}`,
 	}, {
-		`{"list":[{"key":"a","id":1,"value":{"a":"a"}}]}`,
-		`{"list":[{"key":"a","id":2,"value":{"a":"a"}}]}`,
-		`{"list":[{"key":"a","id":1,"value":{"a":"a"}},{"key":"a","id":2,"value":{"a":"a"}}]}`,
+		`{"list":[{"id":1,"key":"a","value":{"a":"a"}}]}`,
+		`{"list":[{"id":2,"key":"a","value":{"a":"a"}}]}`,
+		`{"list":[{"id":1,"key":"a","value":{"a":"a"}},{"id":2,"key":"a","value":{"a":"a"}}]}`,
 	}, {
-		`{"list":[{"key":"a","id":1},{"key":"b","id":1}]}`,
-		`{"list":[{"key":"a","id":1},{"key":"a","id":2}]}`,
-		`{"list":[{"key":"a","id":1},{"key":"b","id":1},{"key":"a","id":2}]}`,
+		`{"list":[{"id":1,"key":"a"},{"id":1,"key":"b"}]}`,
+		`{"list":[{"id":1,"key":"a"},{"id":2,"key":"a"}]}`,
+		`{"list":[{"id":1,"key":"a"},{"id":1,"key":"b"},{"id":2,"key":"a"}]}`,
 	}, {
 		`{"atomicList":["a","a","a"]}`,
 		`{"atomicList":null}`,

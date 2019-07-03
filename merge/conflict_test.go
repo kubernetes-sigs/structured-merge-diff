@@ -26,7 +26,7 @@ import (
 
 var (
 	// Short names for readable test cases.
-	_NS  = fieldpath.NewSet
+	_NS  = fieldpath.NewSetAsList
 	_P   = fieldpath.MakePathOrDie
 	_KBF = fieldpath.KeyByFields
 	_SV  = value.StringValue
@@ -53,8 +53,8 @@ func TestNewFromSets(t *testing.T) {
 		),
 	})
 	wanted := `conflicts with "Alice":
-- .value
 - .list[id=2,key="a"].key
+- .value
 conflicts with "Bob":
 - .key
 - .list[id=2,key="a"].id`

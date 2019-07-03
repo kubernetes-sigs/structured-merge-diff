@@ -62,7 +62,7 @@ func (e PathElement) Compare(other PathElement) int {
 		if other.Key == nil {
 			return -1
 		}
-		// Now we need to compare each key.
+		return value.Fields(e.Key).Compare(other.Key)
 	}
 	if other.Key != nil {
 		return 1
@@ -74,19 +74,19 @@ func (e PathElement) Compare(other PathElement) int {
 		}
 		return e.Value.Compare(*other.Value)
 	}
-	if other.Value == nil {
+	if other.Value != nil {
 		return 1
 	}
 
 	if e.Index == nil || other.Index == nil {
 		// Should not happen, all other use-cases should have
 		// been processed.
-		return 0
+		panic("should not happen")
 	}
 	if *e.Index == *other.Index {
 		return 0
 	} else if *e.Index < *other.Index {
-		return 1
+		return -1
 	}
 	return 1
 }
