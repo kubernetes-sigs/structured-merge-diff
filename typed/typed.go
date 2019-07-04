@@ -139,13 +139,6 @@ func (tv TypedValue) Compare(rhs *TypedValue) (c *Comparison, err error) {
 	return c, nil
 }
 
-// RemoveItems removes each provided list or map item from the value.
-func (tv TypedValue) RemoveItems(items *fieldpath.Set) *TypedValue {
-	tv.value, _ = value.FromUnstructured(tv.value.ToUnstructured(true))
-	removeItemsWithSchema(&tv.value, items, tv.schema, tv.typeRef)
-	return &tv
-}
-
 // NormalizeUnions takes the new object and normalizes the union:
 // - If discriminator changed to non-nil, and a new field has been added
 // that doesn't match, an error is returned,

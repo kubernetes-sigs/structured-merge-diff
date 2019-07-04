@@ -22,66 +22,6 @@ import (
 	"sigs.k8s.io/structured-merge-diff/value"
 )
 
-func TestSetInsertHas(t *testing.T) {
-	s1 := NewSet(
-		MakePathOrDie("foo", 0, "bar", "baz"),
-		MakePathOrDie("foo", 0, "bar"),
-		MakePathOrDie("foo", 0),
-		MakePathOrDie("foo", 1, "bar", "baz"),
-		MakePathOrDie("foo", 1, "bar"),
-		MakePathOrDie("qux", KeyByFields("name", value.StringValue("first"))),
-		MakePathOrDie("qux", KeyByFields("name", value.StringValue("first")), "bar"),
-		MakePathOrDie("qux", KeyByFields("name", value.StringValue("second")), "bar"),
-		MakePathOrDie("canonicalOrder", KeyByFields(
-			"a", value.StringValue("a"),
-			"b", value.StringValue("a"),
-			"c", value.StringValue("a"),
-			"d", value.StringValue("a"),
-			"e", value.StringValue("a"),
-			"f", value.StringValue("a"),
-		)),
-	)
-
-	table := []struct {
-		set              *Set
-		check            Path
-		expectMembership bool
-	}{
-		{s1, MakePathOrDie("qux", KeyByFields("name", value.StringValue("second"))), false},
-		{s1, MakePathOrDie("qux", KeyByFields("name", value.StringValue("second")), "bar"), true},
-		{s1, MakePathOrDie("qux", KeyByFields("name", value.StringValue("first"))), true},
-		{s1, MakePathOrDie("xuq", KeyByFields("name", value.StringValue("first"))), false},
-		{s1, MakePathOrDie("foo", 0), true},
-		{s1, MakePathOrDie("foo", 0, "bar"), true},
-		{s1, MakePathOrDie("foo", 0, "bar", "baz"), true},
-		{s1, MakePathOrDie("foo", 1), false},
-		{s1, MakePathOrDie("foo", 1, "bar"), true},
-		{s1, MakePathOrDie("foo", 1, "bar", "baz"), true},
-		{s1, MakePathOrDie("canonicalOrder", KeyByFields(
-			"f", value.StringValue("a"),
-			"e", value.StringValue("a"),
-			"d", value.StringValue("a"),
-			"c", value.StringValue("a"),
-			"b", value.StringValue("a"),
-			"a", value.StringValue("a"),
-		)), true},
-	}
-
-	for _, tt := range table {
-		got := tt.set.Has(tt.check)
-		if e, a := tt.expectMembership, got; e != a {
-			t.Errorf("%v: wanted %v, got %v", tt.check.String(), e, a)
-		}
-	}
-
-	if NewSet().Has(Path{}) {
-		t.Errorf("empty set should not include the empty path")
-	}
-	if NewSet(Path{}).Has(Path{}) {
-		t.Errorf("empty set should not include the empty path")
-	}
-}
-
 func TestSetString(t *testing.T) {
 	p := MakePathOrDie("foo", PathElement{Key: KeyByFields("name", value.StringValue("first"))})
 	s1 := NewSet(p)

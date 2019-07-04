@@ -173,38 +173,6 @@ func TestDeduced(t *testing.T) {
 				),
 			},
 		},
-		"leaf_apply_twice_remove": {
-			Ops: []Operation{
-				Apply{
-					Manager:    "default",
-					APIVersion: "v1",
-					Object: `
-						numeric: 1
-						string: "string"
-						bool: false
-					`,
-				},
-				Apply{
-					Manager:    "default",
-					APIVersion: "v1",
-					Object: `
-						string: "new string"
-					`,
-				},
-			},
-			Object: `
-				string: "new string"
-			`,
-			Managed: fieldpath.ManagedFields{
-				"default": fieldpath.NewVersionedSet(
-					_NS(
-						_P("string"),
-					),
-					"v1",
-					false,
-				),
-			},
-		},
 		"leaf_update_remove_empty_set": {
 			Ops: []Operation{
 				Apply{
