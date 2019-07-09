@@ -1026,3 +1026,87 @@ func countLeadingSpace(line string) int {
 func (r repeatingConverter) IsMissingVersionError(err error) bool {
 	return err == missingVersionError
 }
+
+func BenchmarkMultipleApplierRecursiveRealConversion(b *testing.B) {
+	test := TestCase{
+		Ops: []Operation{
+			Apply{
+				Manager: "apply-one",
+				Object: `
+					mapOfMapsRecursive:
+					  a:
+					    b:
+					  c:
+					    d:
+				`,
+				APIVersion: "v1",
+			},
+			Apply{
+				Manager: "apply-two",
+				Object: `
+					mapOfMapsRecursive:
+					  aa:
+					  cc:
+					    dd:
+				`,
+				APIVersion: "v2",
+			},
+			Update{
+				Manager: "controller",
+				Object: `
+					mapOfMapsRecursive:
+					  aaa:
+					    bbb:
+					      ccc:
+					        ddd:
+					  ccc:
+					    ddd:
+					      eee:
+					        fff:
+					`,
+				APIVersion: "v3",
+			},
+			Apply{
+				Manager: "apply-one",
+				Object: `
+					mapOfMapsRecursive:
+				`,
+				APIVersion: "v4",
+			},
+		},
+		Object: `
+			mapOfMapsRecursive:
+			  aaaa:
+			  cccc:
+			    dddd:
+			      eeee:
+			        ffff:
+		`,
+		Managed: fieldpath.ManagedFields{
+			"apply-two": fieldpath.NewVersionedSet(
+				_NS(
+					_P("mapOfMapsRecursive", "aa"),
+					_P("mapOfMapsRecursive", "cc"),
+					_P("mapOfMapsRecursive", "cc", "dd"),
+				),
+				"v2",
+				false,
+			),
+			"controller": fieldpath.NewVersionedSet(
+				_NS(
+					_P("mapOfMapsRecursive", "ccc", "ddd", "eee"),
+					_P("mapOfMapsRecursive", "ccc", "ddd", "eee", "fff"),
+				),
+				"v3",
+				false,
+			),
+		},
+	}
+
+	b.ReportAllocs()
+	for n := 0; n < b.N; n++ {
+		if err := test.TestWithConverter(nestedTypeParser, repeatingConverter{nestedTypeParser}); err != nil {
+			b.Fatal(err)
+		}
+	}
+}

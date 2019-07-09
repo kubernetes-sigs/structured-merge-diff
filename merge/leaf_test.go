@@ -467,3 +467,74 @@ func TestUpdateLeaf(t *testing.T) {
 		})
 	}
 }
+
+func BenchmarkLeafConflictAcrossVersion(b *testing.B) {
+	test := TestCase{
+		Ops: []Operation{
+			Apply{
+				Manager:    "default",
+				APIVersion: "v1",
+				Object: `
+					numeric: 1
+					string: "string"
+				`,
+			},
+			Update{
+				Manager:    "controller",
+				APIVersion: "v2",
+				Object: `
+					numeric: 1
+					string: "controller string"
+					bool: true
+				`,
+			},
+			Apply{
+				Manager:    "default",
+				APIVersion: "v1",
+				Object: `
+					numeric: 2
+					string: "user string"
+				`,
+				Conflicts: merge.Conflicts{
+					merge.Conflict{Manager: "controller", Path: _P("string")},
+				},
+			},
+			ForceApply{
+				Manager:    "default",
+				APIVersion: "v1",
+				Object: `
+					numeric: 2
+					string: "user string"
+				`,
+			},
+		},
+		Object: `
+			numeric: 2
+			string: "user string"
+			bool: true
+		`,
+		Managed: fieldpath.ManagedFields{
+			"default": fieldpath.NewVersionedSet(
+				_NS(
+					_P("numeric"), _P("string"),
+				),
+				"v1",
+				false,
+			),
+			"controller": fieldpath.NewVersionedSet(
+				_NS(
+					_P("bool"),
+				),
+				"v2",
+				false,
+			),
+		},
+	}
+
+	b.ReportAllocs()
+	for n := 0; n < b.N; n++ {
+		if err := test.Test(leafFieldsParser); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
