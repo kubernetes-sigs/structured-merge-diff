@@ -168,7 +168,7 @@ func TestSetUnion(t *testing.T) {
 		MakePathOrDie("parent", "child", "grandchild"),
 	)
 
-	got := Union(s1.Iterator(), s2.Iterator())
+	got := Union(s1, s2)
 
 	if !got.Equals(u) {
 		t.Errorf("union: expected: \n%v\n, got \n%v\n", u, got)
@@ -214,7 +214,7 @@ func TestSetIntersectionDifference(t *testing.T) {
 			MakePathOrDie("b1", nameFirst),
 		)
 
-		got := Intersection(s1.Iterator(), s2.Iterator())
+		got := Intersection(s1, s2)
 		if !got.Equals(i) {
 			t.Errorf("expected: \n%v\n, got \n%v\n", i, got)
 		}
@@ -229,7 +229,7 @@ func TestSetIntersectionDifference(t *testing.T) {
 			MakePathOrDie("cp", nameFirst, "child"),
 		)
 
-		got := Difference(s1.Iterator(), s2.Iterator())
+		got := Difference(s1, s2)
 		if !got.Equals(sDiffS2) {
 			t.Errorf("expected: \n%v\n, got \n%v\n", sDiffS2, got)
 		}
@@ -244,7 +244,7 @@ func TestSetIntersectionDifference(t *testing.T) {
 			MakePathOrDie("cp", nameFirst),
 		)
 
-		got := Difference(s2.Iterator(), s1.Iterator())
+		got := Difference(s2, s1)
 		if !got.Equals(s2DiffS) {
 			t.Errorf("expected: \n%v\n, got \n%v\n", s2DiffS, got)
 		}
@@ -259,11 +259,11 @@ func TestSetIntersectionDifference(t *testing.T) {
 
 		// We can construct Intersection out of two union and
 		// three difference calls.
-		u := Union(s1.Iterator(), s2.Iterator())
+		u := Union(s1, s2)
 		t.Logf("s1 u s2:\n%v\n", u)
-		notIntersection := Union(Difference(s2.Iterator(), s1.Iterator()).Iterator(), Difference(s1.Iterator(), s2.Iterator()).Iterator())
+		notIntersection := Union(Difference(s2, s1), Difference(s1, s2))
 		t.Logf("s1 !i s2:\n%v\n", notIntersection)
-		got := Difference(u.Iterator(), notIntersection.Iterator())
+		got := Difference(u, notIntersection)
 		if !got.Equals(i) {
 			t.Errorf("expected: \n%v\n, got \n%v\n", i, got)
 		}
