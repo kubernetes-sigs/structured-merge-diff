@@ -534,3 +534,280 @@ func TestDeduced(t *testing.T) {
 		})
 	}
 }
+
+func BenchmarkDeducedSimple(b *testing.B) {
+	test := TestCase{
+		Ops: []Operation{
+			Apply{
+				Manager:    "default",
+				APIVersion: "v1",
+				Object: `
+						numeric: 1
+						string: "string"
+					`,
+			},
+			Update{
+				Manager:    "controller",
+				APIVersion: "v1",
+				Object: `
+						numeric: 1
+						string: "controller string"
+						bool: true
+					`,
+			},
+			Apply{
+				Manager:    "default",
+				APIVersion: "v1",
+				Object: `
+						numeric: 2
+						string: "user string"
+					`,
+				Conflicts: merge.Conflicts{
+					merge.Conflict{Manager: "controller", Path: _P("string")},
+				},
+			},
+			ForceApply{
+				Manager:    "default",
+				APIVersion: "v1",
+				Object: `
+						numeric: 2
+						string: "user string"
+					`,
+			},
+		},
+		Object: `
+				numeric: 2
+				string: "user string"
+				bool: true
+			`,
+		Managed: fieldpath.ManagedFields{
+			"default": fieldpath.NewVersionedSet(
+				_NS(
+					_P("numeric"), _P("string"),
+				),
+				"v1",
+				false,
+			),
+			"controller": fieldpath.NewVersionedSet(
+				_NS(
+					_P("bool"),
+				),
+				"v1",
+				false,
+			),
+		},
+	}
+
+	b.ReportAllocs()
+	for n := 0; n < b.N; n++ {
+		if err := test.Test(typed.DeducedParseableType); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkDeducedNested(b *testing.B) {
+	test := TestCase{
+		Ops: []Operation{
+			Apply{
+				Manager:    "default",
+				APIVersion: "v1",
+				Object: `
+						a: 1
+						b:
+						  c:
+						    d: 2
+						    e:
+						    - 1
+						    - 2
+						    - 3
+						    f:
+						    - name: n
+						      value: 1
+					`,
+			},
+			Update{
+				Manager:    "controller",
+				APIVersion: "v1",
+				Object: `
+						a: 1
+						b:
+						  c:
+						    d: 3
+						    e:
+						    - 1
+						    - 2
+						    - 3
+						    - 4
+						    f:
+						    - name: n
+						      value: 2
+						g: 5
+					`,
+			},
+			Apply{
+				Manager:    "default",
+				APIVersion: "v1",
+				Object: `
+						a: 2
+						b:
+						  c:
+						    d: 2
+						    e:
+						    - 3
+						    - 2
+						    - 1
+						    f:
+						    - name: n
+						      value: 1
+					`,
+				Conflicts: merge.Conflicts{
+					merge.Conflict{Manager: "controller", Path: _P("b", "c", "d")},
+					merge.Conflict{Manager: "controller", Path: _P("b", "c", "e")},
+					merge.Conflict{Manager: "controller", Path: _P("b", "c", "f")},
+				},
+			},
+			ForceApply{
+				Manager:    "default",
+				APIVersion: "v1",
+				Object: `
+						a: 2
+						b:
+						  c:
+						    d: 2
+						    e:
+						    - 3
+						    - 2
+						    - 1
+						    f:
+						    - name: n
+						      value: 1
+					`,
+			},
+		},
+		Object: `
+				a: 2
+				b:
+				  c:
+				    d: 2
+				    e:
+				    - 3
+				    - 2
+				    - 1
+				    f:
+				    - name: n
+				      value: 1
+				g: 5
+			`,
+	}
+
+	b.ReportAllocs()
+	for n := 0; n < b.N; n++ {
+		if err := test.Test(typed.DeducedParseableType); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkDeducedNestedAcrossVersion(b *testing.B) {
+	test := TestCase{
+		Ops: []Operation{
+			Apply{
+				Manager:    "default",
+				APIVersion: "v1",
+				Object: `
+					a: 1
+					b:
+					  c:
+					    d: 2
+					    e:
+					    - 1
+					    - 2
+					    - 3
+					    f:
+					    - name: n
+					      value: 1
+				`,
+			},
+			Update{
+				Manager:    "controller",
+				APIVersion: "v2",
+				Object: `
+					a: 1
+					b:
+					  c:
+					    d: 3
+					    e:
+					    - 1
+					    - 2
+					    - 3
+					    - 4
+					    f:
+					    - name: n
+					      value: 2
+					g: 5
+				`,
+			},
+			Apply{
+				Manager:    "default",
+				APIVersion: "v3",
+				Object: `
+					a: 2
+					b:
+					  c:
+					    d: 2
+					    e:
+					    - 3
+					    - 2
+					    - 1
+					    f:
+					    - name: n
+					      value: 1
+				`,
+				Conflicts: merge.Conflicts{
+					merge.Conflict{Manager: "controller", Path: _P("b", "c", "d")},
+					merge.Conflict{Manager: "controller", Path: _P("b", "c", "e")},
+					merge.Conflict{Manager: "controller", Path: _P("b", "c", "f")},
+				},
+			},
+			ForceApply{
+				Manager:    "default",
+				APIVersion: "v3",
+				Object: `
+					a: 2
+					b:
+					  c:
+					    d: 2
+					    e:
+					    - 3
+					    - 2
+					    - 1
+					    f:
+					    - name: n
+					      value: 1
+				`,
+			},
+		},
+		Object: `
+			a: 2
+			b:
+			  c:
+			    d: 2
+			    e:
+			    - 3
+			    - 2
+			    - 1
+			    f:
+			    - name: n
+			      value: 1
+			g: 5
+		`,
+	}
+
+	b.ReportAllocs()
+	for n := 0; n < b.N; n++ {
+		if err := test.Test(typed.DeducedParseableType); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
