@@ -35,6 +35,35 @@ func (fp Path) String() string {
 	return strings.Join(strs, "")
 }
 
+// Less provides a lexical order for Paths.
+func (fp Path) Less(rhs Path) bool {
+	i := 0
+	for {
+		if i >= len(fp) && i >= len(rhs) {
+			// Paths are the same length and all items are equal.
+			return false
+		}
+		if i >= len(fp) {
+			// LHS is shorter.
+			return true
+		}
+		if i >= len(rhs) {
+			// RHS is shorter.
+			return false
+		}
+		if fp[i].Less(rhs[i]) {
+			// LHS is less; return
+			return true
+		}
+		if rhs[i].Less(fp[i]) {
+			// RHS is less; return
+			return false
+		}
+		// The items are equal; continue.
+		i++
+	}
+}
+
 func (fp Path) Copy() Path {
 	new := make(Path, len(fp))
 	copy(new, fp)
