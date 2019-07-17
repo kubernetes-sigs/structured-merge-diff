@@ -598,9 +598,15 @@ func BenchmarkDeducedSimple(b *testing.B) {
 		},
 	}
 
+	// Make sure this passes...
+	if err := test.Test(typed.DeducedParseableType); err != nil {
+		b.Fatal(err)
+	}
+
 	b.ReportAllocs()
+	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		if err := test.Test(typed.DeducedParseableType); err != nil {
+		if err := test.Bench(typed.DeducedParseableType); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -701,9 +707,15 @@ func BenchmarkDeducedNested(b *testing.B) {
 			`,
 	}
 
+	// Make sure this passes...
+	if err := test.Test(typed.DeducedParseableType); err != nil {
+		b.Fatal(err)
+	}
+
 	b.ReportAllocs()
+	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		if err := test.Test(typed.DeducedParseableType); err != nil {
+		if err := test.Bench(typed.DeducedParseableType); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -804,9 +816,15 @@ func BenchmarkDeducedNestedAcrossVersion(b *testing.B) {
 		`,
 	}
 
+	// Make sure this passes...
+	if err := test.Test(typed.DeducedParseableType); err != nil {
+		b.Fatal(err)
+	}
+
 	b.ReportAllocs()
+	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		if err := test.Test(typed.DeducedParseableType); err != nil {
+		if err := test.Bench(typed.DeducedParseableType); err != nil {
 			b.Fatal(err)
 		}
 	}

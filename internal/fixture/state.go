@@ -268,6 +268,32 @@ func (tc TestCase) Test(parser typed.ParseableType) error {
 	return tc.TestWithConverter(parser, &dummyConverter{})
 }
 
+// Bench runs the test-case using the given parser and a dummy converter, but
+// doesn't check exit conditions--see the comment for BenchWithConverter.
+func (tc TestCase) Bench(parser typed.ParseableType) error {
+	return tc.BenchWithConverter(parser, &dummyConverter{})
+}
+
+// BenchWithConverter runs the test-case using the given parser and converter,
+// but doesn't do any comparison operations aftewards; you should probably run
+// TestWithConverter once and reset the benchmark, to make sure the test case
+// actually passes..
+func (tc TestCase) BenchWithConverter(parser typed.ParseableType, converter merge.Converter) error {
+	state := State{
+		Updater: &merge.Updater{Converter: converter},
+		Parser:  parser,
+	}
+	// We currently don't have any test that converts, we can take
+	// care of that later.
+	for i, ops := range tc.Ops {
+		err := ops.run(&state)
+		if err != nil {
+			return fmt.Errorf("failed operation %d: %v", i, err)
+		}
+	}
+	return nil
+}
+
 // TestWithConverter runs the test-case using the given parser and converter.
 func (tc TestCase) TestWithConverter(parser typed.ParseableType, converter merge.Converter) error {
 	state := State{

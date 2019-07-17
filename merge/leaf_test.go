@@ -531,9 +531,15 @@ func BenchmarkLeafConflictAcrossVersion(b *testing.B) {
 		},
 	}
 
+	// Make sure this passes...
+	if err := test.Test(leafFieldsParser); err != nil {
+		b.Fatal(err)
+	}
+
 	b.ReportAllocs()
+	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		if err := test.Test(leafFieldsParser); err != nil {
+		if err := test.Bench(leafFieldsParser); err != nil {
 			b.Fatal(err)
 		}
 	}
