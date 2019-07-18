@@ -19,7 +19,6 @@ package fixture
 import (
 	"bytes"
 	"fmt"
-	"reflect"
 
 	"sigs.k8s.io/structured-merge-diff/fieldpath"
 	"sigs.k8s.io/structured-merge-diff/merge"
@@ -164,7 +163,7 @@ type Operation interface {
 
 func hasConflict(conflicts merge.Conflicts, conflict merge.Conflict) bool {
 	for i := range conflicts {
-		if reflect.DeepEqual(conflict, conflicts[i]) {
+		if conflict.Equals(conflicts[i]) {
 			return true
 		}
 	}

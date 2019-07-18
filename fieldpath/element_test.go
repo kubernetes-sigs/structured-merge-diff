@@ -91,7 +91,7 @@ func TestPathElementLess(t *testing.T) {
 		}, {
 			name: "FieldName-3",
 			a:    PathElement{FieldName: strptr("capybara")},
-			b:    PathElement{Key: []value.Field{{Name: "dog", Value: value.IntValue(3)}}},
+			b:    PathElement{Key: &value.Map{Items: []value.Field{{Name: "dog", Value: value.IntValue(3)}}}},
 		}, {
 			name: "FieldName-4",
 			a:    PathElement{FieldName: strptr("elephant")},
@@ -102,28 +102,28 @@ func TestPathElementLess(t *testing.T) {
 			b:    PathElement{Index: intptr(5)},
 		}, {
 			name: "Key-1",
-			a:    PathElement{Key: []value.Field{{Name: "goat", Value: value.IntValue(1)}}},
-			b:    PathElement{Key: []value.Field{{Name: "goat", Value: value.IntValue(1)}}},
+			a:    PathElement{Key: &value.Map{Items: []value.Field{{Name: "goat", Value: value.IntValue(1)}}}},
+			b:    PathElement{Key: &value.Map{Items: []value.Field{{Name: "goat", Value: value.IntValue(1)}}}},
 			eq:   true,
 		}, {
 			name: "Key-2",
-			a:    PathElement{Key: []value.Field{{Name: "horse", Value: value.IntValue(1)}}},
-			b:    PathElement{Key: []value.Field{{Name: "horse", Value: value.IntValue(2)}}},
+			a:    PathElement{Key: &value.Map{Items: []value.Field{{Name: "horse", Value: value.IntValue(1)}}}},
+			b:    PathElement{Key: &value.Map{Items: []value.Field{{Name: "horse", Value: value.IntValue(2)}}}},
 		}, {
 			name: "Key-3",
-			a:    PathElement{Key: []value.Field{{Name: "ibex", Value: value.IntValue(1)}}},
-			b:    PathElement{Key: []value.Field{{Name: "jay", Value: value.IntValue(1)}}},
+			a:    PathElement{Key: &value.Map{Items: []value.Field{{Name: "ibex", Value: value.IntValue(1)}}}},
+			b:    PathElement{Key: &value.Map{Items: []value.Field{{Name: "jay", Value: value.IntValue(1)}}}},
 		}, {
 			name: "Key-4",
-			a:    PathElement{Key: []value.Field{{Name: "kite", Value: value.IntValue(1)}}},
-			b:    PathElement{Key: []value.Field{{Name: "kite", Value: value.IntValue(1)}, {Name: "kite-2", Value: value.IntValue(1)}}},
+			a:    PathElement{Key: &value.Map{Items: []value.Field{{Name: "kite", Value: value.IntValue(1)}}}},
+			b:    PathElement{Key: &value.Map{Items: []value.Field{{Name: "kite", Value: value.IntValue(1)}, {Name: "kite-2", Value: value.IntValue(1)}}}},
 		}, {
 			name: "Key-5",
-			a:    PathElement{Key: []value.Field{{Name: "kite", Value: value.IntValue(1)}}},
+			a:    PathElement{Key: &value.Map{Items: []value.Field{{Name: "kite", Value: value.IntValue(1)}}}},
 			b:    PathElement{Value: valptr(1)},
 		}, {
 			name: "Key-6",
-			a:    PathElement{Key: []value.Field{{Name: "kite", Value: value.IntValue(1)}}},
+			a:    PathElement{Key: &value.Map{Items: []value.Field{{Name: "kite", Value: value.IntValue(1)}}}},
 			b:    PathElement{Index: intptr(5)},
 		}, {
 			name: "Value-1",

@@ -35,7 +35,7 @@ type PathElement struct {
 	// Key selects the list element which has fields matching those given.
 	// The containing object must be an associative list with map typed
 	// elements.
-	Key []value.Field
+	Key *value.Map
 
 	// Value selects the list element with the given value. The containing
 	// object must be an associative list with a primitive typed element
@@ -58,12 +58,12 @@ func (e PathElement) Less(rhs PathElement) bool {
 		return false
 	}
 
-	if len(e.Key) != 0 {
-		if len(rhs.Key) == 0 {
+	if e.Key != nil {
+		if rhs.Key == nil {
 			return true
 		}
-		return value.FieldCollectionLess(e.Key, rhs.Key)
-	} else if len(rhs.Key) != 0 {
+		return e.Key.Less(rhs.Key)
+	} else if rhs.Key != nil {
 		return false
 	}
 
@@ -100,9 +100,9 @@ func (e PathElement) String() string {
 	switch {
 	case e.FieldName != nil:
 		return "." + *e.FieldName
-	case len(e.Key) > 0:
-		strs := make([]string, len(e.Key))
-		for i, k := range e.Key {
+	case e.Key != nil:
+		strs := make([]string, len(e.Key.Items))
+		for i, k := range e.Key.Items {
 			strs[i] = fmt.Sprintf("%v=%v", k.Name, k.Value)
 		}
 		// The order must be canonical, since we use the string value

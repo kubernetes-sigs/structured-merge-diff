@@ -173,13 +173,6 @@ type Map struct {
 	order []int
 }
 
-// FieldCollectionLess uses the map's Less logic to compare the two collections of fields.
-func FieldCollectionLess(lhs, rhs []Field) bool {
-	m1 := Map{Items: lhs}
-	m2 := Map{Items: rhs}
-	return m1.Less(&m2)
-}
-
 func (m *Map) computeOrder() {
 	if len(m.order) != len(m.Items) {
 		m.order = make([]int, len(m.Items))
