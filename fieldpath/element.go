@@ -163,12 +163,8 @@ func (s *PathElementSet) Insert(pe PathElement) {
 	if s.members[loc].Equals(pe) {
 		return
 	}
-	n := len(s.members) - 1
-	s.members = append(s.members, s.members[n])
-	for n > loc {
-		s.members[n] = s.members[n-1]
-		n--
-	}
+	s.members = append(s.members, PathElement{})
+	copy(s.members[loc+1:], s.members[loc:])
 	s.members[loc] = pe
 }
 

@@ -188,12 +188,8 @@ func (s *SetNodeMap) Descend(pe PathElement) *Set {
 	if s.members[loc].pathElement.Equals(pe) {
 		return s.members[loc].set
 	}
-	n := len(s.members) - 1
-	s.members = append(s.members, s.members[n])
-	for n > loc {
-		s.members[n] = s.members[n-1]
-		n--
-	}
+	s.members = append(s.members, setNode{})
+	copy(s.members[loc+1:], s.members[loc:])
 	s.members[loc] = setNode{pathElement: pe, set: &Set{}}
 	return s.members[loc].set
 }
