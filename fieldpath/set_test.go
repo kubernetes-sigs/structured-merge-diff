@@ -17,6 +17,7 @@ limitations under the License.
 package fieldpath
 
 import (
+	"bytes"
 	"fmt"
 	"math/rand"
 	"testing"
@@ -81,8 +82,10 @@ func BenchmarkFieldSet(b *testing.B) {
 			return x
 		}
 		operands := make([]*Set, 500)
+		serialized := make([][]byte, len(operands))
 		for i := range operands {
 			operands[i] = makeSet()
+			serialized[i], _ = operands[i].ToJSON()
 		}
 		randOperand := func() *Set { return operands[rand.Intn(len(operands))] }
 
@@ -96,6 +99,19 @@ func BenchmarkFieldSet(b *testing.B) {
 			b.ReportAllocs()
 			for i := 0; i < b.N; i++ {
 				randOperand().Has(randomPathMaker.makePath(here.minPathLen, here.maxPathLen))
+			}
+		})
+		b.Run(fmt.Sprintf("serialize-%v", here.size), func(b *testing.B) {
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				randOperand().ToJSON()
+			}
+		})
+		b.Run(fmt.Sprintf("deserialize-%v", here.size), func(b *testing.B) {
+			b.ReportAllocs()
+			s := NewSet()
+			for i := 0; i < b.N; i++ {
+				s.FromJSON(bytes.NewReader(serialized[rand.Intn(len(serialized))]))
 			}
 		})
 
