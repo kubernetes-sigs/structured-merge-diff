@@ -143,19 +143,35 @@ func readIter_v1(iter *jsoniter.Iterator) (children *Set, isMember bool) {
 			if children == nil {
 				children = &Set{}
 			}
-			// TODO: append & sort afterwards
-			children.Members.Insert(pe)
+			m := &children.Members.members
+			// Since we expect that most of the time these will have been
+			// serialized in the right order, we just verify that and append.
+			appendOK := len(*m) == 0 || (*m)[len(*m)-1].Less(pe)
+			if appendOK {
+				*m = append(*m, pe)
+			} else {
+				children.Members.Insert(pe)
+			}
 		}
 		if grandchildren != nil {
 			if children == nil {
 				children = &Set{}
 			}
-			*children.Children.Descend(pe) = *grandchildren
+			// Since we expect that most of the time these will have been
+			// serialized in the right order, we just verify that and append.
+			m := &children.Children.members
+			appendOK := len(*m) == 0 || (*m)[len(*m)-1].pathElement.Less(pe)
+			if appendOK {
+				*m = append(*m, setNode{pe, grandchildren})
+			} else {
+				*children.Children.Descend(pe) = *grandchildren
+			}
 		}
 		return true
 	})
 	if children == nil {
 		isMember = true
 	}
+
 	return children, isMember
 }
