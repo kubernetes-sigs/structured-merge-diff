@@ -19,22 +19,64 @@ package fieldpath
 import (
 	"bytes"
 	"io"
+	"unsafe"
 
 	jsoniter "github.com/json-iterator/go"
 )
 
 func (s *Set) ToJSON() ([]byte, error) {
 	buf := bytes.Buffer{}
-	stream := jsoniter.NewStream(jsoniter.ConfigCompatibleWithStandardLibrary, &buf, 4096)
-
-	stream.WriteObjectStart()
-	s.emitContents_v1(false, stream)
-	stream.WriteObjectEnd()
-	err := stream.Flush()
-	return buf.Bytes(), err
+	err := s.ToJSONStream(&buf)
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
-func (s *Set) emitContents_v1(includeSelf bool, stream *jsoniter.Stream) {
+func (s *Set) ToJSONStream(w io.Writer) error {
+	stream := writePool.BorrowStream(w)
+	defer writePool.ReturnStream(stream)
+
+	var r reusableBuilder
+
+	stream.WriteObjectStart()
+	err := s.emitContents_v1(false, stream, &r)
+	if err != nil {
+		return err
+	}
+	stream.WriteObjectEnd()
+	return stream.Flush()
+}
+
+func manageMemory(stream *jsoniter.Stream) error {
+	// Help jsoniter manage its buffers--without this, it does a bunch of
+	// alloctaions that are not necessary. They were probably optimizing
+	// for folks using the buffer directly.
+	b := stream.Buffer()
+	if len(b) > 4096 || cap(b)-len(b) < 2048 {
+		if err := stream.Flush(); err != nil {
+			return err
+		}
+		stream.SetBuffer(b[:0])
+	}
+	return nil
+}
+
+type reusableBuilder struct {
+	bytes.Buffer
+}
+
+func (r *reusableBuilder) unsafeString() string {
+	b := r.Bytes()
+	return *(*string)(unsafe.Pointer(&b))
+}
+
+func (r *reusableBuilder) reset() *bytes.Buffer {
+	r.Reset()
+	return &r.Buffer
+}
+
+func (s *Set) emitContents_v1(includeSelf bool, stream *jsoniter.Stream, r *reusableBuilder) error {
 	mi, ci := 0, 0
 	first := true
 	preWrite := func() {
@@ -51,24 +93,34 @@ func (s *Set) emitContents_v1(includeSelf bool, stream *jsoniter.Stream) {
 
 		if mpe.Less(cpe) {
 			preWrite()
-			str, _ := SerializePathElement(mpe)
-			stream.WriteObjectField(str)
+			if err := serializePathElementToWriter(r.reset(), mpe); err != nil {
+				return err
+			}
+			stream.WriteObjectField(r.unsafeString())
 			stream.WriteEmptyObject()
 			mi++
 		} else if cpe.Less(mpe) {
 			preWrite()
-			str, _ := SerializePathElement(cpe)
-			stream.WriteObjectField(str)
+			if err := serializePathElementToWriter(r.reset(), cpe); err != nil {
+				return err
+			}
+			stream.WriteObjectField(r.unsafeString())
 			stream.WriteObjectStart()
-			s.Children.members[ci].set.emitContents_v1(false, stream)
+			if err := s.Children.members[ci].set.emitContents_v1(false, stream, r); err != nil {
+				return err
+			}
 			stream.WriteObjectEnd()
 			ci++
 		} else {
 			preWrite()
-			str, _ := SerializePathElement(cpe)
-			stream.WriteObjectField(str)
+			if err := serializePathElementToWriter(r.reset(), cpe); err != nil {
+				return err
+			}
+			stream.WriteObjectField(r.unsafeString())
 			stream.WriteObjectStart()
-			s.Children.members[ci].set.emitContents_v1(true, stream)
+			if err := s.Children.members[ci].set.emitContents_v1(true, stream, r); err != nil {
+				return err
+			}
 			stream.WriteObjectEnd()
 			mi++
 			ci++
@@ -79,8 +131,10 @@ func (s *Set) emitContents_v1(includeSelf bool, stream *jsoniter.Stream) {
 		mpe := s.Members.members[mi]
 
 		preWrite()
-		str, _ := SerializePathElement(mpe)
-		stream.WriteObjectField(str)
+		if err := serializePathElementToWriter(r.reset(), mpe); err != nil {
+			return err
+		}
+		stream.WriteObjectField(r.unsafeString())
 		stream.WriteEmptyObject()
 		mi++
 	}
@@ -89,10 +143,14 @@ func (s *Set) emitContents_v1(includeSelf bool, stream *jsoniter.Stream) {
 		cpe := s.Children.members[ci].pathElement
 
 		preWrite()
-		str, _ := SerializePathElement(cpe)
-		stream.WriteObjectField(str)
+		if err := serializePathElementToWriter(r.reset(), cpe); err != nil {
+			return err
+		}
+		stream.WriteObjectField(r.unsafeString())
 		stream.WriteObjectStart()
-		s.Children.members[ci].set.emitContents_v1(false, stream)
+		if err := s.Children.members[ci].set.emitContents_v1(false, stream, r); err != nil {
+			return err
+		}
 		stream.WriteObjectEnd()
 		ci++
 	}
@@ -102,10 +160,12 @@ func (s *Set) emitContents_v1(includeSelf bool, stream *jsoniter.Stream) {
 		stream.WriteObjectField(".")
 		stream.WriteEmptyObject()
 	}
+	return manageMemory(stream)
 }
 
 // FromJSON clears s and reads a JSON formatted set structure.
 func (s *Set) FromJSON(r io.Reader) error {
+	// The iterator pool is completely useless for memory management, grrr.
 	iter := jsoniter.Parse(jsoniter.ConfigCompatibleWithStandardLibrary, r, 4096)
 
 	found, _ := readIter_v1(iter)
