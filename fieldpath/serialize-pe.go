@@ -19,6 +19,7 @@ package fieldpath
 import (
 	"errors"
 	"fmt"
+	"io"
 	"strconv"
 	"strings"
 
@@ -111,33 +112,44 @@ var (
 // SerializePathElement serializes a path element
 func SerializePathElement(pe PathElement) (string, error) {
 	buf := strings.Builder{}
-	stream := writePool.BorrowStream(&buf)
+	err := serializePathElementToWriter(&buf, pe)
+	return buf.String(), err
+}
+
+func serializePathElementToWriter(w io.Writer, pe PathElement) error {
+	stream := writePool.BorrowStream(w)
 	defer writePool.ReturnStream(stream)
 	switch {
 	case pe.FieldName != nil:
 		if _, err := stream.Write(peFieldSepBytes); err != nil {
-			return "", err
+			return err
 		}
 		stream.WriteRaw(*pe.FieldName)
 	case pe.Key != nil:
 		if _, err := stream.Write(peKeySepBytes); err != nil {
-			return "", err
+			return err
 		}
 		v := value.Value{MapValue: pe.Key}
 		v.WriteJSONStream(stream)
 	case pe.Value != nil:
 		if _, err := stream.Write(peValueSepBytes); err != nil {
-			return "", err
+			return err
 		}
 		pe.Value.WriteJSONStream(stream)
 	case pe.Index != nil:
 		if _, err := stream.Write(peIndexSepBytes); err != nil {
-			return "", err
+			return err
 		}
 		stream.WriteInt(*pe.Index)
 	default:
-		return "", errors.New("invalid PathElement")
+		return errors.New("invalid PathElement")
 	}
+	b := stream.Buffer()
 	err := stream.Flush()
-	return buf.String(), err
+	// Help jsoniter manage its buffers--without this, the next
+	// use of the stream is likely to require an allocation. Look
+	// at the jsoniter stream code to understand why. They were probably
+	// optimizing for folks using the buffer directly.
+	stream.SetBuffer(b[:0])
+	return err
 }
