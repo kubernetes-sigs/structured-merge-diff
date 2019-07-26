@@ -87,7 +87,7 @@ func ReadJSONIter(iter *jsoniter.Iterator) (Value, error) {
 		return Value{ListValue: list}, iter.Error
 	case jsoniter.ObjectValue:
 		m := &Map{}
-		iter.ReadObjectCB(func(iter *jsoniter.Iterator, key string) bool {
+		iter.ReadMapCB(func(iter *jsoniter.Iterator, key string) bool {
 			v, err := ReadJSONIter(iter)
 			if err != nil {
 				iter.Error = err

@@ -164,11 +164,11 @@ func (s *Set) emitContents_v1(includeSelf bool, stream *jsoniter.Stream, r *reus
 }
 
 // FromJSON clears s and reads a JSON formatted set structure.
-func (s *Set) FromJSON(r io.Reader) error {
-	// The iterator pool is completely useless for memory management, grrr.
-	iter := jsoniter.Parse(jsoniter.ConfigCompatibleWithStandardLibrary, r, 4096)
+func (s *Set) FromJSON(b []byte) error {
+	iter := readPool.BorrowIterator(b)
+	defer readPool.ReturnIterator(iter)
 
-	found, _ := readIter_v1(iter)
+	found, _, _ := readIter_v1(iter, nil)
 	if found == nil {
 		*s = Set{}
 	} else {
@@ -179,9 +179,9 @@ func (s *Set) FromJSON(r io.Reader) error {
 
 // returns true if this subtree is also (or only) a member of parent; s is nil
 // if there are no further children.
-func readIter_v1(iter *jsoniter.Iterator) (children *Set, isMember bool) {
-	iter.ReadMapCB(func(iter *jsoniter.Iterator, key string) bool {
-		if key == "." {
+func readIter_v1(iter *jsoniter.Iterator, buf []byte) (children *Set, isMember bool, bufout []byte) {
+	iter.ReadMapCBFieldAsBytes(buf, func(iter *jsoniter.Iterator, key []byte) bool {
+		if len(key) == 1 && key[0] == '.' {
 			isMember = true
 			iter.Skip()
 			return true
@@ -198,7 +198,8 @@ func readIter_v1(iter *jsoniter.Iterator) (children *Set, isMember bool) {
 			iter.Skip()
 			return true
 		}
-		grandchildren, childIsMember := readIter_v1(iter)
+		grandchildren, childIsMember, key := readIter_v1(iter, key)
+		buf = key
 		if childIsMember {
 			if children == nil {
 				children = &Set{}
@@ -233,5 +234,5 @@ func readIter_v1(iter *jsoniter.Iterator) (children *Set, isMember bool) {
 		isMember = true
 	}
 
-	return children, isMember
+	return children, isMember, buf
 }

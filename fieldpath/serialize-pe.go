@@ -22,6 +22,7 @@ import (
 	"io"
 	"strconv"
 	"strings"
+	"unsafe"
 
 	jsoniter "github.com/json-iterator/go"
 	"sigs.k8s.io/structured-merge-diff/value"
@@ -55,20 +56,18 @@ var (
 )
 
 // DeserializePathElement parses a serialized path element
-func DeserializePathElement(s string) (PathElement, error) {
-	b := []byte(s)
+func DeserializePathElement(b []byte) (PathElement, error) {
+	//b := []byte(s)
 	if len(b) < 2 {
 		return PathElement{}, errors.New("key must be 2 characters long:")
 	}
 	typeSep, b := b[:2], b[2:]
 	if typeSep[1] != peSepBytes[0] {
-		return PathElement{}, fmt.Errorf("missing colon: %v", s)
+		return PathElement{}, fmt.Errorf("missing colon: %s", b)
 	}
 	switch typeSep[0] {
 	case peFieldSepBytes[0]:
-		// Slice s rather than convert b, to save on
-		// allocations.
-		str := s[2:]
+		str := string(b)
 		return PathElement{
 			FieldName: &str,
 		}, nil
@@ -92,7 +91,7 @@ func DeserializePathElement(s string) (PathElement, error) {
 		}
 		return PathElement{Key: v.MapValue}, nil
 	case peIndexSepBytes[0]:
-		i, err := strconv.Atoi(s[2:])
+		i, err := strconv.Atoi(*(*string)(unsafe.Pointer(&b)))
 		if err != nil {
 			return PathElement{}, err
 		}

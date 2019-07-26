@@ -164,6 +164,7 @@ func TestToFromJSON(t *testing.T) {
 		`[]`,
 		`{}`,
 		`{"a":[null,1.2],"b":"something"}`,
+		//`{"a\"":[null,1.2],"a\u2029oeu":"something"}`,
 	}
 
 	for i, j := range js {
@@ -176,7 +177,7 @@ func TestToFromJSON(t *testing.T) {
 			if err != nil {
 				t.Fatalf("failed to marshal into json: %v", err)
 			}
-			if !reflect.DeepEqual(j, string(o)) {
+			if j != string(o) {
 				t.Fatalf("Failed to round-trip.\ninput: %#v\noutput: %#v", j, string(o))
 			}
 		})
@@ -189,8 +190,8 @@ func TestToFromJSON(t *testing.T) {
 			if err != nil {
 				t.Fatalf("failed to marshal into json: %v", err)
 			}
-			if !reflect.DeepEqual(j, string(o)) {
-				t.Fatalf("Failed to round-trip.\ninput: %#v\noutput: %#v", j, string(o))
+			if j != string(o) {
+				t.Fatalf("Failed to round-trip.\ninput:  %#v\noutput: %#v", j, string(o))
 			}
 		})
 	}

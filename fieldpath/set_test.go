@@ -17,7 +17,6 @@ limitations under the License.
 package fieldpath
 
 import (
-	"bytes"
 	"fmt"
 	"math/rand"
 	"testing"
@@ -111,7 +110,7 @@ func BenchmarkFieldSet(b *testing.B) {
 			b.ReportAllocs()
 			s := NewSet()
 			for i := 0; i < b.N; i++ {
-				s.FromJSON(bytes.NewReader(serialized[rand.Intn(len(serialized))]))
+				s.FromJSON(serialized[rand.Intn(len(serialized))])
 			}
 		})
 

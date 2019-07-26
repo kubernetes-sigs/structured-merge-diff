@@ -17,9 +17,7 @@ limitations under the License.
 package fieldpath
 
 import (
-	"bytes"
 	"fmt"
-	"strings"
 	"testing"
 )
 
@@ -35,7 +33,7 @@ func TestSerializeV1(t *testing.T) {
 			continue
 		}
 		x2 := NewSet()
-		err = x2.FromJSON(bytes.NewReader(b))
+		err = x2.FromJSON(b)
 		if err != nil {
 			t.Errorf("Failed to deserialize %s: %v\n%#v", b, err, x)
 		}
@@ -54,7 +52,7 @@ func TestSerializeV1GoldenData(t *testing.T) {
 	for i, str := range examples {
 		t.Run(fmt.Sprintf("%v", i), func(t *testing.T) {
 			x := NewSet()
-			err := x.FromJSON(strings.NewReader(str))
+			err := x.FromJSON([]byte(str))
 			if err != nil {
 				t.Errorf("Failed to deserialize %s: %v\n%#v", str, err, x)
 			}
@@ -74,7 +72,7 @@ func TestDropUnknown(t *testing.T) {
 	input := `{"f:aaa":{},"r:aab":{}}`
 	expect := `{"f:aaa":{}}`
 	x := NewSet()
-	err := x.FromJSON(strings.NewReader(input))
+	err := x.FromJSON([]byte(input))
 	if err != nil {
 		t.Errorf("Failed to deserialize %s: %v\n%#v", input, err, x)
 	}

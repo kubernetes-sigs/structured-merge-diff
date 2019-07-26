@@ -38,7 +38,7 @@ func TestPathElementRoundTrip(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test, func(t *testing.T) {
-			pe, err := DeserializePathElement(test)
+			pe, err := DeserializePathElement([]byte(test))
 			if err != nil {
 				t.Fatalf("Failed to create path element: %v", err)
 			}
@@ -54,7 +54,7 @@ func TestPathElementRoundTrip(t *testing.T) {
 }
 
 func TestPathElementIgnoreUnknown(t *testing.T) {
-	_, err := DeserializePathElement("r:Hello")
+	_, err := DeserializePathElement([]byte("r:Hello"))
 	if err != ErrUnknownPathElementType {
 		t.Fatalf("Unknown qualifiers must not return an invalid path element")
 	}
@@ -75,7 +75,7 @@ func TestDeserializePathElementError(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test, func(t *testing.T) {
-			pe, err := DeserializePathElement(test)
+			pe, err := DeserializePathElement([]byte(test))
 			if err == nil {
 				t.Fatalf("Expected error, no error found. got: %#v, %s", pe, pe)
 			}
