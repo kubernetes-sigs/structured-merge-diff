@@ -18,6 +18,7 @@ package typed
 
 import (
 	"fmt"
+	"sync"
 
 	"sigs.k8s.io/structured-merge-diff/fieldpath"
 	"sigs.k8s.io/structured-merge-diff/schema"
@@ -66,7 +67,9 @@ func (tv TypedValue) AsValue() *value.Value {
 
 // Validate returns an error with a list of every spec violation.
 func (tv TypedValue) Validate() error {
-	if errs := tv.walker().validate(); len(errs) != 0 {
+	w := tv.walker()
+	defer w.finished()
+	if errs := w.validate(); len(errs) != 0 {
 		return errs
 	}
 	return nil
@@ -77,6 +80,7 @@ func (tv TypedValue) Validate() error {
 func (tv TypedValue) ToFieldSet() (*fieldpath.Set, error) {
 	s := fieldpath.NewSet()
 	w := tv.walker()
+	defer w.finished()
 	w.leafFieldCallback = func(p fieldpath.Path) { s.Insert(p) }
 	w.nodeFieldCallback = func(p fieldpath.Path) { s.Insert(p) }
 	if errs := w.validate(); len(errs) != 0 {
@@ -203,6 +207,10 @@ func (tv TypedValue) Empty() *TypedValue {
 	return &tv
 }
 
+var mwPool = sync.Pool{
+	New: func() interface{} { return &mergingWalker{} },
+}
+
 func merge(lhs, rhs *TypedValue, rule, postRule mergeRule) (*TypedValue, error) {
 	if lhs.schema != rhs.schema {
 		return nil, errorFormatter{}.
@@ -213,14 +221,27 @@ func merge(lhs, rhs *TypedValue, rule, postRule mergeRule) (*TypedValue, error) 
 			errorf("expected objects of the same type, but got %v and %v", lhs.typeRef, rhs.typeRef)
 	}
 
-	mw := mergingWalker{
-		lhs:          &lhs.value,
-		rhs:          &rhs.value,
-		schema:       lhs.schema,
-		typeRef:      lhs.typeRef,
-		rule:         rule,
-		postItemHook: postRule,
-	}
+	mw := mwPool.Get().(*mergingWalker)
+	defer func() {
+		mw.lhs = nil
+		mw.rhs = nil
+		mw.schema = nil
+		mw.typeRef = schema.TypeRef{}
+		mw.rule = nil
+		mw.postItemHook = nil
+		mw.out = nil
+		mw.inLeaf = false
+
+		mwPool.Put(mw)
+	}()
+
+	mw.lhs = &lhs.value
+	mw.rhs = &rhs.value
+	mw.schema = lhs.schema
+	mw.typeRef = lhs.typeRef
+	mw.rule = rule
+	mw.postItemHook = postRule
+
 	errs := mw.merge()
 	if len(errs) > 0 {
 		return nil, errs
