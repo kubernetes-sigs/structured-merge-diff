@@ -167,7 +167,7 @@ type Map struct {
 
 	// may be nil; lazily constructed.
 	// TODO: Direct modifications to Items above will cause serious problems.
-	index map[string]*Field
+	index map[string]int
 	// may be empty; lazily constructed.
 	// TODO: Direct modifications to Items above will cause serious problems.
 	order []int
@@ -264,41 +264,27 @@ func (m *Map) Less(rhs *Map) bool {
 // Get returns the (Field, true) or (nil, false) if it is not present
 func (m *Map) Get(key string) (*Field, bool) {
 	if m.index == nil {
-		m.index = map[string]*Field{}
+		m.index = map[string]int{}
 		for i := range m.Items {
-			f := &m.Items[i]
-			m.index[f.Name] = f
+			m.index[m.Items[i].Name] = i
 		}
 	}
 	f, ok := m.index[key]
-	return f, ok
+	if !ok {
+		return nil, false
+	}
+	return &m.Items[f], true
 }
 
 // Set inserts or updates the given item.
 func (m *Map) Set(key string, value Value) {
-	if len(m.Items) < 1 {
-		m.Items = append(m.Items, Field{Name: key, Value: value})
-		return
-	}
 	if f, ok := m.Get(key); ok {
 		f.Value = value
 		return
 	}
-	f0 := &m.Items[0]
 	m.Items = append(m.Items, Field{Name: key, Value: value})
-	if f0 == &m.Items[0] {
-		// No reallocation, it's safe to just update the map
-		i := len(m.Items) - 1
-		f := &m.Items[i]
-		m.index[f.Name] = f
-	} else {
-		// The slice was reallocated, so we need to update all the
-		// pointers in the map.
-		for i := range m.Items {
-			f := &m.Items[i]
-			m.index[f.Name] = f
-		}
-	}
+	i := len(m.Items) - 1
+	m.index[key] = i
 	m.order = nil
 }
 
