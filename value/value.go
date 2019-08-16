@@ -276,12 +276,29 @@ func (m *Map) Get(key string) (*Field, bool) {
 
 // Set inserts or updates the given item.
 func (m *Map) Set(key string, value Value) {
+	if len(m.Items) < 1 {
+		m.Items = append(m.Items, Field{Name: key, Value: value})
+		return
+	}
 	if f, ok := m.Get(key); ok {
 		f.Value = value
 		return
 	}
+	f0 := &m.Items[0]
 	m.Items = append(m.Items, Field{Name: key, Value: value})
-	m.index = nil // Since the append might have reallocated
+	if f0 == &m.Items[0] {
+		// No reallocation, it's safe to just update the map
+		i := len(m.Items) - 1
+		f := &m.Items[i]
+		m.index[f.Name] = f
+	} else {
+		// The slice was reallocated, so we need to update all the
+		// pointers in the map.
+		for i := range m.Items {
+			f := &m.Items[i]
+			m.index[f.Name] = f
+		}
+	}
 	m.order = nil
 }
 
