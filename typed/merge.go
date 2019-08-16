@@ -17,8 +17,6 @@ limitations under the License.
 package typed
 
 import (
-	"reflect"
-
 	"sigs.k8s.io/structured-merge-diff/fieldpath"
 	"sigs.k8s.io/structured-merge-diff/schema"
 	"sigs.k8s.io/structured-merge-diff/value"
@@ -78,7 +76,7 @@ func (w *mergingWalker) merge() (errs ValidationErrors) {
 
 	alhs := deduceAtom(a, w.lhs)
 	arhs := deduceAtom(a, w.rhs)
-	if reflect.DeepEqual(alhs, arhs) {
+	if alhs.Equals(arhs) {
 		errs = append(errs, handleAtom(arhs, w.typeRef, w)...)
 	} else {
 		w2 := *w

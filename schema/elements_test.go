@@ -78,7 +78,7 @@ func TestResolve(t *testing.T) {
 				t.Errorf("expected Atom %v, got %v", tt.expectAtom, atom)
 			}
 			if exist != tt.expectExist {
-				t.Errorf("expeted exist %t, got %t", tt.expectExist, exist)
+				t.Errorf("expected exist %t, got %t", tt.expectExist, exist)
 			}
 		})
 	}

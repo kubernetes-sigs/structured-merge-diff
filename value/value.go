@@ -34,6 +34,11 @@ type Value struct {
 	Null         bool // represents an explicit `"foo" = null`
 }
 
+// Equals returns true iff the two values are equal.
+func (v Value) Equals(rhs Value) bool {
+	return !v.Less(rhs) && !rhs.Less(v)
+}
+
 // Less provides a total ordering for Value (so that they can be sorted, even
 // if they are of different types).
 func (v Value) Less(rhs Value) bool {

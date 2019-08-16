@@ -18,7 +18,6 @@ package typed
 
 import (
 	"fmt"
-	"reflect"
 
 	"sigs.k8s.io/structured-merge-diff/fieldpath"
 	"sigs.k8s.io/structured-merge-diff/schema"
@@ -118,8 +117,8 @@ func (tv TypedValue) Compare(rhs *TypedValue) (c *Comparison, err error) {
 			c.Added.Insert(w.path)
 		} else if w.rhs == nil {
 			c.Removed.Insert(w.path)
-		} else if !reflect.DeepEqual(w.rhs, w.lhs) {
-			// TODO: reflect.DeepEqual is not sufficient for this.
+		} else if !w.rhs.Equals(*w.lhs) {
+			// TODO: Equality is not sufficient for this.
 			// Need to implement equality check on the value type.
 			c.Modified.Insert(w.path)
 		}
@@ -209,7 +208,7 @@ func merge(lhs, rhs *TypedValue, rule, postRule mergeRule) (*TypedValue, error) 
 		return nil, errorFormatter{}.
 			errorf("expected objects with types from the same schema")
 	}
-	if !reflect.DeepEqual(lhs.typeRef, rhs.typeRef) {
+	if !lhs.typeRef.Equals(rhs.typeRef) {
 		return nil, errorFormatter{}.
 			errorf("expected objects of the same type, but got %v and %v", lhs.typeRef, rhs.typeRef)
 	}
