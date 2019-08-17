@@ -166,9 +166,11 @@ func (s *Updater) Apply(liveObject, configObject *typed.TypedValue, version fiel
 	if err != nil {
 		return nil, fieldpath.ManagedFields{}, fmt.Errorf("failed to merge config: %v", err)
 	}
-	newObject, err = configObject.NormalizeUnionsApply(newObject)
-	if err != nil {
-		return nil, fieldpath.ManagedFields{}, err
+	if s.enableUnions {
+		newObject, err = configObject.NormalizeUnionsApply(newObject)
+		if err != nil {
+			return nil, fieldpath.ManagedFields{}, err
+		}
 	}
 	lastSet := managers[manager]
 	set, err := configObject.ToFieldSet()
