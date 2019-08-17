@@ -17,17 +17,33 @@ limitations under the License.
 package typed
 
 import (
+	"sync"
+
 	"sigs.k8s.io/structured-merge-diff/fieldpath"
 	"sigs.k8s.io/structured-merge-diff/schema"
 	"sigs.k8s.io/structured-merge-diff/value"
 )
 
+var vPool = sync.Pool{
+	New: func() interface{} { return &validatingObjectWalker{} },
+}
+
 func (tv TypedValue) walker() *validatingObjectWalker {
-	return &validatingObjectWalker{
-		value:   tv.value,
-		schema:  tv.schema,
-		typeRef: tv.typeRef,
-	}
+	v := vPool.Get().(*validatingObjectWalker)
+	v.value = tv.value
+	v.schema = tv.schema
+	v.typeRef = tv.typeRef
+	return v
+}
+
+func (v *validatingObjectWalker) finished() {
+	v.value = value.Value{}
+	v.schema = nil
+	v.typeRef = schema.TypeRef{}
+	v.leafFieldCallback = nil
+	v.nodeFieldCallback = nil
+	v.inLeaf = false
+	vPool.Put(v)
 }
 
 type validatingObjectWalker struct {
