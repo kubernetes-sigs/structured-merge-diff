@@ -261,6 +261,8 @@ type TestCase struct {
 	// Managed, if not nil, is the ManagedFields as expected
 	// after all operations are run.
 	Managed fieldpath.ManagedFields
+	// Set to true if the test case needs the union behavior enabled.
+	RequiresUnions bool
 }
 
 // Test runs the test-case using the given parser and a dummy converter.
@@ -283,6 +285,9 @@ func (tc TestCase) BenchWithConverter(parser typed.ParseableType, converter merg
 		Updater: &merge.Updater{Converter: converter},
 		Parser:  parser,
 	}
+	if tc.RequiresUnions {
+		state.Updater.EnableUnionFeature()
+	}
 	// We currently don't have any test that converts, we can take
 	// care of that later.
 	for i, ops := range tc.Ops {
@@ -299,6 +304,17 @@ func (tc TestCase) TestWithConverter(parser typed.ParseableType, converter merge
 	state := State{
 		Updater: &merge.Updater{Converter: converter},
 		Parser:  parser,
+	}
+	if tc.RequiresUnions {
+		state.Updater.EnableUnionFeature()
+	} else {
+		// Also test it with unions on.
+		tc2 := tc
+		tc2.RequiresUnions = true
+		err := tc2.TestWithConverter(parser, converter)
+		if err != nil {
+			return fmt.Errorf("fails if unions are on: %v", err)
+		}
 	}
 	// We currently don't have any test that converts, we can take
 	// care of that later.

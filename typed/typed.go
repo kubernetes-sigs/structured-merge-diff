@@ -153,6 +153,8 @@ func (tv TypedValue) RemoveItems(items *fieldpath.Set) *TypedValue {
 // - If discriminator changed to non-nil, all other fields but the
 // discriminated one will be cleared,
 // - Otherwise, If only one field is left, update discriminator to that value.
+//
+// Please note: union behavior isn't finalized yet and this is still experimental.
 func (tv TypedValue) NormalizeUnions(new *TypedValue) (*TypedValue, error) {
 	var errs ValidationErrors
 	var normalizeFn = func(w *mergingWalker) {
@@ -177,6 +179,8 @@ func (tv TypedValue) NormalizeUnions(new *TypedValue) (*TypedValue, error) {
 // NormalizeUnionsApply specifically normalize unions on apply. It
 // validates that the applied union is correct (there should be no
 // ambiguity there), and clear the fields according to the sent intent.
+//
+// Please note: union behavior isn't finalized yet and this is still experimental.
 func (tv TypedValue) NormalizeUnionsApply(new *TypedValue) (*TypedValue, error) {
 	var errs ValidationErrors
 	var normalizeFn = func(w *mergingWalker) {

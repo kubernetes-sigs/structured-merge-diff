@@ -67,6 +67,7 @@ var unionFieldsParser = func() typed.ParseableType {
 func TestUnion(t *testing.T) {
 	tests := map[string]TestCase{
 		"union_apply_owns_discriminator": {
+			RequiresUnions: true,
 			Ops: []Operation{
 				Apply{
 					Manager:    "default",
@@ -91,6 +92,7 @@ func TestUnion(t *testing.T) {
 			},
 		},
 		"union_apply_without_discriminator_conflict": {
+			RequiresUnions: true,
 			Ops: []Operation{
 				Update{
 					Manager:    "controller",
@@ -125,6 +127,7 @@ func TestUnion(t *testing.T) {
 			},
 		},
 		"union_apply_with_null_value": {
+			RequiresUnions: true,
 			Ops: []Operation{
 				Apply{
 					Manager:    "default",
@@ -138,6 +141,7 @@ func TestUnion(t *testing.T) {
 			},
 		},
 		"union_apply_multiple_unions": {
+			RequiresUnions: true,
 			Ops: []Operation{
 				Apply{
 					Manager:    "default",
@@ -176,6 +180,7 @@ func TestUnion(t *testing.T) {
 func TestUnionErrors(t *testing.T) {
 	tests := map[string]TestCase{
 		"union_apply_two": {
+			RequiresUnions: true,
 			Ops: []Operation{
 				Apply{
 					Manager:    "default",
@@ -188,6 +193,7 @@ func TestUnionErrors(t *testing.T) {
 			},
 		},
 		"union_apply_two_and_discriminator": {
+			RequiresUnions: true,
 			Ops: []Operation{
 				Apply{
 					Manager:    "default",
@@ -201,6 +207,7 @@ func TestUnionErrors(t *testing.T) {
 			},
 		},
 		"union_apply_wrong_discriminator": {
+			RequiresUnions: true,
 			Ops: []Operation{
 				Apply{
 					Manager:    "default",
