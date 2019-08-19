@@ -52,6 +52,11 @@ var (
 	peIndexSepBytes = []byte(peIndex + peSeparator)
 	peKeySepBytes   = []byte(peKey + peSeparator)
 	peSepBytes      = []byte(peSeparator)
+
+	peFieldSepV2Bytes = []byte(`"` + peField + `",`)
+	peValueSepV2Bytes = []byte(`"` + peValue + `",`)
+	peIndexSepV2Bytes = []byte(`"` + peIndex + `",`)
+	peKeySepV2Bytes   = []byte(`"` + peKey + `",`)
 )
 
 // DeserializePathElement parses a serialized path element
@@ -163,4 +168,34 @@ func serializePathElementToWriter(w io.Writer, pe PathElement) error {
 	// optimizing for folks using the buffer directly.
 	stream.SetBuffer(b[:0])
 	return err
+}
+
+// you must write the trailing "," if you need it.
+func serializePathElementToStreamV2(stream *jsoniter.Stream, pe PathElement) error {
+	switch {
+	case pe.FieldName != nil:
+		if _, err := stream.Write(peFieldSepV2Bytes); err != nil {
+			return err
+		}
+		stream.WriteString(*pe.FieldName)
+	case pe.Key != nil:
+		if _, err := stream.Write(peKeySepV2Bytes); err != nil {
+			return err
+		}
+		v := value.Value{MapValue: pe.Key}
+		v.WriteJSONStream(stream)
+	case pe.Value != nil:
+		if _, err := stream.Write(peValueSepV2Bytes); err != nil {
+			return err
+		}
+		pe.Value.WriteJSONStream(stream)
+	case pe.Index != nil:
+		if _, err := stream.Write(peIndexSepV2Bytes); err != nil {
+			return err
+		}
+		stream.WriteInt(*pe.Index)
+	default:
+		return errors.New("invalid PathElement")
+	}
+	return nil
 }
