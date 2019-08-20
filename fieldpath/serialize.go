@@ -206,16 +206,13 @@ func (s *Set) emitContents_v2(includeSelf bool, stream *jsoniter.Stream, r *reus
 
 		if mpe.Less(cpe) {
 			preWrite()
-			if err := serializePathElementToStreamV2(stream, mpe); err != nil {
+			if err := serializePathElementToStreamV2(stream, mpe, etSelf); err != nil {
 				return err
 			}
-			stream.WriteMore()
-			stream.WriteArrayStart()
-			stream.WriteArrayEnd()
 			mi++
 		} else if cpe.Less(mpe) {
 			preWrite()
-			if err := serializePathElementToStreamV2(stream, cpe); err != nil {
+			if err := serializePathElementToStreamV2(stream, cpe, etChildren); err != nil {
 				return err
 			}
 			stream.WriteMore()
@@ -227,7 +224,7 @@ func (s *Set) emitContents_v2(includeSelf bool, stream *jsoniter.Stream, r *reus
 			ci++
 		} else {
 			preWrite()
-			if err := serializePathElementToStreamV2(stream, cpe); err != nil {
+			if err := serializePathElementToStreamV2(stream, cpe, etBoth); err != nil {
 				return err
 			}
 			stream.WriteMore()
@@ -245,12 +242,9 @@ func (s *Set) emitContents_v2(includeSelf bool, stream *jsoniter.Stream, r *reus
 		mpe := s.Members.members[mi]
 
 		preWrite()
-		if err := serializePathElementToStreamV2(stream, mpe); err != nil {
+		if err := serializePathElementToStreamV2(stream, mpe, etSelf); err != nil {
 			return err
 		}
-		stream.WriteMore()
-		stream.WriteArrayStart()
-		stream.WriteArrayEnd()
 		mi++
 	}
 
@@ -258,7 +252,7 @@ func (s *Set) emitContents_v2(includeSelf bool, stream *jsoniter.Stream, r *reus
 		cpe := s.Children.members[ci].pathElement
 
 		preWrite()
-		if err := serializePathElementToStreamV2(stream, cpe); err != nil {
+		if err := serializePathElementToStreamV2(stream, cpe, etChildren); err != nil {
 			return err
 		}
 		stream.WriteMore()
@@ -269,11 +263,12 @@ func (s *Set) emitContents_v2(includeSelf bool, stream *jsoniter.Stream, r *reus
 		stream.WriteArrayEnd()
 		ci++
 	}
-
-	if includeSelf && !first {
-		preWrite()
-		stream.WriteString(".")
-	}
+	/*
+		if includeSelf && !first {
+			preWrite()
+			stream.WriteString(".")
+		}
+	*/
 	return manageMemory(stream)
 }
 
@@ -373,21 +368,43 @@ func readIter_v2(iter *jsoniter.Iterator) (children *Set, isMember bool) {
 	)
 	step := KT
 	var keyType byte
+	var et v2EntryType
 	var pe PathElement
+
+	doMember := func() {
+		if children == nil {
+			children = &Set{}
+		}
+		m := &children.Members.members
+		// Since we expect that most of the time these will have been
+		// serialized in the right order, we just verify that and append.
+		appendOK := len(*m) == 0 || (*m)[len(*m)-1].Less(pe)
+		if appendOK {
+			*m = append(*m, pe)
+		} else {
+			children.Members.Insert(pe)
+		}
+	}
+
 	iter.ReadArrayCB(func(iter *jsoniter.Iterator) bool {
 		if step == KT {
 			// first is the key type
 			tmp := iter.ReadStringAsSlice()
-			if len(tmp) != 1 {
+			if len(tmp) != 2 {
 				iter.Error = fmt.Errorf("expected a type of key, got %q", string(tmp))
 				return false
 			}
-			if tmp[0] == '.' {
+			/*if tmp[0] == '.' {
 				isMember = true
 				return true
-			}
+			}*/
 			keyType = tmp[0]
 			if peField[0] != keyType && peValue[0] != keyType && peIndex[0] != keyType && peKey[0] != keyType {
+				iter.Error = fmt.Errorf("expected a type of key, got %q", string(tmp))
+				return false
+			}
+			et = v2EntryType(tmp[1])
+			if et != etSelf && et != etChildren && et != etBoth {
 				iter.Error = fmt.Errorf("expected a type of key, got %q", string(tmp))
 				return false
 			}
@@ -424,7 +441,15 @@ func readIter_v2(iter *jsoniter.Iterator) (children *Set, isMember bool) {
 				i := iter.ReadInt()
 				pe.Index = &i
 			}
-			step = BODY
+			if et == etSelf {
+				doMember()
+				step = KT
+			} else if et == etBoth {
+				doMember()
+				step = BODY
+			} else if et == etChildren {
+				step = BODY
+			}
 			return true
 		}
 
@@ -440,18 +465,7 @@ func readIter_v2(iter *jsoniter.Iterator) (children *Set, isMember bool) {
 
 		grandchildren, childIsMember := readIter_v2(iter)
 		if childIsMember {
-			if children == nil {
-				children = &Set{}
-			}
-			m := &children.Members.members
-			// Since we expect that most of the time these will have been
-			// serialized in the right order, we just verify that and append.
-			appendOK := len(*m) == 0 || (*m)[len(*m)-1].Less(pe)
-			if appendOK {
-				*m = append(*m, pe)
-			} else {
-				children.Members.Insert(pe)
-			}
+			doMember()
 		}
 		if grandchildren != nil {
 			if children == nil {
@@ -471,7 +485,7 @@ func readIter_v2(iter *jsoniter.Iterator) (children *Set, isMember bool) {
 		return true
 	})
 	if children == nil {
-		isMember = true
+		//isMember = true
 	}
 
 	return children, isMember

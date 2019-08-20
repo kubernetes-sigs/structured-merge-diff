@@ -53,10 +53,10 @@ var (
 	peKeySepBytes   = []byte(peKey + peSeparator)
 	peSepBytes      = []byte(peSeparator)
 
-	peFieldSepV2Bytes = []byte(`"` + peField + `",`)
-	peValueSepV2Bytes = []byte(`"` + peValue + `",`)
-	peIndexSepV2Bytes = []byte(`"` + peIndex + `",`)
-	peKeySepV2Bytes   = []byte(`"` + peKey + `",`)
+	peFieldSepV2Bytes = []byte(`"` + peField + `_",`)
+	peValueSepV2Bytes = []byte(`"` + peValue + `_",`)
+	peIndexSepV2Bytes = []byte(`"` + peIndex + `_",`)
+	peKeySepV2Bytes   = []byte(`"` + peKey + `_",`)
 )
 
 // DeserializePathElement parses a serialized path element
@@ -170,27 +170,44 @@ func serializePathElementToWriter(w io.Writer, pe PathElement) error {
 	return err
 }
 
+type v2EntryType byte
+
+const (
+	etSelf     v2EntryType = 's'
+	etChildren v2EntryType = 'c'
+	etBoth     v2EntryType = 'b'
+)
+
 // you must write the trailing "," if you need it.
-func serializePathElementToStreamV2(stream *jsoniter.Stream, pe PathElement) error {
+func serializePathElementToStreamV2(stream *jsoniter.Stream, pe PathElement, et v2EntryType) error {
+	var prefix [5]byte
 	switch {
 	case pe.FieldName != nil:
-		if _, err := stream.Write(peFieldSepV2Bytes); err != nil {
+		copy(prefix[:], peFieldSepV2Bytes)
+		prefix[2] = byte(et)
+		if _, err := stream.Write(prefix[:]); err != nil {
 			return err
 		}
 		stream.WriteString(*pe.FieldName)
 	case pe.Key != nil:
-		if _, err := stream.Write(peKeySepV2Bytes); err != nil {
+		copy(prefix[:], peKeySepV2Bytes)
+		prefix[2] = byte(et)
+		if _, err := stream.Write(prefix[:]); err != nil {
 			return err
 		}
 		v := value.Value{MapValue: pe.Key}
 		v.WriteJSONStream(stream)
 	case pe.Value != nil:
-		if _, err := stream.Write(peValueSepV2Bytes); err != nil {
+		copy(prefix[:], peValueSepV2Bytes)
+		prefix[2] = byte(et)
+		if _, err := stream.Write(prefix[:]); err != nil {
 			return err
 		}
 		pe.Value.WriteJSONStream(stream)
 	case pe.Index != nil:
-		if _, err := stream.Write(peIndexSepV2Bytes); err != nil {
+		copy(prefix[:], peIndexSepV2Bytes)
+		prefix[2] = byte(et)
+		if _, err := stream.Write(prefix[:]); err != nil {
 			return err
 		}
 		stream.WriteInt(*pe.Index)
