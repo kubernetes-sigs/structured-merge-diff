@@ -390,7 +390,7 @@ func readIter_v2(iter *jsoniter.Iterator) (children *Set, isMember bool) {
 		BODY
 	)
 	step := KT
-	var keyType byte
+	var vt v2ValueType
 	var et v2EntryType
 	var pe PathElement
 
@@ -412,25 +412,12 @@ func readIter_v2(iter *jsoniter.Iterator) (children *Set, isMember bool) {
 	iter.ReadArrayCB(func(iter *jsoniter.Iterator) bool {
 		if step == KT {
 			// first is the key type
-			tmp := iter.ReadStringAsSlice()
-			if len(tmp) != 2 {
-				iter.Error = fmt.Errorf("expected a type of key, got %q", string(tmp))
+			number := iter.ReadInt()
+			if number < 0 || number >= 12 {
+				iter.Error = fmt.Errorf("expected type of next entry, got %q", number)
 				return false
 			}
-			/*if tmp[0] == '.' {
-				isMember = true
-				return true
-			}*/
-			keyType = tmp[0]
-			if peField[0] != keyType && peValue[0] != keyType && peIndex[0] != keyType && peKey[0] != keyType {
-				iter.Error = fmt.Errorf("expected a type of key, got %q", string(tmp))
-				return false
-			}
-			et = v2EntryType(tmp[1])
-			if et != etSelf && et != etChildren && et != etBoth {
-				iter.Error = fmt.Errorf("expected a type of key, got %q", string(tmp))
-				return false
-			}
+			et, vt = v2SplitTypes(number)
 			step = KEY
 			pe = PathElement{}
 			return true
@@ -438,18 +425,18 @@ func readIter_v2(iter *jsoniter.Iterator) (children *Set, isMember bool) {
 
 		if step == KEY {
 			// second is the key contents
-			switch keyType {
-			case peField[0]:
+			switch vt {
+			case vtField:
 				str := iter.ReadString()
 				pe.FieldName = &str
-			case peValue[0]:
+			case vtValue:
 				v, err := value.ReadJSONIter(iter)
 				if err != nil {
 					iter.Error = err
 					return false
 				}
 				pe.Value = &v
-			case peKey[0]:
+			case vtKey:
 				v, err := value.ReadJSONIter(iter)
 				if err != nil {
 					iter.Error = err
@@ -460,7 +447,7 @@ func readIter_v2(iter *jsoniter.Iterator) (children *Set, isMember bool) {
 					return false
 				}
 				pe.Key = v.MapValue
-			case peIndex[0]:
+			case vtIndex:
 				i := iter.ReadInt()
 				pe.Index = &i
 			}

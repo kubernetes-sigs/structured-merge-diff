@@ -82,3 +82,15 @@ func TestDeserializePathElementError(t *testing.T) {
 		})
 	}
 }
+
+func TestV2Number(t *testing.T) {
+	for _, vt := range []v2ValueType{vtField, vtValue, vtKey, vtIndex} {
+		for _, et := range []v2EntryType{etSelf, etChildren, etBoth} {
+			n := v2CombineTypes(et, vt)
+			eb, vb := v2SplitTypes(n)
+			if eb != et || vb != vt {
+				t.Errorf("(%v,%v) -> %v -> (%v,%v)", et, vt, n, eb, vb)
+			}
+		}
+	}
+}

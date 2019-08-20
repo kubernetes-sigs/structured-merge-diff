@@ -171,43 +171,135 @@ func serializePathElementToWriter(w io.Writer, pe PathElement) error {
 }
 
 type v2EntryType byte
+type v2ValueType byte
 
 const (
 	etSelf     v2EntryType = 's'
 	etChildren v2EntryType = 'c'
 	etBoth     v2EntryType = 'b'
+	etInvalid  v2EntryType = 0
+
+	vtField   v2ValueType = 'f'
+	vtValue   v2ValueType = 'v'
+	vtIndex   v2ValueType = 'i'
+	vtKey     v2ValueType = 'k'
+	vtInvalid v2ValueType = 0
 )
+
+func (et v2EntryType) asNumber() int {
+	switch et {
+	case etSelf:
+		return 0
+	case etChildren:
+		return 1
+	case etBoth:
+		return 2
+	}
+	panic("unexpected entry type")
+}
+
+func etFromNumber(i int) v2EntryType {
+	switch i {
+	case 0:
+		return etSelf
+	case 1:
+		return etChildren
+	case 2:
+		return etBoth
+	}
+	return etInvalid
+}
+
+func (vt v2ValueType) asNumber() int {
+	switch vt {
+	case vtField:
+		return 0
+	case vtValue:
+		return 1
+	case vtIndex:
+		return 2
+	case vtKey:
+		return 3
+	}
+	panic("unexpected value type")
+}
+
+func vtFromNumber(i int) v2ValueType {
+	switch i {
+	case 0:
+		return vtField
+	case 1:
+		return vtValue
+	case 2:
+		return vtIndex
+	case 3:
+		return vtKey
+	}
+	return vtInvalid
+}
+
+func v2CombineTypes(et v2EntryType, vt v2ValueType) int {
+	if et == etInvalid || vt == vtInvalid {
+		panic("logic error - can't combine invalid things")
+	}
+	return et.asNumber()*4 + vt.asNumber()
+}
+
+func v2SplitTypes(i int) (et v2EntryType, vt v2ValueType) {
+	et = etFromNumber(i / 4)
+	vt = vtFromNumber(i % 4)
+	return
+}
+
+var (
+	v2NumberToAscii = func() map[int]string {
+		out := map[int]string{}
+		for i := 0; i < 12; i++ {
+			out[i] = strconv.Itoa(i)
+		}
+		return out
+	}()
+)
+
+func emitV2Prefix(stream *jsoniter.Stream, vt v2ValueType, et v2EntryType) error {
+	var scratch [3]byte
+	n := v2CombineTypes(et, vt)
+	str, ok := v2NumberToAscii[n]
+	if !ok {
+		return fmt.Errorf("unexpected entry number %v", n)
+	}
+	prefix := scratch[:1]
+	prefix[0] = str[0]
+	if len(str) > 1 {
+		prefix = append(prefix, str[1], ',')
+	} else {
+		prefix = append(prefix, ',')
+	}
+	_, err := stream.Write(prefix)
+	return err
+}
 
 // you must write the trailing "," if you need it.
 func serializePathElementToStreamV2(stream *jsoniter.Stream, pe PathElement, et v2EntryType) error {
-	var prefix [5]byte
 	switch {
 	case pe.FieldName != nil:
-		copy(prefix[:], peFieldSepV2Bytes)
-		prefix[2] = byte(et)
-		if _, err := stream.Write(prefix[:]); err != nil {
+		if err := emitV2Prefix(stream, vtField, et); err != nil {
 			return err
 		}
 		stream.WriteString(*pe.FieldName)
 	case pe.Key != nil:
-		copy(prefix[:], peKeySepV2Bytes)
-		prefix[2] = byte(et)
-		if _, err := stream.Write(prefix[:]); err != nil {
+		if err := emitV2Prefix(stream, vtKey, et); err != nil {
 			return err
 		}
 		v := value.Value{MapValue: pe.Key}
 		v.WriteJSONStream(stream)
 	case pe.Value != nil:
-		copy(prefix[:], peValueSepV2Bytes)
-		prefix[2] = byte(et)
-		if _, err := stream.Write(prefix[:]); err != nil {
+		if err := emitV2Prefix(stream, vtValue, et); err != nil {
 			return err
 		}
 		pe.Value.WriteJSONStream(stream)
 	case pe.Index != nil:
-		copy(prefix[:], peIndexSepV2Bytes)
-		prefix[2] = byte(et)
-		if _, err := stream.Write(prefix[:]); err != nil {
+		if err := emitV2Prefix(stream, vtIndex, et); err != nil {
 			return err
 		}
 		stream.WriteInt(*pe.Index)
