@@ -63,6 +63,10 @@ func (s *Set) ToJSONStream_V2Experimental(w io.Writer) error {
 	stream := writePool.BorrowStream(w)
 	defer writePool.ReturnStream(stream)
 
+	if err := manageMemory(stream); err != nil {
+		return err
+	}
+
 	var r reusableBuilder
 
 	stream.WriteArrayStart()
@@ -79,7 +83,13 @@ func manageMemory(stream *jsoniter.Stream) error {
 	// alloctaions that are not necessary. They were probably optimizing
 	// for folks using the buffer directly.
 	b := stream.Buffer()
-	if len(b) > 4096 || cap(b)-len(b) < 2048 {
+	if cap(b) < 4*1024 {
+		b2 := make([]byte, len(b), 5*1024)
+		copy(b2, b)
+		stream.SetBuffer(b2)
+		b = b2
+	}
+	if len(b) > 4*1024 || cap(b)-len(b) < 1024 {
 		if err := stream.Flush(); err != nil {
 			return err
 		}
@@ -110,7 +120,9 @@ func (s *Set) emitContents_v1(includeSelf bool, stream *jsoniter.Stream, r *reus
 			first = false
 			return
 		}
-		stream.WriteMore()
+		stream.WriteRaw(",")
+		// WriteMore flushes, which we don't want since we manage our own flushing.
+		// stream.WriteMore()
 	}
 
 	for mi < len(s.Members.members) && ci < len(s.Children.members) {
@@ -197,10 +209,15 @@ func (s *Set) emitContents_v2(includeSelf bool, stream *jsoniter.Stream, r *reus
 			first = false
 			return
 		}
-		stream.WriteMore()
+		stream.WriteRaw(",")
+		// WriteMore flushes, which we don't want since we manage our own flushing.
+		// stream.WriteMore()
 	}
 
 	for mi < len(s.Members.members) && ci < len(s.Children.members) {
+		if err := manageMemory(stream); err != nil {
+			return err
+		}
 		mpe := s.Members.members[mi]
 		cpe := s.Children.members[ci].pathElement
 
@@ -215,7 +232,7 @@ func (s *Set) emitContents_v2(includeSelf bool, stream *jsoniter.Stream, r *reus
 			if err := serializePathElementToStreamV2(stream, cpe, etChildren); err != nil {
 				return err
 			}
-			stream.WriteMore()
+			stream.WriteRaw(",")
 			stream.WriteArrayStart()
 			if err := s.Children.members[ci].set.emitContents_v2(false, stream, r); err != nil {
 				return err
@@ -227,7 +244,7 @@ func (s *Set) emitContents_v2(includeSelf bool, stream *jsoniter.Stream, r *reus
 			if err := serializePathElementToStreamV2(stream, cpe, etBoth); err != nil {
 				return err
 			}
-			stream.WriteMore()
+			stream.WriteRaw(",")
 			stream.WriteArrayStart()
 			if err := s.Children.members[ci].set.emitContents_v2(true, stream, r); err != nil {
 				return err
@@ -239,6 +256,9 @@ func (s *Set) emitContents_v2(includeSelf bool, stream *jsoniter.Stream, r *reus
 	}
 
 	for mi < len(s.Members.members) {
+		if err := manageMemory(stream); err != nil {
+			return err
+		}
 		mpe := s.Members.members[mi]
 
 		preWrite()
@@ -249,13 +269,16 @@ func (s *Set) emitContents_v2(includeSelf bool, stream *jsoniter.Stream, r *reus
 	}
 
 	for ci < len(s.Children.members) {
+		if err := manageMemory(stream); err != nil {
+			return err
+		}
 		cpe := s.Children.members[ci].pathElement
 
 		preWrite()
 		if err := serializePathElementToStreamV2(stream, cpe, etChildren); err != nil {
 			return err
 		}
-		stream.WriteMore()
+		stream.WriteRaw(",")
 		stream.WriteArrayStart()
 		if err := s.Children.members[ci].set.emitContents_v2(false, stream, r); err != nil {
 			return err
