@@ -128,7 +128,7 @@ func (v *Value) WriteJSONStream(stream *jsoniter.Stream) {
 		stream.WriteArrayStart()
 		for i := range v.ListValue.Items {
 			if i > 0 {
-				stream.WriteMore()
+				stream.WriteRaw(",")
 			}
 			v.ListValue.Items[i].WriteJSONStream(stream)
 		}
@@ -137,7 +137,7 @@ func (v *Value) WriteJSONStream(stream *jsoniter.Stream) {
 		stream.WriteObjectStart()
 		for i := range v.MapValue.Items {
 			if i > 0 {
-				stream.WriteMore()
+				stream.WriteRaw(",")
 			}
 			stream.WriteObjectField(v.MapValue.Items[i].Name)
 			v.MapValue.Items[i].Value.WriteJSONStream(stream)
