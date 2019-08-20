@@ -466,7 +466,6 @@ func TestSymdiffDeduced(t *testing.T) {
 			if err != nil {
 				t.Fatalf("got validation errors: %v", err)
 			}
-			t.Logf("got merged:\n%s\n", got.Merged.AsValue())
 			t.Logf("got added:\n%s\n", got.Added)
 			if !got.Added.Equals(quint.added) {
 				t.Errorf("Expected added:\n%s\n", quint.added)
