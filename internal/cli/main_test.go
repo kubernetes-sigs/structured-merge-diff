@@ -188,3 +188,30 @@ func TestCompare(t *testing.T) {
 		})
 	}
 }
+
+func TestFieldSet(t *testing.T) {
+	cases := []testCase{{
+		options: Options{
+			schemaPath: testdata("k8s-schema.yaml"),
+			fieldset:   testdata("pod.yaml"),
+			typeName:   "io.k8s.api.core.v1.Pod",
+		},
+		expectedOutputPath: testdata("podset.json"),
+	}}
+
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.options.fieldset, func(t *testing.T) {
+			op, err := tt.options.Resolve()
+			if err != nil {
+				t.Fatal(err)
+			}
+			var b bytes.Buffer
+			err = op.Execute(&b)
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+			tt.checkOutput(t, b.Bytes())
+		})
+	}
+}
