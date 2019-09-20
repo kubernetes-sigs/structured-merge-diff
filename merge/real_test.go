@@ -17,8 +17,10 @@ limitations under the License.
 package merge_test
 
 import (
+	"fmt"
 	"io/ioutil"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	. "sigs.k8s.io/structured-merge-diff/internal/fixture"
@@ -37,6 +39,10 @@ func read(file string) []byte {
 	return s
 }
 
+func lastPart(s string) string {
+	return s[strings.LastIndex(s, ".")+1:]
+}
+
 var parser = func() *typed.Parser {
 	s := read(testdata("k8s-schema.yaml"))
 	parser, err := typed.NewParser(typed.YAMLObject(s))
@@ -46,7 +52,7 @@ var parser = func() *typed.Parser {
 	return parser
 }()
 
-func BenchmarkUpdates(b *testing.B) {
+func BenchmarkOperations(b *testing.B) {
 	benches := []struct {
 		typename string
 		obj      typed.YAMLObject
@@ -66,26 +72,37 @@ func BenchmarkUpdates(b *testing.B) {
 	}
 
 	for _, bench := range benches {
-		b.Run(bench.typename, func(b *testing.B) {
-			test := TestCase{
-				Ops: []Operation{
-					Update{
-						Manager:    "controller",
-						APIVersion: "v1",
-						Object:     bench.obj,
-					},
+
+		b.Run(lastPart(bench.typename), func(b *testing.B) {
+			ops := []Operation{
+				Update{
+					Manager:    "controller",
+					APIVersion: "v1",
+					Object:     bench.obj,
+				},
+				Apply{
+					Manager:    "controller",
+					APIVersion: "v1",
+					Object:     bench.obj,
 				},
 			}
+			for _, op := range ops {
+				b.Run(lastPart(fmt.Sprintf("%T", op)), func(b *testing.B) {
+					test := TestCase{
+						Ops: []Operation{op},
+					}
 
-			pt := parser.Type(bench.typename)
-			test.PreprocessOperations(pt)
+					pt := parser.Type(bench.typename)
+					test.PreprocessOperations(pt)
 
-			b.ReportAllocs()
-			b.ResetTimer()
-			for n := 0; n < b.N; n++ {
-				if err := test.Bench(pt); err != nil {
-					b.Fatal(err)
-				}
+					b.ReportAllocs()
+					b.ResetTimer()
+					for n := 0; n < b.N; n++ {
+						if err := test.Bench(pt); err != nil {
+							b.Fatal(err)
+						}
+					}
+				})
 			}
 		})
 	}
