@@ -37,33 +37,56 @@ func read(file string) []byte {
 	return s
 }
 
-var podParser = func() typed.ParseableType {
+var parser = func() *typed.Parser {
 	s := read(testdata("k8s-schema.yaml"))
 	parser, err := typed.NewParser(typed.YAMLObject(s))
 	if err != nil {
 		panic(err)
 	}
-	return parser.Type("io.k8s.api.core.v1.Pod")
+	return parser
 }()
 
-func BenchmarkPodUpdates(b *testing.B) {
-	test := TestCase{
-		Ops: []Operation{
-			Update{
-				Manager:    "controller",
-				APIVersion: "v1",
-				Object:     typed.YAMLObject(read(testdata("pod.yaml"))),
-			},
+func BenchmarkUpdates(b *testing.B) {
+	benches := []struct {
+		typename string
+		obj      typed.YAMLObject
+	}{
+		{
+			typename: "io.k8s.api.core.v1.Pod",
+			obj:      typed.YAMLObject(read(testdata("pod.yaml"))),
+		},
+		{
+			typename: "io.k8s.api.core.v1.Node",
+			obj:      typed.YAMLObject(read(testdata("node.yaml"))),
+		},
+		{
+			typename: "io.k8s.api.core.v1.Endpoints",
+			obj:      typed.YAMLObject(read(testdata("endpoints.yaml"))),
 		},
 	}
 
-	test.PreprocessOperations(podParser)
+	for _, bench := range benches {
+		b.Run(bench.typename, func(b *testing.B) {
+			test := TestCase{
+				Ops: []Operation{
+					Update{
+						Manager:    "controller",
+						APIVersion: "v1",
+						Object:     bench.obj,
+					},
+				},
+			}
 
-	b.ReportAllocs()
-	b.ResetTimer()
-	for n := 0; n < b.N; n++ {
-		if err := test.Bench(podParser); err != nil {
-			b.Fatal(err)
-		}
+			pt := parser.Type(bench.typename)
+			test.PreprocessOperations(pt)
+
+			b.ReportAllocs()
+			b.ResetTimer()
+			for n := 0; n < b.N; n++ {
+				if err := test.Bench(pt); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
 	}
 }
