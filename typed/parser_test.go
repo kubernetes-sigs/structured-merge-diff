@@ -19,6 +19,7 @@ package typed_test
 import (
 	"io/ioutil"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	yaml "gopkg.in/yaml.v2"
@@ -29,10 +30,35 @@ func testdata(file string) string {
 	return filepath.Join("..", "internal", "testdata", file)
 }
 
-func BenchmarkFromUnstructured(b *testing.B) {
-	pod, err := ioutil.ReadFile(testdata("pod.yaml"))
+func read(file string) []byte {
+	obj, err := ioutil.ReadFile(file)
 	if err != nil {
-		b.Fatal(err)
+		panic(err)
+	}
+	return obj
+}
+
+func lastPart(s string) string {
+	return s[strings.LastIndex(s, ".")+1:]
+}
+
+func BenchmarkFromUnstructured(b *testing.B) {
+	tests := []struct {
+		typename string
+		obj      []byte
+	}{
+		{
+			typename: "io.k8s.api.core.v1.Pod",
+			obj:      read(testdata("pod.yaml")),
+		},
+		{
+			typename: "io.k8s.api.core.v1.Node",
+			obj:      read(testdata("node.yaml")),
+		},
+		{
+			typename: "io.k8s.api.core.v1.Endpoints",
+			obj:      read(testdata("endpoints.yaml")),
+		},
 	}
 
 	s, err := ioutil.ReadFile(testdata("k8s-schema.yaml"))
@@ -43,19 +69,24 @@ func BenchmarkFromUnstructured(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	pt := parser.Type("io.k8s.api.core.v1.Pod")
 
-	obj := map[string]interface{}{}
-	if err := yaml.Unmarshal([]byte(pod), &obj); err != nil {
-		b.Fatal(err)
-	}
+	for _, test := range tests {
+		b.Run(lastPart(test.typename), func(b *testing.B) {
+			pt := parser.Type(test.typename)
 
-	b.ReportAllocs()
-	b.ResetTimer()
-	for n := 0; n < b.N; n++ {
-		if _, err := pt.FromUnstructured(obj); err != nil {
-			b.Fatal(err)
-		}
+			obj := map[string]interface{}{}
+			if err := yaml.Unmarshal(test.obj, &obj); err != nil {
+				b.Fatal(err)
+			}
+
+			b.ReportAllocs()
+			b.ResetTimer()
+			for n := 0; n < b.N; n++ {
+				if _, err := pt.FromUnstructured(obj); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
 	}
 
 }
