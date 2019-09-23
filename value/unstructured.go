@@ -80,6 +80,7 @@ func FromUnstructured(in interface{}) (Value, error) {
 	switch t := in.(type) {
 	case map[interface{}]interface{}:
 		m := Map{}
+		m.Items = make([]Field, 0, len(t))
 		for rawKey, rawVal := range t {
 			k, ok := rawKey.(string)
 			if !ok {
@@ -94,6 +95,7 @@ func FromUnstructured(in interface{}) (Value, error) {
 		return Value{MapValue: &m}, nil
 	case map[string]interface{}:
 		m := Map{}
+		m.Items = make([]Field, 0, len(t))
 		for k, rawVal := range t {
 			v, err := FromUnstructured(rawVal)
 			if err != nil {
@@ -104,6 +106,7 @@ func FromUnstructured(in interface{}) (Value, error) {
 		return Value{MapValue: &m}, nil
 	case yaml.MapSlice:
 		m := Map{}
+		m.Items = make([]Field, 0, len(t))
 		for _, item := range t {
 			k, ok := item.Key.(string)
 			if !ok {
@@ -118,6 +121,7 @@ func FromUnstructured(in interface{}) (Value, error) {
 		return Value{MapValue: &m}, nil
 	case []interface{}:
 		l := List{}
+		l.Items = make([]Value, 0, len(t))
 		for i, rawVal := range t {
 			v, err := FromUnstructured(rawVal)
 			if err != nil {
@@ -203,7 +207,7 @@ func (v *Value) ToUnstructured(preserveOrder bool) interface{} {
 	case v.BooleanValue != nil:
 		return bool(*v.BooleanValue)
 	case v.ListValue != nil:
-		out := []interface{}{}
+		out := make([]interface{}, 0, len(v.ListValue.Items))
 		for _, item := range v.ListValue.Items {
 			out = append(out, item.ToUnstructured(preserveOrder))
 		}
@@ -221,7 +225,7 @@ func (v *Value) ToUnstructured(preserveOrder bool) interface{} {
 			return ms
 		}
 		// This case is unavoidably lossy.
-		out := map[string]interface{}{}
+		out := make(map[string]interface{}, len(m.Items))
 		for i := range m.Items {
 			out[m.Items[i].Name] = m.Items[i].Value.ToUnstructured(preserveOrder)
 		}
