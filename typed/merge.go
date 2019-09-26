@@ -301,8 +301,11 @@ func (w *mergingWalker) visitMapItems(t schema.Map, lhs, rhs *value.Map) (errs V
 			w2 := w.prepareDescent(fieldpath.PathElement{FieldName: &litem.Name}, fieldType)
 			w2.lhs = &litem.Value
 			if rhs != nil {
-				if ritem, ok := rhs.Get(litem.Name); ok {
-					w2.rhs = &ritem.Value
+				for i := range rhs.Items {
+					if rhs.Items[i].Name == litem.Name {
+						w2.rhs = &rhs.Items[i].Value
+						break
+					}
 				}
 			}
 			if newErrs := w2.merge(); len(newErrs) > 0 {
@@ -318,7 +321,13 @@ func (w *mergingWalker) visitMapItems(t schema.Map, lhs, rhs *value.Map) (errs V
 		for j := range rhs.Items {
 			ritem := &rhs.Items[j]
 			if lhs != nil {
-				if _, ok := lhs.Get(ritem.Name); ok {
+				done := false
+				for i := range lhs.Items {
+					if lhs.Items[i].Name == ritem.Name {
+						done = true
+					}
+				}
+				if done {
 					continue
 				}
 			}

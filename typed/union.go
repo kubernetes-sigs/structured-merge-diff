@@ -109,21 +109,26 @@ func (d *discriminator) Set(m *value.Map, v discriminated) {
 	if d == nil {
 		return
 	}
-	m.Set(d.name, value.StringValue(string(v)))
+	val := m.Get(d.name)
+	if val != nil {
+		*val = value.StringValue(string(v))
+	} else {
+		m.Items = append(m.Items, value.Field{Name: d.name, Value: value.StringValue(string(v))})
+	}
 }
 
 func (d *discriminator) Get(m *value.Map) discriminated {
 	if d == nil || m == nil {
 		return ""
 	}
-	f, ok := m.Get(d.name)
-	if !ok {
+	val := m.Get(d.name)
+	if val == nil {
 		return ""
 	}
-	if f.Value.StringValue == nil {
+	if val.StringValue == nil {
 		return ""
 	}
-	return discriminated(*f.Value.StringValue)
+	return discriminated(*val.StringValue)
 }
 
 type fieldsSet map[field]struct{}
@@ -136,7 +141,7 @@ func newFieldsSet(m *value.Map, fields []field) fieldsSet {
 	}
 	set := fieldsSet{}
 	for _, f := range fields {
-		if subField, ok := m.Get(string(f)); ok && !subField.Value.Null {
+		if val := m.Get(string(f)); val != nil && !val.Null {
 			set.Add(f)
 		}
 	}
@@ -210,14 +215,30 @@ func newUnion(su *schema.Union) *union {
 	return u
 }
 
+func hasField(fields []field, f field) bool {
+	for i := range fields {
+		if fields[i] == f {
+			return true
+		}
+	}
+	return false
+}
+
 // clear removes all the fields in map that are part of the union, but
 // the one we decided to keep.
 func (u *union) clear(m *value.Map, f field) {
-	for _, fieldName := range u.f {
-		if field(fieldName) != f {
-			m.Delete(string(fieldName))
+	newItems := []value.Field{}
+	for i := range m.Items {
+		if m.Items[i].Name != string(f) {
+			// The field is part of the union, it shoudln't be kept.
+			if hasField(u.f, field(m.Items[i].Name)) {
+				continue
+			}
 		}
+		newItems = append(newItems, m.Items[i])
 	}
+
+	m.Items = newItems
 }
 
 func (u *union) Normalize(old, new, out *value.Map) error {

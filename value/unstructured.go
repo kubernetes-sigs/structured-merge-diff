@@ -90,7 +90,7 @@ func FromUnstructured(in interface{}) (Value, error) {
 			if err != nil {
 				return Value{}, fmt.Errorf("key %v: %v", k, err)
 			}
-			m.Set(k, v)
+			m.Items = append(m.Items, Field{k, v})
 		}
 		return Value{MapValue: &m}, nil
 	case map[string]interface{}:
@@ -101,7 +101,7 @@ func FromUnstructured(in interface{}) (Value, error) {
 			if err != nil {
 				return Value{}, fmt.Errorf("key %v: %v", k, err)
 			}
-			m.Set(k, v)
+			m.Items = append(m.Items, Field{k, v})
 		}
 		return Value{MapValue: &m}, nil
 	case yaml.MapSlice:
@@ -116,7 +116,7 @@ func FromUnstructured(in interface{}) (Value, error) {
 			if err != nil {
 				return Value{}, fmt.Errorf("key %v: %v", k, err)
 			}
-			m.Set(k, v)
+			m.Items = append(m.Items, Field{k, v})
 		}
 		return Value{MapValue: &m}, nil
 	case []interface{}:

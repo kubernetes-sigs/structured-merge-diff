@@ -170,12 +170,18 @@ func (l *List) Less(rhs *List) bool {
 type Map struct {
 	Items []Field
 
-	// may be nil; lazily constructed.
-	// TODO: Direct modifications to Items above will cause serious problems.
-	index map[string]int
 	// may be empty; lazily constructed.
 	// TODO: Direct modifications to Items above will cause serious problems.
 	order []int
+}
+
+func (m *Map) Get(key string) *Value {
+	for i := range m.Items {
+		if m.Items[i].Name == key {
+			return &m.Items[i].Value
+		}
+	}
+	return nil
 }
 
 func (m *Map) computeOrder() []int {
@@ -264,46 +270,6 @@ func (m *Map) Less(rhs *Map) bool {
 		// The items are equal; continue.
 		i++
 	}
-}
-
-// Get returns the (Field, true) or (nil, false) if it is not present
-func (m *Map) Get(key string) (*Field, bool) {
-	if m.index == nil {
-		m.index = map[string]int{}
-		for i := range m.Items {
-			m.index[m.Items[i].Name] = i
-		}
-	}
-	f, ok := m.index[key]
-	if !ok {
-		return nil, false
-	}
-	return &m.Items[f], true
-}
-
-// Set inserts or updates the given item.
-func (m *Map) Set(key string, value Value) {
-	if f, ok := m.Get(key); ok {
-		f.Value = value
-		return
-	}
-	m.Items = append(m.Items, Field{Name: key, Value: value})
-	i := len(m.Items) - 1
-	m.index[key] = i
-	m.order = nil
-}
-
-// Delete removes the key from the set.
-func (m *Map) Delete(key string) {
-	items := []Field{}
-	for i := range m.Items {
-		if m.Items[i].Name != key {
-			items = append(items, m.Items[i])
-		}
-	}
-	m.Items = items
-	m.index = nil // Since the list has changed
-	m.order = nil
 }
 
 // StringValue returns s as a scalar string Value.

@@ -99,7 +99,7 @@ func (w *removingWalker) doMap(t schema.Map) ValidationErrors {
 		if subset := w.toRemove.WithPrefix(pe); !subset.Empty() {
 			removeItemsWithSchema(&m.Items[i].Value, subset, w.schema, fieldType)
 		}
-		newMap.Set(item.Name, m.Items[i].Value)
+		newMap.Items = append(newMap.Items, value.Field{item.Name, m.Items[i].Value})
 	}
 	w.value.MapValue = newMap
 	if len(w.value.MapValue.Items) == 0 {

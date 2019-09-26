@@ -205,19 +205,15 @@ func keyedAssociativeListItemToPathElement(list schema.List, index int, child va
 	if child.MapValue == nil {
 		return pe, errors.New("associative list with keys may not have non-map elements")
 	}
-	keyMap := &value.Map{}
+	keyValues := make([]value.Field, 0, len(list.Keys))
 	for _, fieldName := range list.Keys {
-		var fieldValue value.Value
-		field, ok := child.MapValue.Get(fieldName)
-		if ok {
-			fieldValue = field.Value
+		if val := child.MapValue.Get(fieldName); val != nil {
+			keyValues = append(keyValues, value.Field{fieldName, *val})
 		} else {
-			// Treat keys as required.
 			return pe, fmt.Errorf("associative list with keys has an element that omits key field %q", fieldName)
 		}
-		keyMap.Set(fieldName, fieldValue)
 	}
-	pe.Key = keyMap
+	pe.Key = &value.Map{Items: keyValues}
 	return pe, nil
 }
 
