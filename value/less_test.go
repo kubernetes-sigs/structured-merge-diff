@@ -304,7 +304,7 @@ func TestValueLess(t *testing.T) {
 					t.Errorf("oops, a >= b: %#v, %#v", tt.a, tt.b)
 				}
 			}
-			if tt.b.Less(tt.b) {
+			if tt.b.Less(tt.a) {
 				t.Errorf("oops, b < a: %#v, %#v", tt.b, tt.a)
 			}
 		})
