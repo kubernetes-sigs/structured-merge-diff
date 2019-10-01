@@ -104,7 +104,7 @@ func (w *mergingWalker) doLeaf() {
 	w.rule(w)
 }
 
-func (w *mergingWalker) doScalar(t schema.Scalar) (errs ValidationErrors) {
+func (w *mergingWalker) doScalar(t *schema.Scalar) (errs ValidationErrors) {
 	errs = append(errs, w.validateScalar(t, w.lhs, "lhs: ")...)
 	errs = append(errs, w.validateScalar(t, w.rhs, "rhs: ")...)
 	if len(errs) > 0 {
@@ -158,7 +158,7 @@ func (w *mergingWalker) derefMap(prefix string, v *value.Value, dest **value.Map
 	return nil
 }
 
-func (w *mergingWalker) visitListItems(t schema.List, lhs, rhs *value.List) (errs ValidationErrors) {
+func (w *mergingWalker) visitListItems(t *schema.List, lhs, rhs *value.List) (errs ValidationErrors) {
 	out := &value.List{}
 
 	// TODO: ordering is totally wrong.
@@ -255,7 +255,7 @@ func (w *mergingWalker) derefList(prefix string, v *value.Value, dest **value.Li
 	return nil
 }
 
-func (w *mergingWalker) doList(t schema.List) (errs ValidationErrors) {
+func (w *mergingWalker) doList(t *schema.List) (errs ValidationErrors) {
 	var lhs, rhs *value.List
 	w.derefList("lhs: ", w.lhs, &lhs)
 	w.derefList("rhs: ", w.rhs, &rhs)
@@ -280,23 +280,15 @@ func (w *mergingWalker) doList(t schema.List) (errs ValidationErrors) {
 	return errs
 }
 
-func (w *mergingWalker) visitMapItems(t schema.Map, lhs, rhs *value.Map) (errs ValidationErrors) {
+func (w *mergingWalker) visitMapItems(t *schema.Map, lhs, rhs *value.Map) (errs ValidationErrors) {
 	out := &value.Map{}
-
-	fieldTypes := map[string]schema.TypeRef{}
-	for i := range t.Fields {
-		// I don't want to use the loop variable since a reference
-		// might outlive the loop iteration (in an error message).
-		f := t.Fields[i]
-		fieldTypes[f.Name] = f.Type
-	}
 
 	if lhs != nil {
 		for i := range lhs.Items {
 			litem := &lhs.Items[i]
 			fieldType := t.ElementType
-			if ft, ok := fieldTypes[litem.Name]; ok {
-				fieldType = ft
+			if sf, ok := t.FindField(litem.Name); ok {
+				fieldType = sf.Type
 			}
 			w2 := w.prepareDescent(fieldpath.PathElement{FieldName: &litem.Name}, fieldType)
 			w2.lhs = &litem.Value
@@ -324,8 +316,8 @@ func (w *mergingWalker) visitMapItems(t schema.Map, lhs, rhs *value.Map) (errs V
 			}
 
 			fieldType := t.ElementType
-			if ft, ok := fieldTypes[ritem.Name]; ok {
-				fieldType = ft
+			if sf, ok := t.FindField(ritem.Name); ok {
+				fieldType = sf.Type
 			}
 			w2 := w.prepareDescent(fieldpath.PathElement{FieldName: &ritem.Name}, fieldType)
 			w2.rhs = &ritem.Value
@@ -344,7 +336,7 @@ func (w *mergingWalker) visitMapItems(t schema.Map, lhs, rhs *value.Map) (errs V
 	return errs
 }
 
-func (w *mergingWalker) doMap(t schema.Map) (errs ValidationErrors) {
+func (w *mergingWalker) doMap(t *schema.Map) (errs ValidationErrors) {
 	var lhs, rhs *value.Map
 	w.derefMap("lhs: ", w.lhs, &lhs)
 	w.derefMap("rhs: ", w.rhs, &rhs)
