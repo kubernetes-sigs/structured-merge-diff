@@ -17,8 +17,8 @@ limitations under the License.
 package fieldpath
 
 import (
-	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	"sigs.k8s.io/structured-merge-diff/value"
@@ -99,20 +99,42 @@ func (e PathElement) Equals(rhs PathElement) bool {
 func (e PathElement) String() string {
 	switch {
 	case e.FieldName != nil:
-		return "." + *e.FieldName
+		buf := strings.Builder{}
+		buf.Grow(len(*e.FieldName) + 1)
+		buf.WriteRune('.')
+		buf.WriteString(*e.FieldName)
+		return buf.String()
 	case e.Key != nil:
-		strs := make([]string, len(e.Key.Items))
-		for i, k := range e.Key.Items {
-			strs[i] = fmt.Sprintf("%v=%v", k.Name, k.Value)
+		buf := strings.Builder{}
+		strs := make([]value.Field, len(e.Key.Items))
+		copy(strs, e.Key.Items)
+		sort.SliceStable(strs, func(i, j int) bool {
+			return strs[i].Name < strs[j].Name
+		})
+		buf.WriteRune('[')
+		for i, k := range strs {
+			if i > 0 {
+				buf.WriteRune(',')
+			}
+			buf.WriteString(k.Name)
+			buf.WriteRune('=')
+			buf.WriteString(k.Value.String())
 		}
-		// The order must be canonical, since we use the string value
-		// in a set structure.
-		sort.Strings(strs)
-		return "[" + strings.Join(strs, ",") + "]"
+		buf.WriteRune(']')
+		return buf.String()
 	case e.Value != nil:
-		return fmt.Sprintf("[=%v]", e.Value)
+		buf := strings.Builder{}
+		buf.WriteRune('[')
+		buf.WriteRune('=')
+		buf.WriteString(e.Value.String())
+		buf.WriteRune(']')
+		return buf.String()
 	case e.Index != nil:
-		return fmt.Sprintf("[%v]", *e.Index)
+		buf := strings.Builder{}
+		buf.WriteRune('[')
+		buf.WriteString(strconv.Itoa(*e.Index))
+		buf.WriteRune(']')
+		return buf.String()
 	default:
 		return "{{invalid path element}}"
 	}
