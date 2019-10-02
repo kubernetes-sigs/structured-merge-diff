@@ -17,8 +17,8 @@ limitations under the License.
 package value
 
 import (
-	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -334,25 +334,42 @@ func BooleanValue(b bool) Value {
 func (v Value) String() string {
 	switch {
 	case v.FloatValue != nil:
-		return fmt.Sprintf("%v", *v.FloatValue)
+		return strconv.FormatFloat(float64(*v.FloatValue), 'f', -1, 64)
 	case v.IntValue != nil:
-		return fmt.Sprintf("%v", *v.IntValue)
+		return strconv.FormatInt(int64(*v.IntValue), 10)
 	case v.StringValue != nil:
-		return fmt.Sprintf("%q", *v.StringValue)
+		b := strings.Builder{}
+		b.Grow(len(*v.StringValue) + 2)
+		b.WriteRune('"')
+		b.WriteString(string(*v.StringValue))
+		b.WriteRune('"')
+		return b.String()
 	case v.BooleanValue != nil:
-		return fmt.Sprintf("%v", *v.BooleanValue)
+		return strconv.FormatBool(bool(*v.BooleanValue))
 	case v.ListValue != nil:
-		strs := []string{}
-		for _, item := range v.ListValue.Items {
-			strs = append(strs, item.String())
+		b := strings.Builder{}
+		b.WriteRune('[')
+		for i, item := range v.ListValue.Items {
+			if i != 0 {
+				b.WriteRune(',')
+			}
+			b.WriteString(item.String())
 		}
-		return "[" + strings.Join(strs, ",") + "]"
+		b.WriteRune(']')
+		return b.String()
 	case v.MapValue != nil:
-		strs := []string{}
-		for _, i := range v.MapValue.Items {
-			strs = append(strs, fmt.Sprintf("%v=%v", i.Name, i.Value))
+		b := strings.Builder{}
+		b.WriteRune('{')
+		for i, item := range v.MapValue.Items {
+			if i > 0 {
+				b.WriteRune(';')
+			}
+			b.WriteString(item.Name)
+			b.WriteRune('=')
+			b.WriteString(item.Value.String())
 		}
-		return "{" + strings.Join(strs, ";") + "}"
+		b.WriteRune('}')
+		return b.String()
 	default:
 		fallthrough
 	case v.Null == true:
