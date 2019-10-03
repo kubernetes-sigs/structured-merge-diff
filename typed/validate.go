@@ -142,7 +142,7 @@ func (v *validatingObjectWalker) doScalar(t *schema.Scalar) ValidationErrors {
 }
 
 func (v *validatingObjectWalker) visitListItems(t *schema.List, list *value.List) (errs ValidationErrors) {
-	observedKeys := map[string]struct{}{}
+	observedKeys := fieldpath.MakePathElementSet(len(list.Items))
 	for i, child := range list.Items {
 		pe, err := listItemToPathElement(t, i, child)
 		if err != nil {
@@ -152,11 +152,10 @@ func (v *validatingObjectWalker) visitListItems(t *schema.List, list *value.List
 			// this element.
 			continue
 		}
-		keyStr := pe.String()
-		if _, found := observedKeys[keyStr]; found {
-			errs = append(errs, v.errorf("duplicate entries for key %v", keyStr)...)
+		if observedKeys.Has(pe) {
+			errs = append(errs, v.errorf("duplicate entries for key %v", pe.String())...)
 		}
-		observedKeys[keyStr] = struct{}{}
+		observedKeys.Insert(pe)
 		v2 := v.prepareDescent(pe, t.ElementType)
 		v2.value = child
 		errs = append(errs, v2.validate()...)
