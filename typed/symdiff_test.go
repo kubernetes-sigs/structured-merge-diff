@@ -521,11 +521,11 @@ func (tt symdiffTestCase) test(t *testing.T) {
 
 			tvLHS, err := pt.FromYAML(quint.lhs)
 			if err != nil {
-				t.Errorf("failed to parse lhs: %v", err)
+				t.Fatalf("failed to parse lhs: %v", err)
 			}
 			tvRHS, err := pt.FromYAML(quint.rhs)
 			if err != nil {
-				t.Errorf("failed to parse rhs: %v", err)
+				t.Fatalf("failed to parse rhs: %v", err)
 			}
 			got, err := tvLHS.Compare(tvRHS)
 			if err != nil {
