@@ -97,9 +97,9 @@ func (ef errorFormatter) prefixError(prefix string, err error) ValidationErrors 
 }
 
 type atomHandler interface {
-	doScalar(schema.Scalar) ValidationErrors
-	doList(schema.List) ValidationErrors
-	doMap(schema.Map) ValidationErrors
+	doScalar(*schema.Scalar) ValidationErrors
+	doList(*schema.List) ValidationErrors
+	doMap(*schema.Map) ValidationErrors
 
 	errorf(msg string, args ...interface{}) ValidationErrors
 }
@@ -130,11 +130,11 @@ func deduceAtom(a schema.Atom, v *value.Value) schema.Atom {
 func handleAtom(a schema.Atom, tr schema.TypeRef, ah atomHandler) ValidationErrors {
 	switch {
 	case a.Map != nil:
-		return ah.doMap(*a.Map)
+		return ah.doMap(a.Map)
 	case a.Scalar != nil:
-		return ah.doScalar(*a.Scalar)
+		return ah.doScalar(a.Scalar)
 	case a.List != nil:
-		return ah.doList(*a.List)
+		return ah.doList(a.List)
 	}
 
 	name := "inlined"
@@ -145,14 +145,14 @@ func handleAtom(a schema.Atom, tr schema.TypeRef, ah atomHandler) ValidationErro
 	return ah.errorf("schema error: invalid atom: %v", name)
 }
 
-func (ef errorFormatter) validateScalar(t schema.Scalar, v *value.Value, prefix string) (errs ValidationErrors) {
+func (ef errorFormatter) validateScalar(t *schema.Scalar, v *value.Value, prefix string) (errs ValidationErrors) {
 	if v == nil {
 		return nil
 	}
 	if v.Null {
 		return nil
 	}
-	switch t {
+	switch *t {
 	case schema.Numeric:
 		if v.FloatValue == nil && v.IntValue == nil {
 			// TODO: should the schema separate int and float?
@@ -195,7 +195,7 @@ func mapValue(val value.Value) (*value.Map, error) {
 	}
 }
 
-func keyedAssociativeListItemToPathElement(list schema.List, index int, child value.Value) (fieldpath.PathElement, error) {
+func keyedAssociativeListItemToPathElement(list *schema.List, index int, child value.Value) (fieldpath.PathElement, error) {
 	pe := fieldpath.PathElement{}
 	if child.Null {
 		// For now, the keys are required which means that null entries
@@ -221,7 +221,7 @@ func keyedAssociativeListItemToPathElement(list schema.List, index int, child va
 	return pe, nil
 }
 
-func setItemToPathElement(list schema.List, index int, child value.Value) (fieldpath.PathElement, error) {
+func setItemToPathElement(list *schema.List, index int, child value.Value) (fieldpath.PathElement, error) {
 	pe := fieldpath.PathElement{}
 	switch {
 	case child.MapValue != nil:
@@ -241,7 +241,7 @@ func setItemToPathElement(list schema.List, index int, child value.Value) (field
 	}
 }
 
-func listItemToPathElement(list schema.List, index int, child value.Value) (fieldpath.PathElement, error) {
+func listItemToPathElement(list *schema.List, index int, child value.Value) (fieldpath.PathElement, error) {
 	if list.ElementRelationship == schema.Associative {
 		if len(list.Keys) > 0 {
 			return keyedAssociativeListItemToPathElement(list, index, child)
