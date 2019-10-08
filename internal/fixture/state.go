@@ -23,6 +23,7 @@ import (
 	"sigs.k8s.io/structured-merge-diff/fieldpath"
 	"sigs.k8s.io/structured-merge-diff/merge"
 	"sigs.k8s.io/structured-merge-diff/typed"
+	"sigs.k8s.io/structured-merge-diff/value"
 )
 
 // State of the current test in terms of live object. One can check at
@@ -449,13 +450,13 @@ func (tc TestCase) TestWithConverter(parser typed.ParseableType, converter merge
 			return fmt.Errorf("failed to compare live with config: %v", err)
 		}
 		if !comparison.IsSame() {
-			return fmt.Errorf("expected live and config to be the same:\n%v", comparison)
+			return fmt.Errorf("expected live and config to be the same:\n%v\nConfig: %v\n", comparison, value.ToString(state.Live.AsValue()))
 		}
 	}
 
 	if tc.Managed != nil {
 		if diff := state.Managers.Difference(tc.Managed); len(diff) != 0 {
-			return fmt.Errorf("expected Managers to be %v, got %v", tc.Managed, state.Managers)
+			return fmt.Errorf("expected Managers to be:\n%v\ngot:\n%v", tc.Managed, state.Managers)
 		}
 	}
 

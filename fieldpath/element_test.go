@@ -62,9 +62,9 @@ func TestPathElementSet(t *testing.T) {
 	})
 }
 
-func strptr(s string) *string   { return &s }
-func intptr(i int) *int         { return &i }
-func valptr(i int) *value.Value { v := value.IntValue(i); return &v }
+func strptr(s string) *string           { return &s }
+func intptr(i int) *int                 { return &i }
+func valptr(i value.Value) *value.Value { return &i }
 
 func TestPathElementLess(t *testing.T) {
 	table := []struct {
@@ -91,7 +91,7 @@ func TestPathElementLess(t *testing.T) {
 		}, {
 			name: "FieldName-3",
 			a:    PathElement{FieldName: strptr("capybara")},
-			b:    PathElement{Key: &value.Map{Items: []value.Field{{Name: "dog", Value: value.IntValue(3)}}}},
+			b:    PathElement{Key: &[]KeyValue{{"dog", 3}}},
 		}, {
 			name: "FieldName-4",
 			a:    PathElement{FieldName: strptr("elephant")},
@@ -102,28 +102,28 @@ func TestPathElementLess(t *testing.T) {
 			b:    PathElement{Index: intptr(5)},
 		}, {
 			name: "Key-1",
-			a:    PathElement{Key: &value.Map{Items: []value.Field{{Name: "goat", Value: value.IntValue(1)}}}},
-			b:    PathElement{Key: &value.Map{Items: []value.Field{{Name: "goat", Value: value.IntValue(1)}}}},
+			a:    PathElement{Key: &[]KeyValue{{"goat", 1}}},
+			b:    PathElement{Key: &[]KeyValue{{"goat", 1}}},
 			eq:   true,
 		}, {
 			name: "Key-2",
-			a:    PathElement{Key: &value.Map{Items: []value.Field{{Name: "horse", Value: value.IntValue(1)}}}},
-			b:    PathElement{Key: &value.Map{Items: []value.Field{{Name: "horse", Value: value.IntValue(2)}}}},
+			a:    PathElement{Key: &[]KeyValue{{"horse", 1}}},
+			b:    PathElement{Key: &[]KeyValue{{"horse", 2}}},
 		}, {
 			name: "Key-3",
-			a:    PathElement{Key: &value.Map{Items: []value.Field{{Name: "ibex", Value: value.IntValue(1)}}}},
-			b:    PathElement{Key: &value.Map{Items: []value.Field{{Name: "jay", Value: value.IntValue(1)}}}},
+			a:    PathElement{Key: &[]KeyValue{{"ibex", 1}}},
+			b:    PathElement{Key: &[]KeyValue{{"jay", 1}}},
 		}, {
 			name: "Key-4",
-			a:    PathElement{Key: &value.Map{Items: []value.Field{{Name: "kite", Value: value.IntValue(1)}}}},
-			b:    PathElement{Key: &value.Map{Items: []value.Field{{Name: "kite", Value: value.IntValue(1)}, {Name: "kite-2", Value: value.IntValue(1)}}}},
+			a:    PathElement{Key: &[]KeyValue{{"kite", 1}}},
+			b:    PathElement{Key: &[]KeyValue{{"kite", 1}, {"kite-2", 2}}},
 		}, {
 			name: "Key-5",
-			a:    PathElement{Key: &value.Map{Items: []value.Field{{Name: "kite", Value: value.IntValue(1)}}}},
+			a:    PathElement{Key: &[]KeyValue{{"kite", 1}}},
 			b:    PathElement{Value: valptr(1)},
 		}, {
 			name: "Key-6",
-			a:    PathElement{Key: &value.Map{Items: []value.Field{{Name: "kite", Value: value.IntValue(1)}}}},
+			a:    PathElement{Key: &[]KeyValue{{"kite", 1}}},
 			b:    PathElement{Index: intptr(5)},
 		}, {
 			name: "Value-1",
@@ -156,15 +156,15 @@ func TestPathElementLess(t *testing.T) {
 			tt := table[i]
 			if tt.eq {
 				if tt.a.Less(tt.b) {
-					t.Errorf("oops, a < b: %#v, %#v", tt.a, tt.b)
+					t.Errorf("oops, a < b: %#v (%v), %#v (%v)", tt.a, tt.a, tt.b, tt.b)
 				}
 			} else {
 				if !tt.a.Less(tt.b) {
-					t.Errorf("oops, a >= b: %#v, %#v", tt.a, tt.b)
+					t.Errorf("oops, a >= b: %#v (%v), %#v (%v)", tt.a, tt.a, tt.b, tt.b)
 				}
 			}
 			if tt.b.Less(tt.b) {
-				t.Errorf("oops, b < a: %#v, %#v", tt.b, tt.a)
+				t.Errorf("oops, b < a: %#v (%v), %#v (%v)", tt.b, tt.b, tt.a, tt.a)
 			}
 		})
 	}

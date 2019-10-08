@@ -21,8 +21,6 @@ import (
 	"fmt"
 	"math/rand"
 	"testing"
-
-	"sigs.k8s.io/structured-merge-diff/value"
 )
 
 type randomPathAlphabet []PathElement
@@ -46,16 +44,16 @@ var randomPathMaker = randomPathAlphabet(MakePathOrDie(
 	"aad",
 	"aae",
 	"aaf",
-	KeyByFields("name", value.StringValue("first")),
-	KeyByFields("name", value.StringValue("second")),
-	KeyByFields("port", value.IntValue(443), "protocol", value.StringValue("tcp")),
-	KeyByFields("port", value.IntValue(443), "protocol", value.StringValue("udp")),
-	value.IntValue(1),
-	value.IntValue(2),
-	value.IntValue(3),
-	value.StringValue("aa"),
-	value.StringValue("ab"),
-	value.BooleanValue(true),
+	KeyByFields("name", "first"),
+	KeyByFields("name", "second"),
+	KeyByFields("port", 443, "protocol", "tcp"),
+	KeyByFields("port", 443, "protocol", "udp"),
+	_V(1),
+	_V(2),
+	_V(3),
+	_V("aa"),
+	_V("ab"),
+	_V(true),
 	1, 2, 3, 4,
 ))
 
@@ -143,16 +141,16 @@ func TestSetInsertHas(t *testing.T) {
 		MakePathOrDie("foo", 0),
 		MakePathOrDie("foo", 1, "bar", "baz"),
 		MakePathOrDie("foo", 1, "bar"),
-		MakePathOrDie("qux", KeyByFields("name", value.StringValue("first"))),
-		MakePathOrDie("qux", KeyByFields("name", value.StringValue("first")), "bar"),
-		MakePathOrDie("qux", KeyByFields("name", value.StringValue("second")), "bar"),
+		MakePathOrDie("qux", KeyByFields("name", "first")),
+		MakePathOrDie("qux", KeyByFields("name", "first"), "bar"),
+		MakePathOrDie("qux", KeyByFields("name", "second"), "bar"),
 		MakePathOrDie("canonicalOrder", KeyByFields(
-			"a", value.StringValue("a"),
-			"b", value.StringValue("a"),
-			"c", value.StringValue("a"),
-			"d", value.StringValue("a"),
-			"e", value.StringValue("a"),
-			"f", value.StringValue("a"),
+			"a", "a",
+			"b", "a",
+			"c", "a",
+			"d", "a",
+			"e", "a",
+			"f", "a",
 		)),
 	)
 
@@ -161,10 +159,10 @@ func TestSetInsertHas(t *testing.T) {
 		check            Path
 		expectMembership bool
 	}{
-		{s1, MakePathOrDie("qux", KeyByFields("name", value.StringValue("second"))), false},
-		{s1, MakePathOrDie("qux", KeyByFields("name", value.StringValue("second")), "bar"), true},
-		{s1, MakePathOrDie("qux", KeyByFields("name", value.StringValue("first"))), true},
-		{s1, MakePathOrDie("xuq", KeyByFields("name", value.StringValue("first"))), false},
+		{s1, MakePathOrDie("qux", KeyByFields("name", "second")), false},
+		{s1, MakePathOrDie("qux", KeyByFields("name", "second"), "bar"), true},
+		{s1, MakePathOrDie("qux", KeyByFields("name", "first")), true},
+		{s1, MakePathOrDie("xuq", KeyByFields("name", "first")), false},
 		{s1, MakePathOrDie("foo", 0), true},
 		{s1, MakePathOrDie("foo", 0, "bar"), true},
 		{s1, MakePathOrDie("foo", 0, "bar", "baz"), true},
@@ -172,14 +170,13 @@ func TestSetInsertHas(t *testing.T) {
 		{s1, MakePathOrDie("foo", 1, "bar"), true},
 		{s1, MakePathOrDie("foo", 1, "bar", "baz"), true},
 		{s1, MakePathOrDie("canonicalOrder", KeyByFields(
-			"f", value.StringValue("a"),
-			"e", value.StringValue("a"),
-			"d", value.StringValue("a"),
-			"c", value.StringValue("a"),
-			"b", value.StringValue("a"),
-			"a", value.StringValue("a"),
-		)), true},
-	}
+			"f", "a",
+			"e", "a",
+			"d", "a",
+			"c", "a",
+			"b", "a",
+			"a", "a",
+		)), true}}
 
 	for _, tt := range table {
 		got := tt.set.Has(tt.check)
@@ -197,7 +194,7 @@ func TestSetInsertHas(t *testing.T) {
 }
 
 func TestSetString(t *testing.T) {
-	p := MakePathOrDie("foo", PathElement{Key: &value.Map{Items: KeyByFields("name", value.StringValue("first"))}})
+	p := MakePathOrDie("foo", KeyByFields("name", "first"))
 	s1 := NewSet(p)
 
 	if p.String() != s1.String() {
@@ -213,9 +210,9 @@ func TestSetIterSize(t *testing.T) {
 		MakePathOrDie("foo", 0),
 		MakePathOrDie("foo", 1, "bar", "baz"),
 		MakePathOrDie("foo", 1, "bar"),
-		MakePathOrDie("qux", KeyByFields("name", value.StringValue("first"))),
-		MakePathOrDie("qux", KeyByFields("name", value.StringValue("first")), "bar"),
-		MakePathOrDie("qux", KeyByFields("name", value.StringValue("second")), "bar"),
+		MakePathOrDie("qux", KeyByFields("name", "first")),
+		MakePathOrDie("qux", KeyByFields("name", "first"), "bar"),
+		MakePathOrDie("qux", KeyByFields("name", "second"), "bar"),
 	)
 
 	s2 := NewSet()
@@ -296,13 +293,13 @@ func TestSetEquals(t *testing.T) {
 				MakePathOrDie("foo", 0),
 				MakePathOrDie("foo"),
 				MakePathOrDie("bar", "baz"),
-				MakePathOrDie("qux", KeyByFields("name", value.StringValue("first"))),
+				MakePathOrDie("qux", KeyByFields("name", "first")),
 			),
 			b: NewSet(
 				MakePathOrDie("foo", 1),
 				MakePathOrDie("bar", "baz"),
 				MakePathOrDie("bar"),
-				MakePathOrDie("qux", KeyByFields("name", value.StringValue("second"))),
+				MakePathOrDie("qux", KeyByFields("name", "second")),
 			),
 			equal: false,
 		},
@@ -324,7 +321,7 @@ func TestSetUnion(t *testing.T) {
 		MakePathOrDie("foo", 0),
 		MakePathOrDie("foo"),
 		MakePathOrDie("bar", "baz"),
-		MakePathOrDie("qux", KeyByFields("name", value.StringValue("first"))),
+		MakePathOrDie("qux", KeyByFields("name", "first")),
 		MakePathOrDie("parent", "child", "grandchild"),
 	)
 
@@ -332,7 +329,7 @@ func TestSetUnion(t *testing.T) {
 		MakePathOrDie("foo", 1),
 		MakePathOrDie("bar", "baz"),
 		MakePathOrDie("bar"),
-		MakePathOrDie("qux", KeyByFields("name", value.StringValue("second"))),
+		MakePathOrDie("qux", KeyByFields("name", "second")),
 		MakePathOrDie("parent", "child"),
 	)
 
@@ -342,8 +339,8 @@ func TestSetUnion(t *testing.T) {
 		MakePathOrDie("foo"),
 		MakePathOrDie("bar", "baz"),
 		MakePathOrDie("bar"),
-		MakePathOrDie("qux", KeyByFields("name", value.StringValue("first"))),
-		MakePathOrDie("qux", KeyByFields("name", value.StringValue("second"))),
+		MakePathOrDie("qux", KeyByFields("name", "first")),
+		MakePathOrDie("qux", KeyByFields("name", "second")),
 		MakePathOrDie("parent", "child"),
 		MakePathOrDie("parent", "child", "grandchild"),
 	)
@@ -360,7 +357,7 @@ func TestSetIntersectionDifference(t *testing.T) {
 	// test is recursive, we should be able to craft a single input that is
 	// sufficient to check all code paths.
 
-	nameFirst := KeyByFields("name", value.StringValue("first"))
+	nameFirst := KeyByFields("name", "first")
 	s1 := NewSet(
 		MakePathOrDie("a0"),
 		MakePathOrDie("a1"),
