@@ -62,8 +62,8 @@ type TypedValue struct {
 }
 
 // AsValue removes the type from the TypedValue and only keeps the value.
-func (tv TypedValue) AsValue() *value.Value {
-	return &tv.value
+func (tv TypedValue) AsValue() value.Value {
+	return tv.value
 }
 
 // Validate returns an error with a list of every spec violation.
@@ -122,7 +122,7 @@ func (tv TypedValue) Compare(rhs *TypedValue) (c *Comparison, err error) {
 			c.Added.Insert(w.path)
 		} else if w.rhs == nil {
 			c.Removed.Insert(w.path)
-		} else if !w.rhs.Equals(*w.lhs) {
+		} else if !value.Equals(*w.rhs, *w.lhs) {
 			// TODO: Equality is not sufficient for this.
 			// Need to implement equality check on the value type.
 			c.Modified.Insert(w.path)
@@ -143,7 +143,7 @@ func (tv TypedValue) Compare(rhs *TypedValue) (c *Comparison, err error) {
 
 // RemoveItems removes each provided list or map item from the value.
 func (tv TypedValue) RemoveItems(items *fieldpath.Set) *TypedValue {
-	tv.value, _ = value.FromUnstructured(tv.value.ToUnstructured(true))
+	tv.value = value.Copy(tv.value)
 	removeItemsWithSchema(&tv.value, items, tv.schema, tv.typeRef)
 	return &tv
 }
@@ -206,7 +206,7 @@ func (tv TypedValue) NormalizeUnionsApply(new *TypedValue) (*TypedValue, error) 
 }
 
 func (tv TypedValue) Empty() *TypedValue {
-	tv.value = value.Value{Null: true}
+	tv.value = nil
 	return &tv
 }
 
@@ -254,9 +254,7 @@ func merge(lhs, rhs *TypedValue, rule, postRule mergeRule) (*TypedValue, error) 
 		schema:  lhs.schema,
 		typeRef: lhs.typeRef,
 	}
-	if mw.out == nil {
-		out.value = value.Value{Null: true}
-	} else {
+	if mw.out != nil {
 		out.value = *mw.out
 	}
 	return out, nil
