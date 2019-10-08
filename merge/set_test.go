@@ -76,10 +76,10 @@ func TestUpdateSet(t *testing.T) {
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
 					_NS(
-						_P("list", _SV("a")),
-						_P("list", _SV("b")),
-						_P("list", _SV("c")),
-						_P("list", _SV("d")),
+						_P("list", _V("a")),
+						_P("list", _V("b")),
+						_P("list", _V("c")),
+						_P("list", _V("d")),
 					),
 					"v1",
 					false,
@@ -132,18 +132,18 @@ func TestUpdateSet(t *testing.T) {
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
 					_NS(
-						_P("list", _SV("a")),
-						_P("list", _SV("aprime")),
-						_P("list", _SV("c")),
-						_P("list", _SV("cprime")),
+						_P("list", _V("a")),
+						_P("list", _V("aprime")),
+						_P("list", _V("c")),
+						_P("list", _V("cprime")),
 					),
 					"v1",
 					false,
 				),
 				"controller": fieldpath.NewVersionedSet(
 					_NS(
-						_P("list", _SV("b")),
-						_P("list", _SV("d")),
+						_P("list", _V("b")),
+						_P("list", _V("d")),
 					),
 					"v1",
 					false,
@@ -196,18 +196,18 @@ func TestUpdateSet(t *testing.T) {
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
 					_NS(
-						_P("list", _SV("a")),
-						_P("list", _SV("aprime")),
-						_P("list", _SV("c")),
-						_P("list", _SV("cprime")),
+						_P("list", _V("a")),
+						_P("list", _V("aprime")),
+						_P("list", _V("c")),
+						_P("list", _V("cprime")),
 					),
 					"v1",
 					false,
 				),
 				"controller": fieldpath.NewVersionedSet(
 					_NS(
-						_P("list", _SV("b")),
-						_P("list", _SV("d")),
+						_P("list", _V("b")),
+						_P("list", _V("d")),
 					),
 					"v2",
 					false,
@@ -257,17 +257,17 @@ func TestUpdateSet(t *testing.T) {
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
 					_NS(
-						_P("list", _SV("a")),
-						_P("list", _SV("b")),
-						_P("list", _SV("c")),
+						_P("list", _V("a")),
+						_P("list", _V("b")),
+						_P("list", _V("c")),
 					),
 					"v1",
 					false,
 				),
 				"controller": fieldpath.NewVersionedSet(
 					_NS(
-						_P("list", _SV("b")),
-						_P("list", _SV("d")),
+						_P("list", _V("b")),
+						_P("list", _V("d")),
 					),
 					"v1",
 					false,
@@ -317,17 +317,17 @@ func TestUpdateSet(t *testing.T) {
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
 					_NS(
-						_P("list", _SV("a")),
-						_P("list", _SV("b")),
-						_P("list", _SV("c")),
+						_P("list", _V("a")),
+						_P("list", _V("b")),
+						_P("list", _V("c")),
 					),
 					"v1",
 					false,
 				),
 				"controller": fieldpath.NewVersionedSet(
 					_NS(
-						_P("list", _SV("b")),
-						_P("list", _SV("d")),
+						_P("list", _V("b")),
+						_P("list", _V("d")),
 					),
 					"v2",
 					false,
@@ -369,10 +369,10 @@ func TestUpdateSet(t *testing.T) {
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
 					_NS(
-						_P("list", _SV("a")),
-						_P("list", _SV("b")),
-						_P("list", _SV("c")),
-						_P("list", _SV("d")),
+						_P("list", _V("a")),
+						_P("list", _V("b")),
+						_P("list", _V("c")),
+						_P("list", _V("d")),
 					),
 					"v1",
 					false,
@@ -425,10 +425,10 @@ func TestUpdateSet(t *testing.T) {
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
 					_NS(
-						_P("list", _SV("a")),
-						_P("list", _SV("b")),
-						_P("list", _SV("c")),
-						_P("list", _SV("d")),
+						_P("list", _V("a")),
+						_P("list", _V("b")),
+						_P("list", _V("c")),
+						_P("list", _V("d")),
 					),
 					"v1",
 					false,
@@ -481,10 +481,10 @@ func TestUpdateSet(t *testing.T) {
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
 					_NS(
-						_P("list", _SV("a")),
-						_P("list", _SV("b")),
-						_P("list", _SV("c")),
-						_P("list", _SV("d")),
+						_P("list", _V("a")),
+						_P("list", _V("b")),
+						_P("list", _V("c")),
+						_P("list", _V("d")),
 					),
 					"v2",
 					false,
@@ -522,8 +522,8 @@ func TestUpdateSet(t *testing.T) {
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
 					_NS(
-						_P("list", _SV("a")),
-						_P("list", _SV("c")),
+						_P("list", _V("a")),
+						_P("list", _V("c")),
 					),
 					"v1",
 					false,
@@ -563,9 +563,9 @@ func TestUpdateSet(t *testing.T) {
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
 					_NS(
-						_P("list", _SV("a")),
-						_P("list", _SV("c")),
-						_P("list", _SV("e")),
+						_P("list", _V("a")),
+						_P("list", _V("c")),
+						_P("list", _V("e")),
 					),
 					"v2",
 					false,

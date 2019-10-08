@@ -83,13 +83,11 @@ func BenchmarkConvertUnstructured(b *testing.B) {
 		}
 
 		b.Run(lastPart(test.typename), func(b *testing.B) {
-			var u *typed.TypedValue
 			b.Run("From", func(b *testing.B) {
 				b.ReportAllocs()
 				b.ResetTimer()
 				for n := 0; n < b.N; n++ {
-					var err error
-					if u, err = pt.FromUnstructured(obj); err != nil {
+					if _, err := pt.FromUnstructured(obj); err != nil {
 						b.Fatal(err)
 					}
 				}
@@ -98,9 +96,9 @@ func BenchmarkConvertUnstructured(b *testing.B) {
 				b.ReportAllocs()
 				b.ResetTimer()
 
-				for n := 0; n < b.N; n++ {
-					_ = u.AsValue().ToUnstructured(false)
-				}
+				// This test only exists to show that
+				// this operation is now instantaneous
+				// since it's not needed anymore.
 			})
 		})
 	}

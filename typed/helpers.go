@@ -121,15 +121,15 @@ func resolveSchema(s *schema.Schema, tr schema.TypeRef, v *value.Value, ah atomH
 func deduceAtom(atom schema.Atom, val *value.Value) schema.Atom {
 	switch {
 	case val == nil:
-	case val.FloatValue != nil, val.IntValue != nil, val.StringValue != nil, val.BooleanValue != nil:
+	case value.IsFloat(*val), value.IsInt(*val), value.IsString(*val), value.IsBool(*val):
 		if atom.Scalar != nil {
 			return schema.Atom{Scalar: atom.Scalar}
 		}
-	case val.ListValue != nil:
+	case value.IsList(*val):
 		if atom.List != nil {
 			return schema.Atom{List: atom.List}
 		}
-	case val.MapValue != nil:
+	case value.IsMap(*val):
 		if atom.Map != nil {
 			return schema.Atom{Map: atom.Map}
 		}
@@ -159,73 +159,69 @@ func (ef errorFormatter) validateScalar(t *schema.Scalar, v *value.Value, prefix
 	if v == nil {
 		return nil
 	}
-	if v.Null {
+	if *v == nil {
 		return nil
 	}
 	switch *t {
 	case schema.Numeric:
-		if v.FloatValue == nil && v.IntValue == nil {
+		if !value.IsFloat(*v) && !value.IsInt(*v) {
 			// TODO: should the schema separate int and float?
-			return ef.errorf("%vexpected numeric (int or float), got %v", prefix, v)
+			return ef.errorf("%vexpected numeric (int or float), got %T", prefix, *v)
 		}
 	case schema.String:
-		if v.StringValue == nil {
-			return ef.errorf("%vexpected string, got %v", prefix, v)
+		if !value.IsString(*v) {
+			return ef.errorf("%vexpected string, got %#v", prefix, *v)
 		}
 	case schema.Boolean:
-		if v.BooleanValue == nil {
-			return ef.errorf("%vexpected boolean, got %v", prefix, v)
+		if !value.IsBool(*v) {
+			return ef.errorf("%vexpected boolean, got %v", prefix, *v)
 		}
 	}
 	return nil
 }
 
 // Returns the list, or an error. Reminder: nil is a valid list and might be returned.
-func listValue(val value.Value) (*value.List, error) {
-	switch {
-	case val.Null:
+func listValue(val value.Value) ([]interface{}, error) {
+	if val == nil {
 		// Null is a valid list.
 		return nil, nil
-	case val.ListValue != nil:
-		return val.ListValue, nil
-	default:
+	}
+	l, ok := val.([]interface{})
+	if !ok {
 		return nil, fmt.Errorf("expected list, got %v", val)
 	}
+	return l, nil
 }
 
 // Returns the map, or an error. Reminder: nil is a valid map and might be returned.
-func mapValue(val value.Value) (*value.Map, error) {
-	switch {
-	case val.Null:
+func mapValue(val value.Value) (map[string]interface{}, error) {
+	if val == nil {
+		// Null is a valid map.
 		return nil, nil
-	case val.MapValue != nil:
-		return val.MapValue, nil
-	default:
+	}
+	if !value.IsMap(val) {
 		return nil, fmt.Errorf("expected map, got %v", val)
 	}
+	return value.ValueMap(val), nil
 }
 
 func keyedAssociativeListItemToPathElement(list *schema.List, index int, child value.Value) (fieldpath.PathElement, error) {
 	pe := fieldpath.PathElement{}
-	if child.Null {
+	if child == nil {
 		// For now, the keys are required which means that null entries
 		// are illegal.
 		return pe, errors.New("associative list with keys may not have a null element")
 	}
-	if child.MapValue == nil {
+	if !value.IsMap(child) {
 		return pe, errors.New("associative list with keys may not have non-map elements")
 	}
 	keyMap := value.FieldList{}
 	for _, fieldName := range list.Keys {
-		var fieldValue value.Value
-		field, ok := child.MapValue.Get(fieldName)
-		if ok {
-			fieldValue = field.Value
+		if val, ok := value.ValueMap(child)[fieldName]; ok {
+			keyMap = append(keyMap, value.Field{Name: fieldName, Value: val})
 		} else {
-			// Treat keys as required.
 			return pe, fmt.Errorf("associative list with keys has an element that omits key field %q", fieldName)
 		}
-		keyMap = append(keyMap, value.Field{Name: fieldName, Value: fieldValue})
 	}
 	keyMap.Sort()
 	pe.Key = &keyMap
@@ -235,15 +231,15 @@ func keyedAssociativeListItemToPathElement(list *schema.List, index int, child v
 func setItemToPathElement(list *schema.List, index int, child value.Value) (fieldpath.PathElement, error) {
 	pe := fieldpath.PathElement{}
 	switch {
-	case child.MapValue != nil:
+	case value.IsMap(child):
 		// TODO: atomic maps should be acceptable.
 		return pe, errors.New("associative list without keys has an element that's a map type")
-	case child.ListValue != nil:
+	case value.IsList(child):
 		// Should we support a set of lists? For the moment
 		// let's say we don't.
 		// TODO: atomic lists should be acceptable.
 		return pe, errors.New("not supported: associative list with lists as elements")
-	case child.Null:
+	case child == nil:
 		return pe, errors.New("associative list without keys has an element that's an explicit null")
 	default:
 		// We are a set type.

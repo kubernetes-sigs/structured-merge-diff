@@ -18,10 +18,10 @@ package typed_test
 
 import (
 	"fmt"
-	"reflect"
 	"testing"
 
 	"sigs.k8s.io/structured-merge-diff/typed"
+	"sigs.k8s.io/structured-merge-diff/value"
 )
 
 func TestValidateDeducedType(t *testing.T) {
@@ -201,12 +201,9 @@ func TestMergeDeduced(t *testing.T) {
 			if err != nil {
 				t.Errorf("got validation errors: %v", err)
 			} else {
-				t.Logf("got:\v%v", got.AsValue())
-				gotUS := got.AsValue().ToUnstructured(true)
-				expectUS := out.AsValue().ToUnstructured(true)
-				if !reflect.DeepEqual(gotUS, expectUS) {
+				if !value.Equals(got.AsValue(), out.AsValue()) {
 					t.Errorf("Expected\n%v\nbut got\n%v\n",
-						out.AsValue(), got.AsValue(),
+						value.ToString(out.AsValue()), value.ToString(got.AsValue()),
 					)
 				}
 			}

@@ -17,76 +17,73 @@ limitations under the License.
 package value
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"sort"
 	"strings"
+
+	jsoniter "github.com/json-iterator/go"
 )
 
-// A Value is an object; it corresponds to an 'atom' in the schema.
-type Value struct {
-	// Exactly one of the below must be set.
-	FloatValue   *Float
-	IntValue     *Int
-	StringValue  *String
-	BooleanValue *Boolean
-	ListValue    *List
-	MapValue     *Map
-	Null         bool // represents an explicit `"foo" = null`
-}
+var (
+	readPool  = jsoniter.NewIterator(jsoniter.ConfigCompatibleWithStandardLibrary).Pool()
+	writePool = jsoniter.NewStream(jsoniter.ConfigCompatibleWithStandardLibrary, nil, 1024).Pool()
+)
 
 // Equals returns true iff the two values are equal.
-func (v Value) Equals(rhs Value) bool {
-	if v.FloatValue != nil || rhs.FloatValue != nil {
+func Equals(lhs, rhs Value) bool {
+	if IsFloat(lhs) || IsFloat(rhs) {
 		var lf float64
-		if v.FloatValue != nil {
-			lf = float64(*v.FloatValue)
-		} else if v.IntValue != nil {
-			lf = float64(*v.IntValue)
+		if IsFloat(lhs) {
+			lf = ValueFloat(lhs)
+		} else if IsInt(lhs) {
+			lf = float64(ValueInt(lhs))
 		} else {
 			return false
 		}
 		var rf float64
-		if rhs.FloatValue != nil {
-			rf = float64(*rhs.FloatValue)
-		} else if rhs.IntValue != nil {
-			rf = float64(*rhs.IntValue)
+		if IsFloat(rhs) {
+			rf = ValueFloat(rhs)
+		} else if IsInt(rhs) {
+			rf = float64(ValueInt(rhs))
 		} else {
 			return false
 		}
 		return lf == rf
 	}
-	if v.IntValue != nil {
-		if rhs.IntValue != nil {
-			return *v.IntValue == *rhs.IntValue
+	if IsInt(lhs) {
+		if IsInt(rhs) {
+			return ValueInt(lhs) == ValueInt(rhs)
 		}
 		return false
 	}
-	if v.StringValue != nil {
-		if rhs.StringValue != nil {
-			return *v.StringValue == *rhs.StringValue
+	if IsString(lhs) {
+		if IsString(rhs) {
+			return ValueString(lhs) == ValueString(rhs)
 		}
 		return false
 	}
-	if v.BooleanValue != nil {
-		if rhs.BooleanValue != nil {
-			return *v.BooleanValue == *rhs.BooleanValue
+	if IsBool(lhs) {
+		if IsBool(rhs) {
+			return ValueBool(lhs) == ValueBool(rhs)
 		}
 		return false
 	}
-	if v.ListValue != nil {
-		if rhs.ListValue != nil {
-			return v.ListValue.Equals(rhs.ListValue)
+	if IsList(lhs) {
+		if IsList(rhs) {
+			return ListEquals(ValueList(lhs), ValueList(rhs))
 		}
 		return false
 	}
-	if v.MapValue != nil {
-		if rhs.MapValue != nil {
-			return v.MapValue.Equals(rhs.MapValue)
+	if IsMap(lhs) {
+		if IsMap(rhs) {
+			return MapEquals(ValueMap(lhs), ValueMap(rhs))
 		}
 		return false
 	}
-	if v.Null {
-		if rhs.Null {
+	if IsNull(lhs) {
+		if IsNull(rhs) {
 			return true
 		}
 		return false
@@ -97,80 +94,80 @@ func (v Value) Equals(rhs Value) bool {
 
 // Less provides a total ordering for Value (so that they can be sorted, even
 // if they are of different types).
-func (v Value) Less(rhs Value) bool {
-	return v.Compare(rhs) == -1
+func Less(lhs, rhs Value) bool {
+	return Compare(lhs, rhs) == -1
 }
 
 // Compare provides a total ordering for Value (so that they can be
 // sorted, even if they are of different types). The result will be 0 if
 // v==rhs, -1 if v < rhs, and +1 if v > rhs.
-func (v Value) Compare(rhs Value) int {
-	if v.FloatValue != nil {
-		if rhs.FloatValue == nil {
+func Compare(lhs, rhs Value) int {
+	if IsFloat(lhs) {
+		if !IsFloat(rhs) {
 			// Extra: compare floats and ints numerically.
-			if rhs.IntValue != nil {
-				return v.FloatValue.Compare(Float(*rhs.IntValue))
+			if IsInt(rhs) {
+				return FloatCompare(ValueFloat(lhs), float64(ValueInt(rhs)))
 			}
 			return -1
 		}
-		return v.FloatValue.Compare(*rhs.FloatValue)
-	} else if rhs.FloatValue != nil {
+		return FloatCompare(ValueFloat(lhs), ValueFloat(rhs))
+	} else if IsFloat(rhs) {
 		// Extra: compare floats and ints numerically.
-		if v.IntValue != nil {
-			return Float(*v.IntValue).Compare(*rhs.FloatValue)
+		if IsInt(lhs) {
+			return FloatCompare(float64(ValueInt(lhs)), ValueFloat(rhs))
 		}
 		return 1
 	}
 
-	if v.IntValue != nil {
-		if rhs.IntValue == nil {
+	if IsInt(lhs) {
+		if !IsInt(rhs) {
 			return -1
 		}
-		return v.IntValue.Compare(*rhs.IntValue)
-	} else if rhs.IntValue != nil {
+		return IntCompare(ValueInt(lhs), ValueInt(rhs))
+	} else if IsInt(rhs) {
 		return 1
 	}
 
-	if v.StringValue != nil {
-		if rhs.StringValue == nil {
+	if IsString(lhs) {
+		if !IsString(rhs) {
 			return -1
 		}
-		return strings.Compare(string(*v.StringValue), string(*rhs.StringValue))
-	} else if rhs.StringValue != nil {
+		return strings.Compare(ValueString(lhs), ValueString(rhs))
+	} else if IsString(rhs) {
 		return 1
 	}
 
-	if v.BooleanValue != nil {
-		if rhs.BooleanValue == nil {
+	if IsBool(lhs) {
+		if !IsBool(rhs) {
 			return -1
 		}
-		return v.BooleanValue.Compare(*rhs.BooleanValue)
-	} else if rhs.BooleanValue != nil {
+		return BoolCompare(ValueBool(lhs), ValueBool(rhs))
+	} else if IsBool(rhs) {
 		return 1
 	}
 
-	if v.ListValue != nil {
-		if rhs.ListValue == nil {
+	if IsList(lhs) {
+		if !IsList(rhs) {
 			return -1
 		}
-		return v.ListValue.Compare(rhs.ListValue)
-	} else if rhs.ListValue != nil {
+		return ListCompare(ValueList(lhs), ValueList(rhs))
+	} else if IsList(rhs) {
 		return 1
 	}
-	if v.MapValue != nil {
-		if rhs.MapValue == nil {
+	if IsMap(lhs) {
+		if !IsMap(rhs) {
 			return -1
 		}
-		return v.MapValue.Compare(rhs.MapValue)
-	} else if rhs.MapValue != nil {
+		return MapCompare(ValueMap(lhs), ValueMap(rhs))
+	} else if IsMap(rhs) {
 		return 1
 	}
-	if v.Null {
-		if !rhs.Null {
+	if IsNull(lhs) {
+		if !IsNull(rhs) {
 			return -1
 		}
 		return 0
-	} else if rhs.Null {
+	} else if IsNull(rhs) {
 		return 1
 	}
 
@@ -178,28 +175,60 @@ func (v Value) Compare(rhs Value) int {
 	return 0
 }
 
-type Int int64
-type Float float64
-type String string
-type Boolean bool
+func FromJSON(input []byte) (Value, error) {
+	return FromJSONFast(input)
+}
 
-// Compare compares integers. The result will be 0 if i==rhs, -1 if i <
+func ToJSON(val Value) ([]byte, error) {
+	buf := bytes.Buffer{}
+	stream := writePool.BorrowStream(&buf)
+	defer writePool.ReturnStream(stream)
+	WriteJSONStream(val, stream)
+	b := stream.Buffer()
+	err := stream.Flush()
+	// Help jsoniter manage its buffers--without this, the next
+	// use of the stream is likely to require an allocation. Look
+	// at the jsoniter stream code to understand why. They were probably
+	// optimizing for folks using the buffer directly.
+	stream.SetBuffer(b[:0])
+	return buf.Bytes(), err
+}
+
+func FromJSONFast(input []byte) (Value, error) {
+	iter := readPool.BorrowIterator(input)
+	defer readPool.ReturnIterator(iter)
+	return ReadJSONIter(iter)
+}
+
+func ReadJSONIter(iter *jsoniter.Iterator) (Value, error) {
+	v := iter.Read()
+	if iter.Error != nil && iter.Error != io.EOF {
+		return nil, iter.Error
+	}
+	return v, nil
+}
+
+func WriteJSONStream(v Value, stream *jsoniter.Stream) {
+	stream.WriteVal(v)
+}
+
+// IntCompare compares integers. The result will be 0 if i==rhs, -1 if i <
 // rhs, and +1 if i > rhs.
-func (i Int) Compare(rhs Int) int {
-	if i > rhs {
+func IntCompare(lhs, rhs int64) int {
+	if lhs > rhs {
 		return 1
-	} else if i < rhs {
+	} else if lhs < rhs {
 		return -1
 	}
 	return 0
 }
 
-// Compare compares floats. The result will be 0 if f==rhs, -1 if f <
+// Compare compares floats. The result will be 0 if lhs==rhs, -1 if f <
 // rhs, and +1 if f > rhs.
-func (f Float) Compare(rhs Float) int {
-	if f > rhs {
+func FloatCompare(lhs, rhs float64) int {
+	if lhs > rhs {
 		return 1
-	} else if f < rhs {
+	} else if lhs < rhs {
 		return -1
 	}
 	return 0
@@ -207,10 +236,10 @@ func (f Float) Compare(rhs Float) int {
 
 // Compare compares booleans. The result will be 0 if b==rhs, -1 if b <
 // rhs, and +1 if b > rhs.
-func (b Boolean) Compare(rhs Boolean) int {
-	if b == rhs {
+func BoolCompare(lhs, rhs bool) int {
+	if lhs == rhs {
 		return 0
-	} else if b == false {
+	} else if lhs == false {
 		return -1
 	}
 	return 1
@@ -267,7 +296,7 @@ func (f FieldList) Compare(rhs FieldList) int {
 		if c := strings.Compare(f[i].Name, rhs[i].Name); c != 0 {
 			return c
 		}
-		if c := f[i].Value.Compare(rhs[i].Value); c != 0 {
+		if c := Compare(f[i].Value, rhs[i].Value); c != 0 {
 			return c
 		}
 		// The items are equal; continue.
@@ -275,19 +304,35 @@ func (f FieldList) Compare(rhs FieldList) int {
 	}
 }
 
-// List is a list of items.
-type List struct {
-	Items []Value
+type Value interface{}
+
+func Copy(v Value) Value {
+	if IsList(v) {
+		l := make([]interface{}, 0, len(ValueList(v)))
+		for _, item := range ValueList(v) {
+			l = append(l, Copy(item))
+		}
+		return l
+	}
+	if IsMap(v) {
+		m := make(map[string]interface{}, len(ValueMap(v)))
+		for key, item := range ValueMap(v) {
+			m[key] = Copy(item)
+		}
+		return m
+	}
+	// Scalars don't have to be copied
+	return v
 }
 
 // Equals compares two lists lexically.
-func (l *List) Equals(rhs *List) bool {
-	if len(l.Items) != len(rhs.Items) {
+func ListEquals(lhs, rhs []interface{}) bool {
+	if len(lhs) != len(rhs) {
 		return false
 	}
 
-	for i, lv := range l.Items {
-		if !lv.Equals(rhs.Items[i]) {
+	for i, lv := range lhs {
+		if !Equals(lv, rhs[i]) {
 			return false
 		}
 	}
@@ -295,28 +340,28 @@ func (l *List) Equals(rhs *List) bool {
 }
 
 // Less compares two lists lexically.
-func (l *List) Less(rhs *List) bool {
-	return l.Compare(rhs) == -1
+func ListLess(lhs, rhs []interface{}) bool {
+	return ListCompare(lhs, rhs) == -1
 }
 
 // Compare compares two lists lexically. The result will be 0 if l==rhs, -1
 // if l < rhs, and +1 if l > rhs.
-func (l *List) Compare(rhs *List) int {
+func ListCompare(lhs, rhs []interface{}) int {
 	i := 0
 	for {
-		if i >= len(l.Items) && i >= len(rhs.Items) {
+		if i >= len(lhs) && i >= len(rhs) {
 			// Lists are the same length and all items are equal.
 			return 0
 		}
-		if i >= len(l.Items) {
+		if i >= len(lhs) {
 			// LHS is shorter.
 			return -1
 		}
-		if i >= len(rhs.Items) {
+		if i >= len(rhs) {
 			// RHS is shorter.
 			return 1
 		}
-		if c := l.Items[i].Compare(rhs.Items[i]); c != 0 {
+		if c := Compare(lhs[i], rhs[i]); c != 0 {
 			return c
 		}
 		// The items are equal; continue.
@@ -324,45 +369,46 @@ func (l *List) Compare(rhs *List) int {
 	}
 }
 
-// Map is a map of key-value pairs. It represents both structs and maps. We use
-// a list and a go-language map to preserve order.
-//
-// Set and Get helpers are provided.
-type Map struct {
-	Items []Field
-
-	// may be nil; lazily constructed.
-	// TODO: Direct modifications to Items above will cause serious problems.
-	index map[string]int
-	// may be empty; lazily constructed.
-	// TODO: Direct modifications to Items above will cause serious problems.
-	order []int
-}
-
-func (m *Map) computeOrder() []int {
-	if len(m.order) != len(m.Items) {
-		m.order = make([]int, len(m.Items))
-		for i := range m.order {
-			m.order[i] = i
-		}
-		sort.SliceStable(m.order, func(i, j int) bool {
-			return m.Items[m.order[i]].Name < m.Items[m.order[j]].Name
-		})
+func ToString(v Value) string {
+	if v == nil {
+		return "null"
 	}
-	return m.order
+	switch {
+	case IsFloat(v):
+		return fmt.Sprintf("%v", ValueFloat(v))
+	case IsInt(v):
+		return fmt.Sprintf("%v", ValueInt(v))
+	case IsString(v):
+		return fmt.Sprintf("%q", ValueString(v))
+	case IsBool(v):
+		return fmt.Sprintf("%v", ValueBool(v))
+	case IsList(v):
+		strs := []string{}
+		for _, item := range ValueList(v) {
+			strs = append(strs, ToString(item))
+		}
+		return "[" + strings.Join(strs, ",") + "]"
+	case IsMap(v):
+		strs := []string{}
+		for k, v := range ValueMap(v) {
+			strs = append(strs, fmt.Sprintf("%v=%v", k, ToString(v)))
+		}
+		return "{" + strings.Join(strs, ";") + "}"
+	}
+	return fmt.Sprintf("{{undefined(%#v)}}", v)
 }
 
 // Equals compares two maps lexically.
-func (m *Map) Equals(rhs *Map) bool {
-	if len(m.Items) != len(rhs.Items) {
+func MapEquals(lhs, rhs map[string]interface{}) bool {
+	if len(lhs) != len(rhs) {
 		return false
 	}
-	for _, lfield := range m.Items {
-		rfield, ok := rhs.Get(lfield.Name)
+	for k, vl := range lhs {
+		vr, ok := rhs[k]
 		if !ok {
 			return false
 		}
-		if !lfield.Value.Equals(rfield.Value) {
+		if !Equals(vl, vr) {
 			return false
 		}
 	}
@@ -370,60 +416,30 @@ func (m *Map) Equals(rhs *Map) bool {
 }
 
 // Less compares two maps lexically.
-func (m *Map) Less(rhs *Map) bool {
-	return m.Compare(rhs) == -1
+func MapLess(lhs, rhs map[string]interface{}) bool {
+	return Compare(lhs, rhs) == -1
 }
 
 // Compare compares two maps lexically.
-func (m *Map) Compare(rhs *Map) int {
-	var noAllocL, noAllocR [2]int
-	var morder, rorder []int
-
-	// For very short maps (<2 elements) this permits us to avoid
-	// allocating the order array. We could make this accomodate larger
-	// maps, but 2 items should be enough to cover most path element
-	// comparisons, and at some point there will be diminishing returns.
-	// This has a large effect on the path element deserialization test,
-	// because everything is sorted / compared, but only once.
-	switch len(m.Items) {
-	case 0:
-		morder = noAllocL[0:0]
-	case 1:
-		morder = noAllocL[0:1]
-	case 2:
-		morder = noAllocL[0:2]
-		if m.Items[0].Name > m.Items[1].Name {
-			morder[0] = 1
-		} else {
-			morder[1] = 1
-		}
-	default:
-		morder = m.computeOrder()
+func MapCompare(lhs, rhs map[string]interface{}) int {
+	lorder := make([]string, 0, len(lhs))
+	for key := range lhs {
+		lorder = append(lorder, key)
 	}
-
-	switch len(rhs.Items) {
-	case 0:
-		rorder = noAllocR[0:0]
-	case 1:
-		rorder = noAllocR[0:1]
-	case 2:
-		rorder = noAllocR[0:2]
-		if rhs.Items[0].Name > rhs.Items[1].Name {
-			rorder[0] = 1
-		} else {
-			rorder[1] = 1
-		}
-	default:
-		rorder = rhs.computeOrder()
+	sort.Strings(lorder)
+	rorder := make([]string, 0, len(rhs))
+	for key := range rhs {
+		rorder = append(rorder, key)
 	}
+	sort.Strings(rorder)
 
 	i := 0
 	for {
-		if i >= len(morder) && i >= len(rorder) {
+		if i >= len(lorder) && i >= len(rorder) {
 			// Maps are the same length and all items are equal.
 			return 0
 		}
-		if i >= len(morder) {
+		if i >= len(lorder) {
 			// LHS is shorter.
 			return -1
 		}
@@ -431,11 +447,10 @@ func (m *Map) Compare(rhs *Map) int {
 			// RHS is shorter.
 			return 1
 		}
-		fa, fb := &m.Items[morder[i]], &rhs.Items[rorder[i]]
-		if c := strings.Compare(fa.Name, fb.Name); c != 0 {
+		if c := strings.Compare(lorder[i], rorder[i]); c != 0 {
 			return c
 		}
-		if c := fa.Value.Compare(fb.Value); c != 0 {
+		if c := Compare(lhs[lorder[i]], rhs[lorder[i]]); c != 0 {
 			return c
 		}
 		// The items are equal; continue.
@@ -443,96 +458,118 @@ func (m *Map) Compare(rhs *Map) int {
 	}
 }
 
-// Get returns the (Field, true) or (nil, false) if it is not present
-func (m *Map) Get(key string) (*Field, bool) {
-	if m.index == nil {
-		m.index = map[string]int{}
-		for i := range m.Items {
-			m.index[m.Items[i].Name] = i
+func IsMap(v Value) bool {
+	if _, ok := v.(map[string]interface{}); ok {
+		return true
+	} else if _, ok := v.(map[interface{}]interface{}); ok {
+		return true
+	}
+	return false
+}
+
+func ValueMap(v Value) map[string]interface{} {
+	if v == nil {
+		return map[string]interface{}{}
+	}
+	switch t := v.(type) {
+	case map[string]interface{}:
+		return t
+	case map[interface{}]interface{}:
+		m := make(map[string]interface{}, len(t))
+		for key, value := range t {
+			if ks, ok := key.(string); ok {
+				m[ks] = value
+			}
 		}
+		return m
 	}
-	f, ok := m.index[key]
-	if !ok {
-		return nil, false
+	panic(fmt.Errorf("not a map: %#v", v))
+}
+
+func IsList(v Value) bool {
+	if v == nil {
+		return false
 	}
-	return &m.Items[f], true
+	_, ok := v.([]interface{})
+	return ok
 }
 
-// Set inserts or updates the given item.
-func (m *Map) Set(key string, value Value) {
-	if f, ok := m.Get(key); ok {
-		f.Value = value
-		return
+func ValueList(v Value) []interface{} {
+	return v.([]interface{})
+}
+
+func IsFloat(v Value) bool {
+	if v == nil {
+		return false
+	} else if _, ok := v.(float64); ok {
+		return true
+	} else if _, ok := v.(float32); ok {
+		return true
 	}
-	m.Items = append(m.Items, Field{Name: key, Value: value})
-	i := len(m.Items) - 1
-	m.index[key] = i
-	m.order = nil
+	return false
 }
 
-// Delete removes the key from the set.
-func (m *Map) Delete(key string) {
-	items := []Field{}
-	for i := range m.Items {
-		if m.Items[i].Name != key {
-			items = append(items, m.Items[i])
-		}
+func ValueFloat(v Value) float64 {
+	if f, ok := v.(float32); ok {
+		return float64(f)
 	}
-	m.Items = items
-	m.index = nil // Since the list has changed
-	m.order = nil
+	return v.(float64)
 }
 
-// StringValue returns s as a scalar string Value.
-func StringValue(s string) Value {
-	s2 := String(s)
-	return Value{StringValue: &s2}
-}
-
-// IntValue returns i as a scalar numeric (integer) Value.
-func IntValue(i int) Value {
-	i2 := Int(i)
-	return Value{IntValue: &i2}
-}
-
-// FloatValue returns f as a scalar numeric (float) Value.
-func FloatValue(f float64) Value {
-	f2 := Float(f)
-	return Value{FloatValue: &f2}
-}
-
-// BooleanValue returns b as a scalar boolean Value.
-func BooleanValue(b bool) Value {
-	b2 := Boolean(b)
-	return Value{BooleanValue: &b2}
-}
-
-// String returns a human-readable representation of the value.
-func (v Value) String() string {
-	switch {
-	case v.FloatValue != nil:
-		return fmt.Sprintf("%v", *v.FloatValue)
-	case v.IntValue != nil:
-		return fmt.Sprintf("%v", *v.IntValue)
-	case v.StringValue != nil:
-		return fmt.Sprintf("%q", *v.StringValue)
-	case v.BooleanValue != nil:
-		return fmt.Sprintf("%v", *v.BooleanValue)
-	case v.ListValue != nil:
-		strs := []string{}
-		for _, item := range v.ListValue.Items {
-			strs = append(strs, item.String())
-		}
-		return "[" + strings.Join(strs, ",") + "]"
-	case v.MapValue != nil:
-		strs := []string{}
-		for _, i := range v.MapValue.Items {
-			strs = append(strs, fmt.Sprintf("%v=%v", i.Name, i.Value))
-		}
-		return "{" + strings.Join(strs, ";") + "}"
-	default:
-		fallthrough
-	case v.Null == true:
-		return "null"
+func IsInt(v Value) bool {
+	if v == nil {
+		return false
+	} else if _, ok := v.(int); ok {
+		return true
+	} else if _, ok := v.(int8); ok {
+		return true
+	} else if _, ok := v.(int16); ok {
+		return true
+	} else if _, ok := v.(int32); ok {
+		return true
+	} else if _, ok := v.(int64); ok {
+		return true
 	}
+	return false
+}
+
+func ValueInt(v Value) int64 {
+	if i, ok := v.(int); ok {
+		return int64(i)
+	} else if i, ok := v.(int8); ok {
+		return int64(i)
+	} else if i, ok := v.(int16); ok {
+		return int64(i)
+	} else if i, ok := v.(int32); ok {
+		return int64(i)
+	}
+	return v.(int64)
+}
+
+func IsString(v Value) bool {
+	if v == nil {
+		return false
+	}
+	_, ok := v.(string)
+	return ok
+}
+
+func ValueString(v Value) string {
+	return v.(string)
+}
+
+func IsBool(v Value) bool {
+	if v == nil {
+		return false
+	}
+	_, ok := v.(bool)
+	return ok
+}
+
+func ValueBool(v Value) bool {
+	return v.(bool)
+}
+
+func IsNull(v Value) bool {
+	return v == nil
 }

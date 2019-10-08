@@ -44,7 +44,7 @@ func TestPathElementRoundTrip(t *testing.T) {
 			}
 			output, err := SerializePathElement(pe)
 			if err != nil {
-				t.Fatalf("Failed to create string from path element: %v", err)
+				t.Fatalf("Failed to create string from path element (%#v): %v", pe, err)
 			}
 			if test != output {
 				t.Fatalf("Expected round-trip:\ninput: %v\noutput: %v", test, output)

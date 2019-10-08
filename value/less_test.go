@@ -29,265 +29,191 @@ func TestValueLess(t *testing.T) {
 		eq   bool
 	}{
 		{
-			name: "Invalid-1",
-			a:    Value{},
-			b:    Value{},
-			eq:   true,
-		}, {
-			name: "Invalid-2",
-			a:    FloatValue(1),
-			b:    Value{},
-		}, {
-			name: "Invalid-3",
-			a:    IntValue(1),
-			b:    Value{},
-		}, {
-			name: "Invalid-4",
-			a:    StringValue("aoeu"),
-			b:    Value{},
-		}, {
-			name: "Invalid-5",
-			a:    BooleanValue(true),
-			b:    Value{},
-		}, {
-			name: "Invalid-6",
-			a:    Value{ListValue: &List{}},
-			b:    Value{},
-		}, {
-			name: "Invalid-7",
-			a:    Value{MapValue: &Map{}},
-			b:    Value{},
-		}, {
-			name: "Invalid-8",
-			a:    Value{Null: true},
-			b:    Value{},
-		}, {
 			name: "Float-1",
-			a:    FloatValue(1.14),
-			b:    FloatValue(3.14),
+			a:    1.14,
+			b:    3.14,
 		}, {
 			name: "Float-2",
-			a:    FloatValue(1),
-			b:    FloatValue(1),
+			a:    1.,
+			b:    1.,
 			eq:   true,
 		}, {
 			name: "Float-3",
-			a:    FloatValue(1),
-			b:    IntValue(1),
+			a:    1.,
+			b:    1,
 			eq:   true,
 		}, {
 			name: "Float-4",
-			a:    FloatValue(1),
-			b:    IntValue(2),
+			a:    1.,
+			b:    2,
 		}, {
 			name: "Float-5",
-			a:    FloatValue(1),
-			b:    StringValue("aoeu"),
+			a:    1.,
+			b:    "aoeu",
 		}, {
 			name: "Float-6",
-			a:    FloatValue(1),
-			b:    BooleanValue(true),
+			a:    1.,
+			b:    true,
 		}, {
 			name: "Float-7",
-			a:    FloatValue(1),
-			b:    Value{ListValue: &List{}},
+			a:    1.,
+			b:    []interface{}{},
 		}, {
 			name: "Float-8",
-			a:    FloatValue(1),
-			b:    Value{MapValue: &Map{}},
+			a:    1.,
+			b:    map[string]interface{}{},
 		}, {
 			name: "Float-9",
-			a:    FloatValue(1),
-			b:    Value{Null: true},
+			a:    1.,
+			b:    nil,
 		}, {
 			name: "Int-1",
-			a:    IntValue(1),
-			b:    IntValue(2),
+			a:    1,
+			b:    2,
 		}, {
 			name: "Int-2",
-			a:    IntValue(1),
-			b:    IntValue(1),
+			a:    1,
+			b:    1,
 			eq:   true,
 		}, {
 			name: "Int-3",
-			a:    IntValue(1),
-			b:    FloatValue(1),
+			a:    1,
+			b:    1.,
 			eq:   true,
 		}, {
 			name: "Int-4",
-			a:    IntValue(1),
-			b:    FloatValue(2),
+			a:    1,
+			b:    2.,
 		}, {
 			name: "Int-5",
-			a:    IntValue(1),
-			b:    StringValue("aoeu"),
+			a:    1,
+			b:    "aoeu",
 		}, {
 			name: "Int-6",
-			a:    IntValue(1),
-			b:    BooleanValue(true),
+			a:    1,
+			b:    true,
 		}, {
 			name: "Int-7",
-			a:    IntValue(1),
-			b:    Value{ListValue: &List{}},
+			a:    1,
+			b:    []interface{}{},
 		}, {
 			name: "Int-8",
-			a:    IntValue(1),
-			b:    Value{MapValue: &Map{}},
+			a:    1,
+			b:    map[string]interface{}{},
 		}, {
 			name: "Int-9",
-			a:    IntValue(1),
-			b:    Value{Null: true},
+			a:    1,
+			b:    nil,
 		}, {
 			name: "String-1",
-			a:    StringValue("b-12"),
-			b:    StringValue("b-9"),
+			a:    "b-12",
+			b:    "b-9",
 		}, {
 			name: "String-2",
-			a:    StringValue("folate"),
-			b:    StringValue("folate"),
+			a:    "folate",
+			b:    "folate",
 			eq:   true,
 		}, {
 			name: "String-3",
-			a:    StringValue("folate"),
-			b:    BooleanValue(true),
+			a:    "folate",
+			b:    true,
 		}, {
 			name: "String-4",
-			a:    StringValue("folate"),
-			b:    Value{ListValue: &List{}},
+			a:    "folate",
+			b:    []interface{}{},
 		}, {
 			name: "String-5",
-			a:    StringValue("folate"),
-			b:    Value{MapValue: &Map{}},
+			a:    "folate",
+			b:    map[string]interface{}{},
 		}, {
 			name: "String-6",
-			a:    StringValue("folate"),
-			b:    Value{Null: true},
+			a:    "folate",
+			b:    nil,
 		}, {
 			name: "Bool-1",
-			a:    BooleanValue(false),
-			b:    BooleanValue(true),
+			a:    false,
+			b:    true,
 		}, {
 			name: "Bool-2",
-			a:    BooleanValue(false),
-			b:    BooleanValue(false),
+			a:    false,
+			b:    false,
 			eq:   true,
 		}, {
 			name: "Bool-3",
-			a:    BooleanValue(true),
-			b:    BooleanValue(true),
+			a:    true,
+			b:    true,
 			eq:   true,
 		}, {
 			name: "Bool-4",
-			a:    BooleanValue(false),
-			b:    Value{ListValue: &List{}},
+			a:    false,
+			b:    []interface{}{},
 		}, {
 			name: "Bool-5",
-			a:    BooleanValue(false),
-			b:    Value{MapValue: &Map{}},
+			a:    false,
+			b:    map[string]interface{}{},
 		}, {
 			name: "Bool-6",
-			a:    BooleanValue(false),
-			b:    Value{Null: true},
+			a:    false,
+			b:    nil,
 		}, {
 			name: "List-1",
-			a:    Value{ListValue: &List{}},
-			b:    Value{ListValue: &List{}},
+			a:    []interface{}{},
+			b:    []interface{}{},
 			eq:   true,
 		}, {
 			name: "List-2",
-			a:    Value{ListValue: &List{Items: []Value{IntValue(1)}}},
-			b:    Value{ListValue: &List{Items: []Value{IntValue(1)}}},
+			a:    []interface{}{1},
+			b:    []interface{}{1},
 			eq:   true,
 		}, {
 			name: "List-3",
-			a:    Value{ListValue: &List{Items: []Value{IntValue(1)}}},
-			b:    Value{ListValue: &List{Items: []Value{IntValue(2)}}},
+			a:    []interface{}{1},
+			b:    []interface{}{2},
 		}, {
 			name: "List-4",
-			a:    Value{ListValue: &List{Items: []Value{IntValue(1)}}},
-			b:    Value{ListValue: &List{Items: []Value{IntValue(1), IntValue(1)}}},
+			a:    []interface{}{1},
+			b:    []interface{}{1, 1},
 		}, {
 			name: "List-5",
-			a:    Value{ListValue: &List{Items: []Value{IntValue(1), IntValue(1)}}},
-			b:    Value{ListValue: &List{Items: []Value{IntValue(2)}}},
+			a:    []interface{}{1, 1},
+			b:    []interface{}{2},
 		}, {
 			name: "List-6",
-			a:    Value{ListValue: &List{}},
-			b:    Value{MapValue: &Map{}},
+			a:    []interface{}{},
+			b:    map[string]interface{}{},
 		}, {
 			name: "List-7",
-			a:    Value{ListValue: &List{}},
-			b:    Value{Null: true},
+			a:    []interface{}{},
+			b:    nil,
 		}, {
 			name: "Map-1",
-			a:    Value{MapValue: &Map{}},
-			b:    Value{MapValue: &Map{}},
+			a:    map[string]interface{}{"carotine": 1},
+			b:    map[string]interface{}{"carotine": 1},
 			eq:   true,
 		}, {
 			name: "Map-2",
-			a:    Value{MapValue: &Map{Items: []Field{{Name: "carotine", Value: IntValue(1)}}}},
-			b:    Value{MapValue: &Map{Items: []Field{{Name: "carotine", Value: IntValue(1)}}}},
-			eq:   true,
+			a:    map[string]interface{}{"carotine": 1},
+			b:    map[string]interface{}{"carotine": 2},
 		}, {
 			name: "Map-3",
-			a:    Value{MapValue: &Map{Items: []Field{{Name: "carotine", Value: IntValue(1)}}}},
-			b:    Value{MapValue: &Map{Items: []Field{{Name: "carotine", Value: IntValue(2)}}}},
+			a:    map[string]interface{}{"carotine": 1},
+			b:    map[string]interface{}{"ethanol": 1},
 		}, {
 			name: "Map-4",
-			a:    Value{MapValue: &Map{Items: []Field{{Name: "carotine", Value: IntValue(1)}}}},
-			b:    Value{MapValue: &Map{Items: []Field{{Name: "ethanol", Value: IntValue(1)}}}},
+			a:    map[string]interface{}{"carotine": 1},
+			b:    map[string]interface{}{"ethanol": 1, "carotine": 2},
 		}, {
 			name: "Map-5",
-			a: Value{MapValue: &Map{Items: []Field{
-				{Name: "carotine", Value: IntValue(1)},
-				{Name: "ethanol", Value: IntValue(1)},
-			}}},
-			b: Value{MapValue: &Map{Items: []Field{
-				{Name: "ethanol", Value: IntValue(1)},
-				{Name: "carotine", Value: IntValue(1)},
-			}}},
-			eq: true,
+			a:    map[string]interface{}{"carotine": 1},
+			b:    map[string]interface{}{"carotine": 1, "ethanol": 1},
 		}, {
 			name: "Map-6",
-			a: Value{MapValue: &Map{Items: []Field{
-				{Name: "carotine", Value: IntValue(1)},
-				{Name: "ethanol", Value: IntValue(1)},
-			}}},
-			b: Value{MapValue: &Map{Items: []Field{
-				{Name: "ethanol", Value: IntValue(1)},
-				{Name: "carotine", Value: IntValue(2)},
-			}}},
+			a:    map[string]interface{}{"carotine": 1, "ethanol": 1},
+			b:    map[string]interface{}{"carotine": 2},
 		}, {
 			name: "Map-7",
-			a: Value{MapValue: &Map{Items: []Field{
-				{Name: "carotine", Value: IntValue(1)},
-			}}},
-			b: Value{MapValue: &Map{Items: []Field{
-				{Name: "ethanol", Value: IntValue(1)},
-				{Name: "carotine", Value: IntValue(2)},
-			}}},
-		}, {
-			name: "Map-8",
-			a: Value{MapValue: &Map{Items: []Field{
-				{Name: "carotine", Value: IntValue(1)},
-			}}},
-			b: Value{MapValue: &Map{Items: []Field{
-				{Name: "ethanol", Value: IntValue(1)},
-				{Name: "carotine", Value: IntValue(1)},
-			}}},
-		}, {
-			name: "Map-9",
-			a: Value{MapValue: &Map{Items: []Field{
-				{Name: "carotine", Value: IntValue(1)},
-				{Name: "ethanol", Value: IntValue(1)},
-			}}},
-			b: Value{MapValue: &Map{Items: []Field{
-				{Name: "carotine", Value: IntValue(2)},
-			}}},
-		}, {
-			name: "Map-8",
-			a:    Value{MapValue: &Map{}},
-			b:    Value{Null: true},
+			a:    map[string]interface{}{},
+			b:    nil,
 		},
 	}
 
@@ -296,30 +222,30 @@ func TestValueLess(t *testing.T) {
 		t.Run(table[i].name, func(t *testing.T) {
 			tt := table[i]
 			if tt.eq {
-				if !tt.a.Equals(tt.b) {
+				if !Equals(tt.a, tt.b) {
 					t.Errorf("oops, a != b: %#v, %#v", tt.a, tt.b)
 				}
-				if tt.a.Less(tt.b) {
+				if Less(tt.a, tt.b) {
 					t.Errorf("oops, a < b: %#v, %#v", tt.a, tt.b)
 				}
 			} else {
-				if !tt.a.Less(tt.b) {
+				if !Less(tt.a, tt.b) {
 					t.Errorf("oops, a >= b: %#v, %#v", tt.a, tt.b)
 				}
 			}
-			if tt.b.Less(tt.a) {
+			if Less(tt.b, tt.a) {
 				t.Errorf("oops, b < a: %#v, %#v", tt.b, tt.a)
 			}
 
 			if tt.eq {
-				if tt.a.Compare(tt.b) != 0 || tt.b.Compare(tt.b) != 0 {
-					t.Errorf("oops, a != b: %#v, %#v", tt.a, tt.b)
+				if Compare(tt.a, tt.b) != 0 || Compare(tt.b, tt.a) != 0 {
+					t.Errorf("oops, a is not equal b: %#v, %#v", tt.a, tt.b)
 				}
 			} else {
-				if !(tt.a.Compare(tt.b) < 0) {
+				if !(Compare(tt.a, tt.b) < 0) {
 					t.Errorf("oops, a is not less than b: %#v, %#v", tt.a, tt.b)
 				}
-				if !(tt.b.Compare(tt.a) > 0) {
+				if !(Compare(tt.b, tt.a) > 0) {
 					t.Errorf("oops, b is not more than a: %#v, %#v", tt.a, tt.b)
 				}
 			}
