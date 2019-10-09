@@ -174,7 +174,3 @@ func (v *tosetObjectWalker) doMap(t *schema.Map) (errs ValidationErrors) {
 
 	return errs
 }
-
-func (v *tosetObjectWalker) errorf(string, ...interface{}) ValidationErrors {
-	return nil
-}

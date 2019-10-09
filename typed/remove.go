@@ -110,5 +110,3 @@ func (w *removingWalker) doMap(t *schema.Map) ValidationErrors {
 	}
 	return nil
 }
-
-func (*removingWalker) errorf(_ string, _ ...interface{}) ValidationErrors { return nil }
