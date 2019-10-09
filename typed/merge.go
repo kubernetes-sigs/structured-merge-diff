@@ -25,11 +25,13 @@ import (
 )
 
 type mergingWalker struct {
-	errorFormatter
 	lhs     *value.Value
 	rhs     *value.Value
 	schema  *schema.Schema
 	typeRef schema.TypeRef
+
+	// Current path that we are merging
+	path fieldpath.Path
 
 	// How to merge. Called after schema validation for all leaf fields.
 	rule mergeRule
@@ -69,11 +71,11 @@ var (
 func (w *mergingWalker) merge() (errs ValidationErrors) {
 	if w.lhs == nil && w.rhs == nil {
 		// check this condidition here instead of everywhere below.
-		return w.errorf("at least one of lhs and rhs must be provided")
+		return errorf("at least one of lhs and rhs must be provided")
 	}
 	a, ok := w.schema.Resolve(w.typeRef)
 	if !ok {
-		return w.errorf("schema error: no type found matching: %v", *w.typeRef.NamedType)
+		return errorf("schema error: no type found matching: %v", *w.typeRef.NamedType)
 	}
 
 	alhs := deduceAtom(a, w.lhs)
@@ -107,8 +109,8 @@ func (w *mergingWalker) doLeaf() {
 }
 
 func (w *mergingWalker) doScalar(t *schema.Scalar) (errs ValidationErrors) {
-	errs = append(errs, w.validateScalar(t, w.lhs, "lhs: ")...)
-	errs = append(errs, w.validateScalar(t, w.rhs, "rhs: ")...)
+	errs = append(errs, validateScalar(t, w.lhs, "lhs: ")...)
+	errs = append(errs, validateScalar(t, w.rhs, "rhs: ")...)
 	if len(errs) > 0 {
 		return errs
 	}
@@ -132,7 +134,7 @@ func (w *mergingWalker) prepareDescent(pe fieldpath.PathElement, tr schema.TypeR
 	}
 	*w2 = *w
 	w2.typeRef = tr
-	w2.errorFormatter.descend(pe)
+	w2.path = append(w2.path, pe)
 	w2.lhs = nil
 	w2.rhs = nil
 	w2.out = nil
@@ -142,7 +144,7 @@ func (w *mergingWalker) prepareDescent(pe fieldpath.PathElement, tr schema.TypeR
 func (w *mergingWalker) finishDescent(w2 *mergingWalker) {
 	// if the descent caused a realloc, ensure that we reuse the buffer
 	// for the next sibling.
-	w.errorFormatter = w2.errorFormatter.parent()
+	w.path = w2.path[:len(w2.path)-1]
 	*w.spareWalkers = append(*w.spareWalkers, w2)
 }
 
@@ -154,7 +156,7 @@ func (w *mergingWalker) derefMap(prefix string, v *value.Value, dest *value.Map)
 	}
 	m, err := mapValue(*v)
 	if err != nil {
-		return w.prefixError(prefix, err)
+		return errorf("%v: %v", prefix, err)
 	}
 	*dest = m
 	return nil
@@ -174,14 +176,14 @@ func (w *mergingWalker) visitListItems(t *schema.List, lhs, rhs []interface{}) (
 	for i, child := range rhs {
 		pe, err := listItemToPathElement(t, i, child)
 		if err != nil {
-			errs = append(errs, w.errorf("rhs: element %v: %v", i, err.Error())...)
+			errs = append(errs, errorf("rhs: element %v: %v", i, err.Error())...)
 			// If we can't construct the path element, we can't
 			// even report errors deeper in the schema, so bail on
 			// this element.
 			continue
 		}
 		if _, ok := observedRHS.Get(pe); ok {
-			errs = append(errs, w.errorf("rhs: duplicate entries for key %v", pe.String())...)
+			errs = append(errs, errorf("rhs: duplicate entries for key %v", pe.String())...)
 		}
 		observedRHS.Insert(pe, child)
 		rhsOrder = append(rhsOrder, pe)
@@ -192,14 +194,14 @@ func (w *mergingWalker) visitListItems(t *schema.List, lhs, rhs []interface{}) (
 	for i, child := range lhs {
 		pe, err := listItemToPathElement(t, i, child)
 		if err != nil {
-			errs = append(errs, w.errorf("lhs: element %v: %v", i, err.Error())...)
+			errs = append(errs, errorf("lhs: element %v: %v", i, err.Error())...)
 			// If we can't construct the path element, we can't
 			// even report errors deeper in the schema, so bail on
 			// this element.
 			continue
 		}
 		if observedLHS.Has(pe) {
-			errs = append(errs, w.errorf("lhs: duplicate entries for key %v", pe.String())...)
+			errs = append(errs, errorf("lhs: duplicate entries for key %v", pe.String())...)
 			continue
 		}
 		observedLHS.Insert(pe)
@@ -210,7 +212,7 @@ func (w *mergingWalker) visitListItems(t *schema.List, lhs, rhs []interface{}) (
 			w2.rhs = &rchild
 		}
 		if newErrs := w2.merge(); len(newErrs) > 0 {
-			errs = append(errs, newErrs...)
+			errs = append(errs, newErrs.WithPrefix(pe.String())...)
 		} else if w2.out != nil {
 			out = append(out, *w2.out)
 		}
@@ -225,7 +227,7 @@ func (w *mergingWalker) visitListItems(t *schema.List, lhs, rhs []interface{}) (
 		w2 := w.prepareDescent(pe, t.ElementType)
 		w2.rhs = &value
 		if newErrs := w2.merge(); len(newErrs) > 0 {
-			errs = append(errs, newErrs...)
+			errs = append(errs, newErrs.WithPrefix(pe.String())...)
 		} else if w2.out != nil {
 			out = append(out, *w2.out)
 		}
@@ -248,7 +250,7 @@ func (w *mergingWalker) derefList(prefix string, v *value.Value, dest *[]interfa
 	}
 	l, err := listValue(*v)
 	if err != nil {
-		return w.prefixError(prefix, err)
+		return errorf("%v: %v", prefix, err)
 	}
 	*dest = l
 	return nil
@@ -283,11 +285,12 @@ func (w *mergingWalker) visitMapItem(t *schema.Map, out map[string]interface{}, 
 	if sf, ok := t.FindField(key); ok {
 		fieldType = sf.Type
 	}
-	w2 := w.prepareDescent(fieldpath.PathElement{FieldName: &key}, fieldType)
+	pe := fieldpath.PathElement{FieldName: &key}
+	w2 := w.prepareDescent(pe, fieldType)
 	w2.lhs = lhs
 	w2.rhs = rhs
 	if newErrs := w2.merge(); len(newErrs) > 0 {
-		errs = append(errs, newErrs...)
+		errs = append(errs, newErrs.WithPrefix(pe.String())...)
 	} else if w2.out != nil {
 		out[key] = *w2.out
 	}

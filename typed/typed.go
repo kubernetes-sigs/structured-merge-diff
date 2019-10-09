@@ -163,7 +163,7 @@ func (tv TypedValue) NormalizeUnions(new *TypedValue) (*TypedValue, error) {
 			w.out = &v
 		}
 		if err := normalizeUnions(w); err != nil {
-			errs = append(errs, w.error(err)...)
+			errs = append(errs, errorf(err.Error())...)
 		}
 	}
 	out, mergeErrs := merge(&tv, new, func(w *mergingWalker) {}, normalizeFn)
@@ -189,7 +189,7 @@ func (tv TypedValue) NormalizeUnionsApply(new *TypedValue) (*TypedValue, error) 
 			w.out = &v
 		}
 		if err := normalizeUnionsApply(w); err != nil {
-			errs = append(errs, w.error(err)...)
+			errs = append(errs, errorf(err.Error())...)
 		}
 	}
 	out, mergeErrs := merge(&tv, new, func(w *mergingWalker) {}, normalizeFn)
@@ -213,12 +213,10 @@ var mwPool = sync.Pool{
 
 func merge(lhs, rhs *TypedValue, rule, postRule mergeRule) (*TypedValue, error) {
 	if lhs.schema != rhs.schema {
-		return nil, errorFormatter{}.
-			errorf("expected objects with types from the same schema")
+		return nil, errorf("expected objects with types from the same schema")
 	}
 	if !lhs.typeRef.Equals(rhs.typeRef) {
-		return nil, errorFormatter{}.
-			errorf("expected objects of the same type, but got %v and %v", lhs.typeRef, rhs.typeRef)
+		return nil, errorf("expected objects of the same type, but got %v and %v", lhs.typeRef, rhs.typeRef)
 	}
 
 	mw := mwPool.Get().(*mergingWalker)
