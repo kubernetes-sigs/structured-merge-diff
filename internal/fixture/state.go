@@ -71,7 +71,7 @@ func FixTabsOrDie(in typed.YAMLObject) typed.YAMLObject {
 
 func (s *State) checkInit() error {
 	if s.Live == nil {
-		obj, err := s.Parser.FromYAML("{}")
+		obj, err := s.Parser.FromUnstructured(nil)
 		if err != nil {
 			return fmt.Errorf("failed to create new empty object: %v", err)
 		}
