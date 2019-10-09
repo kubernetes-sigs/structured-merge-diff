@@ -28,7 +28,7 @@ import (
 
 // ValidationError reports an error about a particular field
 type ValidationError struct {
-	Path         fieldpath.Path
+	Path         string
 	ErrorMessage string
 }
 
@@ -56,43 +56,26 @@ func (errs ValidationErrors) Error() string {
 	return strings.Join(messages, "\n")
 }
 
-// errorFormatter makes it easy to keep a list of validation errors. They
-// should all be packed into a single error object before leaving the package
-// boundary, since it's weird to have functions not return a plain error type.
-type errorFormatter struct {
-	path fieldpath.Path
-}
-
-func (ef *errorFormatter) descend(pe fieldpath.PathElement) {
-	ef.path = append(ef.path, pe)
-}
-
-// parent returns the parent, for the purpose of buffer reuse. It's an error to
-// call this if there is no parent.
-func (ef *errorFormatter) parent() errorFormatter {
-	return errorFormatter{
-		path: ef.path[:len(ef.path)-1],
+// Set the given path to all the validation errors.
+func (errs ValidationErrors) WithPath(p string) ValidationErrors {
+	for i := range errs {
+		errs[i].Path = p
 	}
+	return errs
 }
 
-func (ef errorFormatter) errorf(format string, args ...interface{}) ValidationErrors {
+// Prefix all errors path with the given pathelement. This is useful
+// when unwinding the stack on errors.
+func (errs ValidationErrors) WithPrefix(prefix string) ValidationErrors {
+	for i := range errs {
+		errs[i].Path = prefix + errs[i].Path
+	}
+	return errs
+}
+
+func errorf(format string, args ...interface{}) ValidationErrors {
 	return ValidationErrors{{
-		Path:         append(fieldpath.Path{}, ef.path...),
 		ErrorMessage: fmt.Sprintf(format, args...),
-	}}
-}
-
-func (ef errorFormatter) error(err error) ValidationErrors {
-	return ValidationErrors{{
-		Path:         append(fieldpath.Path{}, ef.path...),
-		ErrorMessage: err.Error(),
-	}}
-}
-
-func (ef errorFormatter) prefixError(prefix string, err error) ValidationErrors {
-	return ValidationErrors{{
-		Path:         append(fieldpath.Path{}, ef.path...),
-		ErrorMessage: prefix + err.Error(),
 	}}
 }
 
@@ -100,14 +83,12 @@ type atomHandler interface {
 	doScalar(*schema.Scalar) ValidationErrors
 	doList(*schema.List) ValidationErrors
 	doMap(*schema.Map) ValidationErrors
-
-	errorf(msg string, args ...interface{}) ValidationErrors
 }
 
 func resolveSchema(s *schema.Schema, tr schema.TypeRef, v *value.Value, ah atomHandler) ValidationErrors {
 	a, ok := s.Resolve(tr)
 	if !ok {
-		return ah.errorf("schema error: no type found matching: %v", *tr.NamedType)
+		return errorf("schema error: no type found matching: %v", *tr.NamedType)
 	}
 
 	a = deduceAtom(a, v)
@@ -152,32 +133,7 @@ func handleAtom(a schema.Atom, tr schema.TypeRef, ah atomHandler) ValidationErro
 		name = "named type: " + *tr.NamedType
 	}
 
-	return ah.errorf("schema error: invalid atom: %v", name)
-}
-
-func (ef errorFormatter) validateScalar(t *schema.Scalar, v *value.Value, prefix string) (errs ValidationErrors) {
-	if v == nil {
-		return nil
-	}
-	if *v == nil {
-		return nil
-	}
-	switch *t {
-	case schema.Numeric:
-		if !value.IsFloat(*v) && !value.IsInt(*v) {
-			// TODO: should the schema separate int and float?
-			return ef.errorf("%vexpected numeric (int or float), got %T", prefix, *v)
-		}
-	case schema.String:
-		if !value.IsString(*v) {
-			return ef.errorf("%vexpected string, got %#v", prefix, *v)
-		}
-	case schema.Boolean:
-		if !value.IsBool(*v) {
-			return ef.errorf("%vexpected boolean, got %v", prefix, *v)
-		}
-	}
-	return nil
+	return errorf("schema error: invalid atom: %v", name)
 }
 
 // Returns the list, or an error. Reminder: nil is a valid list and might be returned.

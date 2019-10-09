@@ -158,7 +158,3 @@ func (v *toFieldSetWalker) doMap(t *schema.Map) (errs ValidationErrors) {
 
 	return errs
 }
-
-func (v *toFieldSetWalker) errorf(string, ...interface{}) ValidationErrors {
-	return nil
-}
