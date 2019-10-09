@@ -79,15 +79,12 @@ func (tv TypedValue) Validate() error {
 // ToFieldSet creates a set containing every leaf field and item mentioned, or
 // validation errors, if any were encountered.
 func (tv TypedValue) ToFieldSet() (*fieldpath.Set, error) {
-	s := fieldpath.NewSet()
-	w := tv.walker()
+	w := tv.toFieldSetWalker()
 	defer w.finished()
-	w.leafFieldCallback = func(p fieldpath.Path) { s.Insert(p) }
-	w.nodeFieldCallback = func(p fieldpath.Path) { s.Insert(p) }
-	if errs := w.validate(); len(errs) != 0 {
+	if errs := w.toFieldSet(); len(errs) != 0 {
 		return nil, errs
 	}
-	return s, nil
+	return w.set, nil
 }
 
 // Merge returns the result of merging tv and pso ("partially specified
