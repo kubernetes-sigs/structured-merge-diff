@@ -143,6 +143,12 @@ type PathElementSet struct {
 	members sortedPathElements
 }
 
+func MakePathElementSet(size int) PathElementSet {
+	return PathElementSet{
+		members: make(sortedPathElements, 0, size),
+	}
+}
+
 type sortedPathElements []PathElement
 
 // Implement the sort interface; this would permit bulk creation, which would

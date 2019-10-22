@@ -168,8 +168,9 @@ func (w *mergingWalker) visitListItems(t *schema.List, lhs, rhs *value.List) (er
 	rhsOrder := []fieldpath.PathElement{}
 
 	// First, collect all RHS children.
-	observedRHS := map[string]value.Value{}
+	var observedRHS fieldpath.PathElementValueMap
 	if rhs != nil {
+		observedRHS = fieldpath.MakePathElementValueMap(len(rhs.Items))
 		for i, child := range rhs.Items {
 			pe, err := listItemToPathElement(t, i, child)
 			if err != nil {
@@ -179,18 +180,18 @@ func (w *mergingWalker) visitListItems(t *schema.List, lhs, rhs *value.List) (er
 				// this element.
 				continue
 			}
-			keyStr := pe.String()
-			if _, found := observedRHS[keyStr]; found {
-				errs = append(errs, w.errorf("rhs: duplicate entries for key %v", keyStr)...)
+			if _, ok := observedRHS.Get(pe); ok {
+				errs = append(errs, w.errorf("rhs: duplicate entries for key %v", pe.String())...)
 			}
-			observedRHS[keyStr] = child
+			observedRHS.Insert(pe, child)
 			rhsOrder = append(rhsOrder, pe)
 		}
 	}
 
 	// Then merge with LHS children.
-	observedLHS := map[string]struct{}{}
+	var observedLHS fieldpath.PathElementSet
 	if lhs != nil {
+		observedLHS = fieldpath.MakePathElementSet(len(lhs.Items))
 		for i, child := range lhs.Items {
 			pe, err := listItemToPathElement(t, i, child)
 			if err != nil {
@@ -200,15 +201,14 @@ func (w *mergingWalker) visitListItems(t *schema.List, lhs, rhs *value.List) (er
 				// this element.
 				continue
 			}
-			keyStr := pe.String()
-			if _, found := observedLHS[keyStr]; found {
-				errs = append(errs, w.errorf("lhs: duplicate entries for key %v", keyStr)...)
+			if observedLHS.Has(pe) {
+				errs = append(errs, w.errorf("lhs: duplicate entries for key %v", pe.String())...)
 				continue
 			}
-			observedLHS[keyStr] = struct{}{}
+			observedLHS.Insert(pe)
 			w2 := w.prepareDescent(pe, t.ElementType)
 			w2.lhs = &child
-			if rchild, ok := observedRHS[keyStr]; ok {
+			if rchild, ok := observedRHS.Get(pe); ok {
 				w2.rhs = &rchild
 			}
 			if newErrs := w2.merge(); len(newErrs) > 0 {
@@ -217,22 +217,22 @@ func (w *mergingWalker) visitListItems(t *schema.List, lhs, rhs *value.List) (er
 				out.Items = append(out.Items, *w2.out)
 			}
 			w.finishDescent(w2)
-			// Keep track of children that have been handled
-			delete(observedRHS, keyStr)
 		}
 	}
 
-	for _, rhsToCheck := range rhsOrder {
-		if unmergedChild, ok := observedRHS[rhsToCheck.String()]; ok {
-			w2 := w.prepareDescent(rhsToCheck, t.ElementType)
-			w2.rhs = &unmergedChild
-			if newErrs := w2.merge(); len(newErrs) > 0 {
-				errs = append(errs, newErrs...)
-			} else if w2.out != nil {
-				out.Items = append(out.Items, *w2.out)
-			}
-			w.finishDescent(w2)
+	for _, pe := range rhsOrder {
+		if observedLHS.Has(pe) {
+			continue
 		}
+		value, _ := observedRHS.Get(pe)
+		w2 := w.prepareDescent(pe, t.ElementType)
+		w2.rhs = &value
+		if newErrs := w2.merge(); len(newErrs) > 0 {
+			errs = append(errs, newErrs...)
+		} else if w2.out != nil {
+			out.Items = append(out.Items, *w2.out)
+		}
+		w.finishDescent(w2)
 	}
 
 	if len(out.Items) > 0 {
