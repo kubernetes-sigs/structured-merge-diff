@@ -129,6 +129,59 @@ type Field struct {
 	Value Value
 }
 
+// FieldList is a list of key-value pairs. Each field is expected to
+// have a different name.
+type FieldList []Field
+
+// Sort sorts the field list by Name.
+func (f FieldList) Sort() {
+	if len(f) < 2 {
+		return
+	}
+	if len(f) == 2 {
+		if f[1].Name < f[0].Name {
+			f[0], f[1] = f[1], f[0]
+		}
+		return
+	}
+	sort.SliceStable(f, func(i, j int) bool {
+		return f[i].Name < f[j].Name
+	})
+}
+
+// Less compares two lists lexically.
+func (f FieldList) Less(rhs FieldList) bool {
+	i := 0
+	for {
+		if i >= len(f) && i >= len(rhs) {
+			// Maps are the same length and all items are equal.
+			return false
+		}
+		if i >= len(f) {
+			// F is shorter.
+			return true
+		}
+		if i >= len(rhs) {
+			// RHS is shorter.
+			return false
+		}
+		if f[i].Name != rhs[i].Name {
+			// the map having the field name that sorts lexically less is "less"
+			return f[i].Name < rhs[i].Name
+		}
+		if f[i].Value.Less(rhs[i].Value) {
+			// F is less; return
+			return true
+		}
+		if rhs[i].Value.Less(f[i].Value) {
+			// RHS is less; return
+			return false
+		}
+		// The items are equal; continue.
+		i++
+	}
+}
+
 // List is a list of items.
 type List struct {
 	Items []Value
