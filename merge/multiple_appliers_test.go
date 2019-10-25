@@ -985,7 +985,7 @@ func (r repeatingConverter) Convert(v *typed.TypedValue, version fieldpath.APIVe
 	if err != nil {
 		return nil, missingVersionError
 	}
-	y, err := yaml.Marshal(v.AsValue())
+	y, err := yaml.Marshal(v.AsValue().Interface())
 	if err != nil {
 		return nil, err
 	}

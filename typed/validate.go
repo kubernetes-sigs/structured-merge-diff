@@ -81,21 +81,21 @@ func validateScalar(t *schema.Scalar, v *value.Value, prefix string) (errs Valid
 	if v == nil {
 		return nil
 	}
-	if *v == nil {
+	if (*v).IsNull() {
 		return nil
 	}
 	switch *t {
 	case schema.Numeric:
-		if !value.IsFloat(*v) && !value.IsInt(*v) {
+		if !(*v).IsFloat() && !(*v).IsInt() {
 			// TODO: should the schema separate int and float?
 			return errorf("%vexpected numeric (int or float), got %T", prefix, *v)
 		}
 	case schema.String:
-		if !value.IsString(*v) {
+		if !(*v).IsString() {
 			return errorf("%vexpected string, got %#v", prefix, *v)
 		}
 	case schema.Boolean:
-		if !value.IsBool(*v) {
+		if !(*v).IsBool() {
 			return errorf("%vexpected boolean, got %v", prefix, *v)
 		}
 	}
@@ -109,9 +109,10 @@ func (v *validatingObjectWalker) doScalar(t *schema.Scalar) ValidationErrors {
 	return nil
 }
 
-func (v *validatingObjectWalker) visitListItems(t *schema.List, list []interface{}) (errs ValidationErrors) {
-	observedKeys := fieldpath.MakePathElementSet(len(list))
-	for i, child := range list {
+func (v *validatingObjectWalker) visitListItems(t *schema.List, list value.List) (errs ValidationErrors) {
+	observedKeys := fieldpath.MakePathElementSet(list.Length())
+	for i := 0; i < list.Length(); i++ {
+		child := list.At(i)
 		var pe fieldpath.PathElement
 		if t.ElementRelationship != schema.Associative {
 			pe.Index = &i
@@ -123,7 +124,7 @@ func (v *validatingObjectWalker) visitListItems(t *schema.List, list []interface
 				// If we can't construct the path element, we can't
 				// even report errors deeper in the schema, so bail on
 				// this element.
-				continue
+				return
 			}
 			if observedKeys.Has(pe) {
 				errs = append(errs, errorf("duplicate entries for key %v", pe.String())...)

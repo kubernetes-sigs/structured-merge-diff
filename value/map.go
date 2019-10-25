@@ -17,7 +17,6 @@ limitations under the License.
 package value
 
 import (
-	"fmt"
 	"sort"
 	"strings"
 )
@@ -33,7 +32,7 @@ type Map interface {
 
 // Less compares two maps lexically.
 func MapLess(lhs, rhs Map) bool {
-	return Compare(lhs, rhs) == -1
+	return MapCompare(lhs, rhs) == -1
 }
 
 // Compare compares two maps lexically.
@@ -78,38 +77,17 @@ func MapCompare(lhs, rhs Map) int {
 	}
 }
 
-func IsMap(v Value) bool {
-	if _, ok := v.(map[string]interface{}); ok {
-		return true
-	} else if _, ok := v.(map[interface{}]interface{}); ok {
-		return true
-	}
-	return false
-}
-func ValueMap(v Value) Map {
-	if v == nil {
-		return MapString(map[string]interface{}{})
-	}
-	switch t := v.(type) {
-	case map[string]interface{}:
-		return MapString(t)
-	case map[interface{}]interface{}:
-		return MapInterface(t)
-	}
-	panic(fmt.Errorf("not a map: %#v", v))
-}
-
 type MapInterface map[interface{}]interface{}
 
 func (m MapInterface) Set(key string, val Value) {
-	m[key] = val
+	m[key] = val.Interface()
 }
 
 func (m MapInterface) Get(key string) (Value, bool) {
 	if v, ok := m[key]; !ok {
 		return nil, false
 	} else {
-		return v, true
+		return ValueInterface{Value: v}, true
 	}
 }
 
@@ -122,7 +100,7 @@ func (m MapInterface) Iterate(fn func(key string, value Value) bool) bool {
 		if ks, ok := k.(string); !ok {
 			continue
 		} else {
-			if !fn(ks, v) {
+			if !fn(ks, ValueInterface{Value: v}) {
 				return false
 			}
 		}
@@ -144,7 +122,7 @@ func (m MapInterface) Equals(other Map) bool {
 		if !ok {
 			return false
 		}
-		if !Equals(v, vo) {
+		if !Equals(ValueInterface{Value: v}, vo) {
 			return false
 		}
 	}
@@ -154,14 +132,14 @@ func (m MapInterface) Equals(other Map) bool {
 type MapString map[string]interface{}
 
 func (m MapString) Set(key string, val Value) {
-	m[key] = val
+	m[key] = val.Interface()
 }
 
 func (m MapString) Get(key string) (Value, bool) {
 	if v, ok := m[key]; !ok {
 		return nil, false
 	} else {
-		return v, true
+		return ValueInterface{Value: v}, true
 	}
 }
 
@@ -171,7 +149,7 @@ func (m MapString) Delete(key string) {
 
 func (m MapString) Iterate(fn func(key string, value Value) bool) bool {
 	for k, v := range m {
-		if !fn(k, v) {
+		if !fn(k, ValueInterface{v}) {
 			return false
 		}
 	}
@@ -188,7 +166,7 @@ func (m MapString) Equals(other Map) bool {
 		if !ok {
 			return false
 		}
-		if !Equals(v, vo) {
+		if !Equals(ValueInterface{Value: v}, vo) {
 			return false
 		}
 	}

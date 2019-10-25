@@ -25,7 +25,7 @@ func TestValueLess(t *testing.T) {
 		name string
 		// we expect a < b and !(b < a) unless eq is true, in which
 		// case we expect less to return false in both orders.
-		a, b Value
+		a, b interface{}
 		eq   bool
 	}{
 		{
@@ -221,31 +221,32 @@ func TestValueLess(t *testing.T) {
 		i := i
 		t.Run(table[i].name, func(t *testing.T) {
 			tt := table[i]
+			a, b := ValueInterface{Value: tt.a}, ValueInterface{Value: tt.b}
 			if tt.eq {
-				if !Equals(tt.a, tt.b) {
+				if !Equals(a, b) {
 					t.Errorf("oops, a != b: %#v, %#v", tt.a, tt.b)
 				}
-				if Less(tt.a, tt.b) {
+				if Less(a, b) {
 					t.Errorf("oops, a < b: %#v, %#v", tt.a, tt.b)
 				}
 			} else {
-				if !Less(tt.a, tt.b) {
+				if !Less(a, b) {
 					t.Errorf("oops, a >= b: %#v, %#v", tt.a, tt.b)
 				}
 			}
-			if Less(tt.b, tt.a) {
+			if Less(b, a) {
 				t.Errorf("oops, b < a: %#v, %#v", tt.b, tt.a)
 			}
 
 			if tt.eq {
-				if Compare(tt.a, tt.b) != 0 || Compare(tt.b, tt.a) != 0 {
+				if Compare(a, b) != 0 || Compare(b, a) != 0 {
 					t.Errorf("oops, a is not equal b: %#v, %#v", tt.a, tt.b)
 				}
 			} else {
-				if !(Compare(tt.a, tt.b) < 0) {
+				if !(Compare(a, b) < 0) {
 					t.Errorf("oops, a is not less than b: %#v, %#v", tt.a, tt.b)
 				}
-				if !(Compare(tt.b, tt.a) > 0) {
+				if !(Compare(b, a) > 0) {
 					t.Errorf("oops, b is not more than a: %#v, %#v", tt.a, tt.b)
 				}
 			}

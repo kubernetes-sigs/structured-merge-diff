@@ -30,23 +30,197 @@ var (
 	writePool = jsoniter.NewStream(jsoniter.ConfigCompatibleWithStandardLibrary, nil, 1024).Pool()
 )
 
-type Value interface{}
+func FromJSON(input []byte) (Value, error) {
+	return FromJSONFast(input)
+}
 
-func Copy(v Value) Value {
-	if IsList(v) {
-		l := make([]interface{}, 0, len(ValueList(v)))
-		for _, item := range ValueList(v) {
-			l = append(l, Copy(item))
-		}
-		return l
+func FromJSONFast(input []byte) (Value, error) {
+	iter := readPool.BorrowIterator(input)
+	defer readPool.ReturnIterator(iter)
+	return ReadJSONIter(iter)
+}
+
+func ToJSON(v Value) ([]byte, error) {
+	buf := bytes.Buffer{}
+	stream := writePool.BorrowStream(&buf)
+	defer writePool.ReturnStream(stream)
+	WriteJSONStream(v, stream)
+	b := stream.Buffer()
+	err := stream.Flush()
+	// Help jsoniter manage its buffers--without this, the next
+	// use of the stream is likely to require an allocation. Look
+	// at the jsoniter stream code to understand why. They were probably
+	// optimizing for folks using the buffer directly.
+	stream.SetBuffer(b[:0])
+	return buf.Bytes(), err
+}
+
+func ReadJSONIter(iter *jsoniter.Iterator) (Value, error) {
+	v := iter.Read()
+	if iter.Error != nil && iter.Error != io.EOF {
+		return nil, iter.Error
 	}
-	if IsMap(v) {
-		m := make(map[string]interface{}, ValueMap(v).Length())
-		ValueMap(v).Iterate(func(key string, value Value) bool {
-			m[key] = Copy(value)
+	return ValueInterface{Value: v}, nil
+}
+
+func WriteJSONStream(v Value, stream *jsoniter.Stream) {
+	stream.WriteVal(v.Interface())
+}
+
+type Value interface {
+	IsMap() bool
+	IsList() bool
+	IsBool() bool
+	IsInt() bool
+	IsFloat() bool
+	IsString() bool
+	IsNull() bool
+
+	Map() Map
+	List() List
+	Bool() bool
+	Int() int64
+	Float() float64
+	String() string
+
+	Copy() Value
+	Interface() interface{}
+}
+
+type ValueInterface struct {
+	Value interface{}
+}
+
+func (v ValueInterface) IsMap() bool {
+	if _, ok := v.Value.(map[string]interface{}); ok {
+		return true
+	}
+	if _, ok := v.Value.(map[interface{}]interface{}); ok {
+		return true
+	}
+	return false
+}
+
+func (v ValueInterface) Map() Map {
+	if v.Value == nil {
+		return MapString(nil)
+	}
+	switch t := v.Value.(type) {
+	case map[string]interface{}:
+		return MapString(t)
+	case map[interface{}]interface{}:
+		return MapInterface(t)
+	}
+	panic(fmt.Errorf("not a map: %#v", v))
+}
+
+func (v ValueInterface) IsList() bool {
+	if v.Value == nil {
+		return false
+	}
+	_, ok := v.Value.([]interface{})
+	return ok
+}
+
+func (v ValueInterface) List() List {
+	return ListInterface(v.Value.([]interface{}))
+}
+
+func (v ValueInterface) IsFloat() bool {
+	if v.Value == nil {
+		return false
+	} else if _, ok := v.Value.(float64); ok {
+		return true
+	} else if _, ok := v.Value.(float32); ok {
+		return true
+	}
+	return false
+}
+
+func (v ValueInterface) Float() float64 {
+	if f, ok := v.Value.(float32); ok {
+		return float64(f)
+	}
+	return v.Value.(float64)
+}
+
+func (v ValueInterface) IsInt() bool {
+	if v.Value == nil {
+		return false
+	} else if _, ok := v.Value.(int); ok {
+		return true
+	} else if _, ok := v.Value.(int8); ok {
+		return true
+	} else if _, ok := v.Value.(int16); ok {
+		return true
+	} else if _, ok := v.Value.(int32); ok {
+		return true
+	} else if _, ok := v.Value.(int64); ok {
+		return true
+	}
+	return false
+}
+
+func (v ValueInterface) Int() int64 {
+	if i, ok := v.Value.(int); ok {
+		return int64(i)
+	} else if i, ok := v.Value.(int8); ok {
+		return int64(i)
+	} else if i, ok := v.Value.(int16); ok {
+		return int64(i)
+	} else if i, ok := v.Value.(int32); ok {
+		return int64(i)
+	}
+	return v.Value.(int64)
+}
+
+func (v ValueInterface) IsString() bool {
+	if v.Value == nil {
+		return false
+	}
+	_, ok := v.Value.(string)
+	return ok
+}
+
+func (v ValueInterface) String() string {
+	return v.Value.(string)
+}
+
+func (v ValueInterface) IsBool() bool {
+	if v.Value == nil {
+		return false
+	}
+	_, ok := v.Value.(bool)
+	return ok
+}
+
+func (v ValueInterface) Bool() bool {
+	return v.Value.(bool)
+}
+
+func (v ValueInterface) IsNull() bool {
+	return v.Value == nil
+}
+
+func (v ValueInterface) Interface() interface{} {
+	return v.Value
+}
+
+func (v ValueInterface) Copy() Value {
+	if v.IsList() {
+		l := make([]interface{}, 0, v.List().Length())
+		for i := 0; i < v.List().Length(); i++ {
+			l = append(l, v.List().At(i).Copy().Interface())
+		}
+		return ValueInterface{Value: l}
+	}
+	if v.IsMap() {
+		m := make(map[string]interface{}, v.Map().Length())
+		v.Map().Iterate(func(key string, item Value) bool {
+			m[key] = item.Copy().Interface()
 			return true
 		})
-		return m
+		return ValueInterface{Value: m}
 	}
 	// Scalars don't have to be copied
 	return v
@@ -54,63 +228,94 @@ func Copy(v Value) Value {
 
 // Equals returns true iff the two values are equal.
 func Equals(lhs, rhs Value) bool {
-	if IsFloat(lhs) || IsFloat(rhs) {
+	if lhs.IsFloat() || rhs.IsFloat() {
 		var lf float64
-		if IsFloat(lhs) {
-			lf = ValueFloat(lhs)
-		} else if IsInt(lhs) {
-			lf = float64(ValueInt(lhs))
+		if lhs.IsFloat() {
+			lf = lhs.Float()
+		} else if lhs.IsInt() {
+			lf = float64(lhs.Int())
 		} else {
 			return false
 		}
 		var rf float64
-		if IsFloat(rhs) {
-			rf = ValueFloat(rhs)
-		} else if IsInt(rhs) {
-			rf = float64(ValueInt(rhs))
+		if rhs.IsFloat() {
+			rf = rhs.Float()
+		} else if rhs.IsInt() {
+			rf = float64(rhs.Int())
 		} else {
 			return false
 		}
 		return lf == rf
 	}
-	if IsInt(lhs) {
-		if IsInt(rhs) {
-			return ValueInt(lhs) == ValueInt(rhs)
+	if lhs.IsInt() {
+		if rhs.IsInt() {
+			return lhs.Int() == rhs.Int()
 		}
 		return false
 	}
-	if IsString(lhs) {
-		if IsString(rhs) {
-			return ValueString(lhs) == ValueString(rhs)
+	if lhs.IsString() {
+		if rhs.IsString() {
+			return lhs.String() == rhs.String()
 		}
 		return false
 	}
-	if IsBool(lhs) {
-		if IsBool(rhs) {
-			return ValueBool(lhs) == ValueBool(rhs)
+	if lhs.IsBool() {
+		if rhs.IsBool() {
+			return lhs.Bool() == rhs.Bool()
 		}
 		return false
 	}
-	if IsList(lhs) {
-		if IsList(rhs) {
-			return ListEquals(ValueList(lhs), ValueList(rhs))
+	if lhs.IsList() {
+		if rhs.IsList() {
+			return ListEquals(lhs.List(), rhs.List())
 		}
 		return false
 	}
-	if IsMap(lhs) {
-		if IsMap(rhs) {
-			return ValueMap(lhs).Equals(ValueMap(rhs))
+	if lhs.IsMap() {
+		if rhs.IsMap() {
+			return lhs.Map().Equals(rhs.Map())
 		}
 		return false
 	}
-	if IsNull(lhs) {
-		if IsNull(rhs) {
+	if lhs.IsNull() {
+		if rhs.IsNull() {
 			return true
 		}
 		return false
 	}
 	// No field is set, on either objects.
 	return true
+}
+
+func ToString(v Value) string {
+	if v.IsNull() {
+		return "null"
+	}
+	switch {
+	case v.IsFloat():
+		return fmt.Sprintf("%v", v.Float())
+	case v.IsInt():
+		return fmt.Sprintf("%v", v.Int())
+	case v.IsString():
+		return fmt.Sprintf("%q", v.String())
+	case v.IsBool():
+		return fmt.Sprintf("%v", v.Bool())
+	case v.IsList():
+		strs := []string{}
+		for i := 0; i < v.List().Length(); i++ {
+			strs = append(strs, ToString(v.List().At(i)))
+		}
+		return "[" + strings.Join(strs, ",") + "]"
+	case v.IsMap():
+		strs := []string{}
+		v.Map().Iterate(func(k string, v Value) bool {
+			strs = append(strs, fmt.Sprintf("%v=%v", k, ToString(v)))
+			return true
+		})
+		return strings.Join(strs, "")
+	}
+	// No field is set, on either objects.
+	return "{{undefined}}"
 }
 
 // Less provides a total ordering for Value (so that they can be sorted, even
@@ -123,142 +328,75 @@ func Less(lhs, rhs Value) bool {
 // sorted, even if they are of different types). The result will be 0 if
 // v==rhs, -1 if v < rhs, and +1 if v > rhs.
 func Compare(lhs, rhs Value) int {
-	if IsFloat(lhs) {
-		if !IsFloat(rhs) {
+	if lhs.IsFloat() {
+		if !rhs.IsFloat() {
 			// Extra: compare floats and ints numerically.
-			if IsInt(rhs) {
-				return FloatCompare(ValueFloat(lhs), float64(ValueInt(rhs)))
+			if rhs.IsInt() {
+				return FloatCompare(lhs.Float(), float64(rhs.Int()))
 			}
 			return -1
 		}
-		return FloatCompare(ValueFloat(lhs), ValueFloat(rhs))
-	} else if IsFloat(rhs) {
+		return FloatCompare(lhs.Float(), rhs.Float())
+	} else if rhs.IsFloat() {
 		// Extra: compare floats and ints numerically.
-		if IsInt(lhs) {
-			return FloatCompare(float64(ValueInt(lhs)), ValueFloat(rhs))
+		if lhs.IsInt() {
+			return FloatCompare(float64(lhs.Int()), rhs.Float())
 		}
 		return 1
 	}
 
-	if IsInt(lhs) {
-		if !IsInt(rhs) {
+	if lhs.IsInt() {
+		if !rhs.IsInt() {
 			return -1
 		}
-		return IntCompare(ValueInt(lhs), ValueInt(rhs))
-	} else if IsInt(rhs) {
+		return IntCompare(lhs.Int(), rhs.Int())
+	} else if rhs.IsInt() {
 		return 1
 	}
 
-	if IsString(lhs) {
-		if !IsString(rhs) {
+	if lhs.IsString() {
+		if !rhs.IsString() {
 			return -1
 		}
-		return strings.Compare(ValueString(lhs), ValueString(rhs))
-	} else if IsString(rhs) {
+		return strings.Compare(lhs.String(), rhs.String())
+	} else if rhs.IsString() {
 		return 1
 	}
 
-	if IsBool(lhs) {
-		if !IsBool(rhs) {
+	if lhs.IsBool() {
+		if !rhs.IsBool() {
 			return -1
 		}
-		return BoolCompare(ValueBool(lhs), ValueBool(rhs))
-	} else if IsBool(rhs) {
+		return BoolCompare(lhs.Bool(), rhs.Bool())
+	} else if rhs.IsBool() {
 		return 1
 	}
 
-	if IsList(lhs) {
-		if !IsList(rhs) {
+	if lhs.IsList() {
+		if !rhs.IsList() {
 			return -1
 		}
-		return ListCompare(ValueList(lhs), ValueList(rhs))
-	} else if IsList(rhs) {
+		return ListCompare(lhs.List(), rhs.List())
+	} else if rhs.IsList() {
 		return 1
 	}
-	if IsMap(lhs) {
-		if !IsMap(rhs) {
+	if lhs.IsMap() {
+		if !rhs.IsMap() {
 			return -1
 		}
-		return MapCompare(ValueMap(lhs), ValueMap(rhs))
-	} else if IsMap(rhs) {
+		return MapCompare(lhs.Map(), rhs.Map())
+	} else if rhs.IsMap() {
 		return 1
 	}
-	if IsNull(lhs) {
-		if !IsNull(rhs) {
+	if lhs.IsNull() {
+		if !rhs.IsNull() {
 			return -1
 		}
 		return 0
-	} else if IsNull(rhs) {
+	} else if rhs.IsNull() {
 		return 1
 	}
 
 	// Invalid Value-- nothing is set.
 	return 0
-}
-
-func FromJSON(input []byte) (Value, error) {
-	return FromJSONFast(input)
-}
-
-func ToJSON(val Value) ([]byte, error) {
-	buf := bytes.Buffer{}
-	stream := writePool.BorrowStream(&buf)
-	defer writePool.ReturnStream(stream)
-	WriteJSONStream(val, stream)
-	b := stream.Buffer()
-	err := stream.Flush()
-	// Help jsoniter manage its buffers--without this, the next
-	// use of the stream is likely to require an allocation. Look
-	// at the jsoniter stream code to understand why. They were probably
-	// optimizing for folks using the buffer directly.
-	stream.SetBuffer(b[:0])
-	return buf.Bytes(), err
-}
-
-func FromJSONFast(input []byte) (Value, error) {
-	iter := readPool.BorrowIterator(input)
-	defer readPool.ReturnIterator(iter)
-	return ReadJSONIter(iter)
-}
-
-func ReadJSONIter(iter *jsoniter.Iterator) (Value, error) {
-	v := iter.Read()
-	if iter.Error != nil && iter.Error != io.EOF {
-		return nil, iter.Error
-	}
-	return v, nil
-}
-
-func WriteJSONStream(v Value, stream *jsoniter.Stream) {
-	stream.WriteVal(v)
-}
-
-func ToString(v Value) string {
-	if v == nil {
-		return "null"
-	}
-	switch {
-	case IsFloat(v):
-		return fmt.Sprintf("%v", ValueFloat(v))
-	case IsInt(v):
-		return fmt.Sprintf("%v", ValueInt(v))
-	case IsString(v):
-		return fmt.Sprintf("%q", ValueString(v))
-	case IsBool(v):
-		return fmt.Sprintf("%v", ValueBool(v))
-	case IsList(v):
-		strs := []string{}
-		for _, item := range ValueList(v) {
-			strs = append(strs, ToString(item))
-		}
-		return "[" + strings.Join(strs, ",") + "]"
-	case IsMap(v):
-		strs := []string{}
-		ValueMap(v).Iterate(func(k string, v Value) bool {
-			strs = append(strs, fmt.Sprintf("%v=%v", k, ToString(v)))
-			return true
-		})
-		return "{" + strings.Join(strs, ";") + "}"
-	}
-	return fmt.Sprintf("{{undefined(%#v)}}", v)
 }

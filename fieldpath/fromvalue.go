@@ -43,30 +43,30 @@ type objectWalker struct {
 
 func (w *objectWalker) walk() {
 	switch {
-	case value.IsFloat(w.value):
-	case value.IsInt(w.value):
-	case value.IsString(w.value):
-	case value.IsBool(w.value):
+	case w.value.IsFloat():
+	case w.value.IsInt():
+	case w.value.IsString():
+	case w.value.IsBool():
 		// All leaf fields handled the same way (after the switch
 		// statement).
 
 	// Descend
-	case value.IsList(w.value):
+	case w.value.IsList():
 		// If the list were atomic, we'd break here, but we don't have
 		// a schema, so we can't tell.
 
-		for i, child := range value.ValueList(w.value) {
+		for i := 0; i < w.value.List().Length(); i++ {
 			w2 := *w
-			w2.path = append(w.path, GuessBestListPathElement(i, child))
-			w2.value = child
+			w2.path = append(w.path, GuessBestListPathElement(i, w.value.List().At(i)))
+			w2.value = w.value.List().At(i)
 			w2.walk()
 		}
 		return
-	case value.IsMap(w.value):
+	case w.value.IsMap():
 		// If the map/struct were atomic, we'd break here, but we don't
 		// have a schema, so we can't tell.
 
-		value.ValueMap(w.value).Iterate(func(k string, val value.Value) bool {
+		w.value.Map().Iterate(func(k string, val value.Value) bool {
 			w2 := *w
 			w2.path = append(w.path, PathElement{FieldName: &k})
 			w2.value = val
@@ -96,7 +96,7 @@ var AssociativeListCandidateFieldNames = []string{
 // whether item has any of the fields listed in
 // AssociativeListCandidateFieldNames which have scalar values.
 func GuessBestListPathElement(index int, item value.Value) PathElement {
-	if !value.IsMap(item) {
+	if !item.IsMap() {
 		// Non map items could be parts of sets or regular "atomic"
 		// lists. We won't try to guess whether something should be a
 		// set or not.
@@ -105,12 +105,12 @@ func GuessBestListPathElement(index int, item value.Value) PathElement {
 
 	var keys value.FieldList
 	for _, name := range AssociativeListCandidateFieldNames {
-		f, ok := value.ValueMap(item).Get(name)
+		f, ok := item.Map().Get(name)
 		if !ok {
 			continue
 		}
 		// only accept primitive/scalar types as keys.
-		if f == nil || value.IsMap(f) || value.IsList(f) {
+		if f.IsNull() || f.IsMap() || f.IsList() {
 			continue
 		}
 		keys = append(keys, value.Field{Name: name, Value: f})

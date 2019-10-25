@@ -140,7 +140,7 @@ func (tv TypedValue) Compare(rhs *TypedValue) (c *Comparison, err error) {
 
 // RemoveItems removes each provided list or map item from the value.
 func (tv TypedValue) RemoveItems(items *fieldpath.Set) *TypedValue {
-	tv.value = value.Copy(tv.value)
+	tv.value = tv.value.Copy()
 	removeItemsWithSchema(&tv.value, items, tv.schema, tv.typeRef)
 	return &tv
 }
@@ -159,7 +159,7 @@ func (tv TypedValue) NormalizeUnions(new *TypedValue) (*TypedValue, error) {
 	var errs ValidationErrors
 	var normalizeFn = func(w *mergingWalker) {
 		if w.rhs != nil {
-			v := *w.rhs
+			v := (*w.rhs).Interface()
 			w.out = &v
 		}
 		if err := normalizeUnions(w); err != nil {
@@ -185,7 +185,7 @@ func (tv TypedValue) NormalizeUnionsApply(new *TypedValue) (*TypedValue, error) 
 	var errs ValidationErrors
 	var normalizeFn = func(w *mergingWalker) {
 		if w.rhs != nil {
-			v := *w.rhs
+			v := (*w.rhs).Interface()
 			w.out = &v
 		}
 		if err := normalizeUnionsApply(w); err != nil {
@@ -203,7 +203,7 @@ func (tv TypedValue) NormalizeUnionsApply(new *TypedValue) (*TypedValue, error) 
 }
 
 func (tv TypedValue) Empty() *TypedValue {
-	tv.value = nil
+	tv.value = value.ValueInterface{Value: nil}
 	return &tv
 }
 
@@ -250,7 +250,7 @@ func merge(lhs, rhs *TypedValue, rule, postRule mergeRule) (*TypedValue, error) 
 		typeRef: lhs.typeRef,
 	}
 	if mw.out != nil {
-		out.value = *mw.out
+		out.value = value.ValueInterface{Value: *mw.out}
 	}
 	return out, nil
 }

@@ -23,7 +23,8 @@ import (
 )
 
 var (
-	_V = func(v value.Value) *value.Value {
+	_V = func(i interface{}) *value.Value {
+		v := value.Value(value.ValueInterface{Value: i})
 		return &v
 	}
 )

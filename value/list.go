@@ -16,26 +16,35 @@ limitations under the License.
 
 package value
 
-func IsList(v Value) bool {
-	if v == nil {
-		return false
-	}
-	_, ok := v.([]interface{})
-	return ok
+type List interface {
+	Interface() []interface{}
+	Length() int
+	At(int) Value
 }
 
-func ValueList(v Value) []interface{} {
-	return v.([]interface{})
+type ListInterface []interface{}
+
+func (l ListInterface) Interface() []interface{} {
+	return l
+}
+
+func (l ListInterface) Length() int {
+	return len(l)
+}
+
+func (l ListInterface) At(i int) Value {
+	return ValueInterface{Value: l[i]}
 }
 
 // Equals compares two lists lexically.
-func ListEquals(lhs, rhs []interface{}) bool {
-	if len(lhs) != len(rhs) {
+func ListEquals(lhs, rhs List) bool {
+	if lhs.Length() != rhs.Length() {
 		return false
 	}
 
-	for i, lv := range lhs {
-		if !Equals(lv, rhs[i]) {
+	for i := 0; i < lhs.Length(); i++ {
+		lv := lhs.At(i)
+		if !Equals(lv, rhs.At(i)) {
 			return false
 		}
 	}
@@ -43,28 +52,28 @@ func ListEquals(lhs, rhs []interface{}) bool {
 }
 
 // Less compares two lists lexically.
-func ListLess(lhs, rhs []interface{}) bool {
+func ListLess(lhs, rhs List) bool {
 	return ListCompare(lhs, rhs) == -1
 }
 
 // Compare compares two lists lexically. The result will be 0 if l==rhs, -1
 // if l < rhs, and +1 if l > rhs.
-func ListCompare(lhs, rhs []interface{}) int {
+func ListCompare(lhs, rhs List) int {
 	i := 0
 	for {
-		if i >= len(lhs) && i >= len(rhs) {
+		if i >= lhs.Length() && i >= rhs.Length() {
 			// Lists are the same length and all items are equal.
 			return 0
 		}
-		if i >= len(lhs) {
+		if i >= lhs.Length() {
 			// LHS is shorter.
 			return -1
 		}
-		if i >= len(rhs) {
+		if i >= rhs.Length() {
 			// RHS is shorter.
 			return 1
 		}
-		if c := Compare(lhs[i], rhs[i]); c != 0 {
+		if c := Compare(lhs.At(i), rhs.At(i)); c != 0 {
 			return c
 		}
 		// The items are equal; continue.

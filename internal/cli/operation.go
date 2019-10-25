@@ -114,7 +114,7 @@ func (m merge) Execute(w io.Writer) error {
 		return err
 	}
 
-	yaml, err := yaml.Marshal(out.AsValue())
+	yaml, err := yaml.Marshal(out.AsValue().Interface())
 	if err != nil {
 		return err
 	}
