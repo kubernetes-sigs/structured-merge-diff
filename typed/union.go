@@ -36,10 +36,10 @@ func normalizeUnions(w *mergingWalker) error {
 
 	var old value.Map
 	if w.lhs != nil {
-		old = value.ValueMap(*w.lhs)
+		old = (*w.lhs).Map()
 	}
 	for _, union := range atom.Map.Unions {
-		if err := newUnion(&union).Normalize(old, value.ValueMap(*w.rhs), value.ValueMap(*w.out)); err != nil {
+		if err := newUnion(&union).Normalize(old, (*w.rhs).Map(), (value.ValueInterface{Value: *w.out}.Map())); err != nil {
 			return err
 		}
 	}
@@ -58,10 +58,10 @@ func normalizeUnionsApply(w *mergingWalker) error {
 
 	var old value.Map
 	if w.lhs != nil {
-		old = value.ValueMap(*w.lhs)
+		old = (*w.lhs).Map()
 	}
 	for _, union := range atom.Map.Unions {
-		if err := newUnion(&union).NormalizeApply(old, value.ValueMap(*w.rhs), value.ValueMap(*w.out)); err != nil {
+		if err := newUnion(&union).NormalizeApply(old, (*w.rhs).Map(), (value.ValueInterface{Value: *w.out}.Map())); err != nil {
 			return err
 		}
 	}
@@ -109,7 +109,7 @@ func (d *discriminator) Set(m value.Map, v discriminated) {
 	if d == nil {
 		return
 	}
-	m.Set(d.name, string(v))
+	m.Set(d.name, value.ValueInterface{Value: string(v)})
 }
 
 func (d *discriminator) Get(m value.Map) discriminated {
@@ -120,10 +120,10 @@ func (d *discriminator) Get(m value.Map) discriminated {
 	if !ok {
 		return ""
 	}
-	if !value.IsString(val) {
+	if !val.IsString() {
 		return ""
 	}
-	return discriminated(value.ValueString(val))
+	return discriminated(val.String())
 }
 
 type fieldsSet map[field]struct{}

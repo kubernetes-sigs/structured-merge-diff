@@ -91,8 +91,8 @@ func (v *tosetObjectWalker) doScalar(t *schema.Scalar) ValidationErrors {
 	return nil
 }
 
-func (v *tosetObjectWalker) visitListItems(t *schema.List, list []interface{}) (errs ValidationErrors) {
-	for i, child := range list {
+func (v *tosetObjectWalker) visitListItems(t *schema.List, list value.List) (errs ValidationErrors) {
+	list.Iterate(func(i int, child value.Value) {
 		pe, _ := listItemToPathElement(t, i, child)
 		v2 := v.prepareDescent(pe, t.ElementType)
 		v2.value = child
@@ -100,7 +100,7 @@ func (v *tosetObjectWalker) visitListItems(t *schema.List, list []interface{}) (
 
 		v2.set.Insert(v2.path)
 		v.finishDescent(v2)
-	}
+	})
 	return errs
 }
 
@@ -121,7 +121,7 @@ func (v *tosetObjectWalker) doList(t *schema.List) (errs ValidationErrors) {
 	return errs
 }
 
-func (v *tosetObjectWalker) visitMapItem(t *schema.Map, key string, val value.Value) (errs ValidationErrors) {
+func (v *tosetObjectWalker) visitMapItem(t *schema.Map, key string, val interface{}) (errs ValidationErrors) {
 	pe := fieldpath.PathElement{FieldName: &key}
 
 	tr := t.ElementType
@@ -129,7 +129,7 @@ func (v *tosetObjectWalker) visitMapItem(t *schema.Map, key string, val value.Va
 		tr = sf.Type
 	}
 	v2 := v.prepareDescent(pe, tr)
-	v2.value = val
+	v2.value = value.ValueInterface{Value: val}
 	errs = append(errs, v2.toFieldSet()...)
 	if _, ok := t.FindField(key); !ok {
 		v2.set.Insert(v2.path)

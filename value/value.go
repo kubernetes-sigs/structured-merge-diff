@@ -35,11 +35,17 @@ func FromJSON(input []byte) (Value, error) {
 	return FromJSONFast(input)
 }
 
-func ToJSON(val Value) ([]byte, error) {
+func FromJSONFast(input []byte) (Value, error) {
+	iter := readPool.BorrowIterator(input)
+	defer readPool.ReturnIterator(iter)
+	return ReadJSONIter(iter)
+}
+
+func ToJSON(v Value) ([]byte, error) {
 	buf := bytes.Buffer{}
 	stream := writePool.BorrowStream(&buf)
 	defer writePool.ReturnStream(stream)
-	WriteJSONStream(val, stream)
+	WriteJSONStream(v, stream)
 	b := stream.Buffer()
 	err := stream.Flush()
 	// Help jsoniter manage its buffers--without this, the next
@@ -50,22 +56,16 @@ func ToJSON(val Value) ([]byte, error) {
 	return buf.Bytes(), err
 }
 
-func FromJSONFast(input []byte) (Value, error) {
-	iter := readPool.BorrowIterator(input)
-	defer readPool.ReturnIterator(iter)
-	return ReadJSONIter(iter)
-}
-
 func ReadJSONIter(iter *jsoniter.Iterator) (Value, error) {
 	v := iter.Read()
 	if iter.Error != nil && iter.Error != io.EOF {
 		return nil, iter.Error
 	}
-	return v, nil
+	return ValueInterface{Value: v}, nil
 }
 
 func WriteJSONStream(v Value, stream *jsoniter.Stream) {
-	stream.WriteVal(v)
+	stream.WriteVal(v.Interface())
 }
 
 // Field is an individual key-value pair.
@@ -127,50 +127,213 @@ func (f FieldList) Less(rhs FieldList) bool {
 	}
 }
 
-type Value interface{}
+type Value interface {
+	IsMap() bool
+	IsList() bool
+	IsBool() bool
+	IsInt() bool
+	IsFloat() bool
+	IsString() bool
+	IsNull() bool
+
+	Map() Map
+	List() List
+	Bool() bool
+	Int() int64
+	Float() float64
+	String() string
+
+	Interface() interface{}
+}
+
+type List interface {
+	Interface() []interface{}
+	Length() int
+	Iterate(func(int, Value))
+	At(int) Value
+}
+
+type ValueInterface struct {
+	Value interface{}
+}
+
+func (v ValueInterface) IsMap() bool {
+	if _, ok := v.Value.(map[string]interface{}); ok {
+		return true
+	}
+	if _, ok := v.Value.(map[interface{}]interface{}); ok {
+		return true
+	}
+	return false
+}
+
+func (v ValueInterface) Map() Map {
+	if v.Value == nil {
+		return MapString(nil)
+	}
+	switch t := v.Value.(type) {
+	case map[string]interface{}:
+		return MapString(t)
+	case map[interface{}]interface{}:
+		return MapInterface(t)
+	}
+	panic(fmt.Errorf("not a map: %#v", v))
+}
+
+func (v ValueInterface) IsList() bool {
+	if v.Value == nil {
+		return false
+	}
+	_, ok := v.Value.([]interface{})
+	return ok
+}
+
+func (v ValueInterface) List() List {
+	return ListInterface(v.Value.([]interface{}))
+}
+
+func (v ValueInterface) IsFloat() bool {
+	if v.Value == nil {
+		return false
+	} else if _, ok := v.Value.(float64); ok {
+		return true
+	} else if _, ok := v.Value.(float32); ok {
+		return true
+	}
+	return false
+}
+
+func (v ValueInterface) Float() float64 {
+	if f, ok := v.Value.(float32); ok {
+		return float64(f)
+	}
+	return v.Value.(float64)
+}
+
+func (v ValueInterface) IsInt() bool {
+	if v.Value == nil {
+		return false
+	} else if _, ok := v.Value.(int); ok {
+		return true
+	} else if _, ok := v.Value.(int8); ok {
+		return true
+	} else if _, ok := v.Value.(int16); ok {
+		return true
+	} else if _, ok := v.Value.(int32); ok {
+		return true
+	} else if _, ok := v.Value.(int64); ok {
+		return true
+	}
+	return false
+}
+
+func (v ValueInterface) Int() int64 {
+	if i, ok := v.Value.(int); ok {
+		return int64(i)
+	} else if i, ok := v.Value.(int8); ok {
+		return int64(i)
+	} else if i, ok := v.Value.(int16); ok {
+		return int64(i)
+	} else if i, ok := v.Value.(int32); ok {
+		return int64(i)
+	}
+	return v.Value.(int64)
+}
+
+func (v ValueInterface) IsString() bool {
+	if v.Value == nil {
+		return false
+	}
+	_, ok := v.Value.(string)
+	return ok
+}
+
+func (v ValueInterface) String() string {
+	return v.Value.(string)
+}
+
+func (v ValueInterface) IsBool() bool {
+	if v.Value == nil {
+		return false
+	}
+	_, ok := v.Value.(bool)
+	return ok
+}
+
+func (v ValueInterface) Bool() bool {
+	return v.Value.(bool)
+}
+
+func (v ValueInterface) IsNull() bool {
+	return v.Value == nil
+}
+
+func (v ValueInterface) Interface() interface{} {
+	return v.Value
+}
+
+type ListInterface []interface{}
+
+func (l ListInterface) Interface() []interface{} {
+	return l
+}
+
+func (l ListInterface) Length() int {
+	return len(l)
+}
+
+func (l ListInterface) At(i int) Value {
+	return ValueInterface{Value: l[i]}
+}
+
+func (l ListInterface) Iterate(iter func(int, Value)) {
+	for i, val := range l {
+		iter(i, ValueInterface{Value: val})
+	}
+}
 
 func Copy(v Value) Value {
-	if IsList(v) {
-		l := make([]interface{}, 0, len(ValueList(v)))
-		for _, item := range ValueList(v) {
-			l = append(l, Copy(item))
-		}
-		return l
+	if v.IsList() {
+		l := make([]interface{}, 0, v.List().Length())
+		v.List().Iterate(func(_ int, item Value) {
+			l = append(l, Copy(ValueInterface{Value: item}))
+		})
+		return ValueInterface{Value: l}
 	}
-	if IsMap(v) {
-		m := make(map[string]interface{}, ValueMap(v).Length())
-		ValueMap(v).Iterate(func(key string, item Value) bool {
+	if v.IsMap() {
+		m := make(map[string]interface{}, v.Map().Length())
+		v.Map().Iterate(func(key string, item Value) bool {
 			m[key] = Copy(item)
 			return true
 		})
-		return m
+		return ValueInterface{Value: m}
 	}
 	// Scalars don't have to be copied
 	return v
 }
 
 func ToString(v Value) string {
-	if v == nil {
+	if v.IsNull() {
 		return "null"
 	}
 	switch {
-	case IsFloat(v):
-		return fmt.Sprintf("%v", ValueFloat(v))
-	case IsInt(v):
-		return fmt.Sprintf("%v", ValueInt(v))
-	case IsString(v):
-		return fmt.Sprintf("%q", ValueString(v))
-	case IsBool(v):
-		return fmt.Sprintf("%v", ValueBool(v))
-	case IsList(v):
+	case v.IsFloat():
+		return fmt.Sprintf("%v", v.Float())
+	case v.IsInt():
+		return fmt.Sprintf("%v", v.Int())
+	case v.IsString():
+		return fmt.Sprintf("%q", v.String())
+	case v.IsBool():
+		return fmt.Sprintf("%v", v.Bool())
+	case v.IsList():
 		strs := []string{}
-		for _, item := range ValueList(v) {
+		v.List().Iterate(func(_ int, item Value) {
 			strs = append(strs, ToString(item))
-		}
+		})
 		return "[" + strings.Join(strs, ",") + "]"
-	case IsMap(v):
+	case v.IsMap():
 		strs := []string{}
-		ValueMap(v).Iterate(func(k string, v Value) bool {
+		v.Map().Iterate(func(k string, v Value) bool {
 			strs = append(strs, fmt.Sprintf("%v=%v", k, ToString(v)))
 			return true
 		})
@@ -187,75 +350,75 @@ func Equals(lhs, rhs Value) bool {
 // Less provides a total ordering for Value (so that they can be sorted, even
 // if they are of different types).
 func Less(lhs, rhs Value) bool {
-	if IsFloat(lhs) {
-		if !IsFloat(rhs) {
+	if lhs.IsFloat() {
+		if !rhs.IsFloat() {
 			// Extra: compare floats and ints numerically.
-			if IsInt(rhs) {
-				return ValueFloat(lhs) < float64(ValueInt(rhs))
+			if rhs.IsInt() {
+				return lhs.Float() < float64(rhs.Int())
 			}
 			return true
 		}
-		return ValueFloat(lhs) < ValueFloat(rhs)
-	} else if IsFloat(rhs) {
+		return lhs.Float() < rhs.Float()
+	} else if rhs.IsFloat() {
 		// Extra: compare floats and ints numerically.
-		if IsInt(lhs) {
-			return float64(ValueInt(lhs)) < ValueFloat(rhs)
+		if lhs.IsInt() {
+			return float64(lhs.Int()) < rhs.Float()
 		}
 		return false
 	}
 
-	if IsInt(lhs) {
-		if !IsInt(rhs) {
+	if lhs.IsInt() {
+		if !rhs.IsInt() {
 			return true
 		}
-		return ValueInt(lhs) < ValueInt(rhs)
-	} else if IsInt(rhs) {
+		return lhs.Int() < rhs.Int()
+	} else if rhs.IsInt() {
 		return false
 	}
 
-	if IsString(lhs) {
-		if !IsString(rhs) {
+	if lhs.IsString() {
+		if !rhs.IsString() {
 			return true
 		}
-		return ValueString(lhs) < ValueString(rhs)
-	} else if IsString(rhs) {
+		return lhs.String() < rhs.String()
+	} else if rhs.IsString() {
 		return false
 	}
 
-	if IsBool(lhs) {
-		if !IsBool(rhs) {
+	if lhs.IsBool() {
+		if !rhs.IsBool() {
 			return true
 		}
-		if ValueBool(lhs) == ValueBool(rhs) {
+		if lhs.Bool() == rhs.Bool() {
 			return false
 		}
-		return ValueBool(lhs) == false
-	} else if IsBool(rhs) {
+		return lhs.Bool() == false
+	} else if rhs.IsBool() {
 		return false
 	}
 
-	if IsList(lhs) {
-		if !IsList(rhs) {
+	if lhs.IsList() {
+		if !rhs.IsList() {
 			return true
 		}
-		return ListLess(ValueList(lhs), ValueList(rhs))
-	} else if IsList(rhs) {
+		return ListLess(lhs.List(), rhs.List())
+	} else if rhs.IsList() {
 		return false
 	}
-	if IsMap(lhs) {
-		if !IsMap(rhs) {
+	if lhs.IsMap() {
+		if !rhs.IsMap() {
 			return true
 		}
-		return MapLess(ValueMap(lhs), ValueMap(rhs))
-	} else if IsMap(rhs) {
+		return MapLess(lhs.Map(), rhs.Map())
+	} else if rhs.IsMap() {
 		return false
 	}
-	if IsNull(lhs) {
-		if !IsNull(rhs) {
+	if lhs.IsNull() {
+		if !rhs.IsNull() {
 			return true
 		}
 		return false
-	} else if IsNull(rhs) {
+	} else if rhs.IsNull() {
 		return false
 	}
 
@@ -263,26 +426,26 @@ func Less(lhs, rhs Value) bool {
 	return false
 }
 
-func ListLess(lhs, rhs []interface{}) bool {
+func ListLess(lhs, rhs List) bool {
 	i := 0
 	for {
-		if i >= len(lhs) && i >= len(rhs) {
+		if i >= lhs.Length() && i >= rhs.Length() {
 			// Lists are the same length and all items are equal.
 			return false
 		}
-		if i >= len(lhs) {
+		if i >= lhs.Length() {
 			// LHS is shorter.
 			return true
 		}
-		if i >= len(rhs) {
+		if i >= rhs.Length() {
 			// RHS is shorter.
 			return false
 		}
-		if Less(lhs[i], rhs[i]) {
+		if Less(lhs.At(i), rhs.At(i)) {
 			// LHS is less; return
 			return true
 		}
-		if Less(rhs[i], lhs[i]) {
+		if Less(rhs.At(i), lhs.At(i)) {
 			// RHS is less; return
 			return false
 		}
@@ -339,117 +502,6 @@ func MapLess(lhs, rhs Map) bool {
 	}
 }
 
-func IsMap(v Value) bool {
-	if _, ok := v.(map[string]interface{}); ok {
-		return true
-	}
-	if _, ok := v.(map[interface{}]interface{}); ok {
-		return true
-	}
-	return false
-}
-
-func ValueMap(v Value) Map {
-	if v == nil {
-		return MapString(nil)
-	}
-	switch t := v.(type) {
-	case map[string]interface{}:
-		return MapString(t)
-	case map[interface{}]interface{}:
-		return MapInterface(t)
-	}
-	panic(fmt.Errorf("not a map: %#v", v))
-}
-
-func IsList(v Value) bool {
-	if v == nil {
-		return false
-	}
-	_, ok := v.([]interface{})
-	return ok
-}
-
-func ValueList(v Value) []interface{} {
-	return v.([]interface{})
-}
-
-func IsFloat(v Value) bool {
-	if v == nil {
-		return false
-	} else if _, ok := v.(float64); ok {
-		return true
-	} else if _, ok := v.(float32); ok {
-		return true
-	}
-	return false
-}
-
-func ValueFloat(v Value) float64 {
-	if f, ok := v.(float32); ok {
-		return float64(f)
-	}
-	return v.(float64)
-}
-
-func IsInt(v Value) bool {
-	if v == nil {
-		return false
-	} else if _, ok := v.(int); ok {
-		return true
-	} else if _, ok := v.(int8); ok {
-		return true
-	} else if _, ok := v.(int16); ok {
-		return true
-	} else if _, ok := v.(int32); ok {
-		return true
-	} else if _, ok := v.(int64); ok {
-		return true
-	}
-	return false
-}
-
-func ValueInt(v Value) int64 {
-	if i, ok := v.(int); ok {
-		return int64(i)
-	} else if i, ok := v.(int8); ok {
-		return int64(i)
-	} else if i, ok := v.(int16); ok {
-		return int64(i)
-	} else if i, ok := v.(int32); ok {
-		return int64(i)
-	}
-	return v.(int64)
-}
-
-func IsString(v Value) bool {
-	if v == nil {
-		return false
-	}
-	_, ok := v.(string)
-	return ok
-}
-
-func ValueString(v Value) string {
-	return v.(string)
-}
-
-func IsBool(v Value) bool {
-	if v == nil {
-		return false
-	}
-	_, ok := v.(bool)
-	return ok
-}
-
-func ValueBool(v Value) bool {
-	return v.(bool)
-}
-
-func IsNull(v Value) bool {
-	return v == nil
-}
-
 type Map interface {
 	Length() int
 	Get(string) (Value, bool)
@@ -466,11 +518,11 @@ func (m MapString) Length() int {
 
 func (m MapString) Get(key string) (Value, bool) {
 	val, ok := m[key]
-	return val, ok
+	return ValueInterface{Value: val}, ok
 }
 
 func (m MapString) Set(key string, val Value) {
-	m[key] = val
+	m[key] = val.Interface()
 }
 
 func (m MapString) Delete(key string) {
@@ -478,8 +530,8 @@ func (m MapString) Delete(key string) {
 }
 
 func (m MapString) Iterate(iter func(string, Value) bool) {
-	for key := range m {
-		if !iter(key, m[key]) {
+	for key, value := range m {
+		if !iter(key, ValueInterface{Value: value}) {
 			return
 		}
 	}
@@ -493,11 +545,11 @@ func (m MapInterface) Length() int {
 
 func (m MapInterface) Get(key string) (Value, bool) {
 	val, ok := m[key]
-	return val, ok
+	return ValueInterface{Value: val}, ok
 }
 
 func (m MapInterface) Set(key string, val Value) {
-	m[key] = val
+	m[key] = val.Interface()
 }
 
 func (m MapInterface) Delete(key string) {
@@ -505,12 +557,12 @@ func (m MapInterface) Delete(key string) {
 }
 
 func (m MapInterface) Iterate(iter func(string, Value) bool) {
-	for key := range m {
+	for key, value := range m {
 		vk, ok := key.(string)
 		if !ok {
 			continue
 		}
-		if !iter(vk, m[key]) {
+		if !iter(vk, ValueInterface{Value: value}) {
 			return
 		}
 	}

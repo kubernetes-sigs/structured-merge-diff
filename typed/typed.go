@@ -159,7 +159,7 @@ func (tv TypedValue) NormalizeUnions(new *TypedValue) (*TypedValue, error) {
 	var errs ValidationErrors
 	var normalizeFn = func(w *mergingWalker) {
 		if w.rhs != nil {
-			v := *w.rhs
+			v := (*w.rhs).Interface()
 			w.out = &v
 		}
 		if err := normalizeUnions(w); err != nil {
@@ -185,7 +185,7 @@ func (tv TypedValue) NormalizeUnionsApply(new *TypedValue) (*TypedValue, error) 
 	var errs ValidationErrors
 	var normalizeFn = func(w *mergingWalker) {
 		if w.rhs != nil {
-			v := *w.rhs
+			v := (*w.rhs).Interface()
 			w.out = &v
 		}
 		if err := normalizeUnionsApply(w); err != nil {
@@ -250,7 +250,7 @@ func merge(lhs, rhs *TypedValue, rule, postRule mergeRule) (*TypedValue, error) 
 		typeRef: lhs.typeRef,
 	}
 	if mw.out != nil {
-		out.value = *mw.out
+		out.value = value.ValueInterface{Value: *mw.out}
 	}
 	return out, nil
 }

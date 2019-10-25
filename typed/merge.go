@@ -41,7 +41,7 @@ type mergingWalker struct {
 	postItemHook mergeRule
 
 	// output of the merge operation (nil if none)
-	out *value.Value
+	out *interface{}
 
 	// internal housekeeping--don't set when constructing.
 	inLeaf bool // Set to true if we're in a "big leaf"--atomic map/list
@@ -58,10 +58,10 @@ type mergeRule func(w *mergingWalker)
 var (
 	ruleKeepRHS = mergeRule(func(w *mergingWalker) {
 		if w.rhs != nil {
-			v := *w.rhs
+			v := (*w.rhs).Interface()
 			w.out = &v
 		} else if w.lhs != nil {
-			v := *w.lhs
+			v := (*w.lhs).Interface()
 			w.out = &v
 		}
 	})
@@ -162,61 +162,73 @@ func (w *mergingWalker) derefMap(prefix string, v *value.Value, dest *value.Map)
 	return nil
 }
 
-func (w *mergingWalker) visitListItems(t *schema.List, lhs, rhs []interface{}) (errs ValidationErrors) {
-	out := make([]interface{}, 0, int(math.Max(float64(len(rhs)), float64(len(lhs)))))
+func (w *mergingWalker) visitListItems(t *schema.List, lhs, rhs value.List) (errs ValidationErrors) {
+	rLen := 0
+	if rhs != nil {
+		rLen = rhs.Length()
+	}
+	lLen := 0
+	if lhs != nil {
+		lLen = lhs.Length()
+	}
+	out := make([]interface{}, 0, int(math.Max(float64(rLen), float64(lLen))))
 
 	// TODO: ordering is totally wrong.
 	// TODO: might as well make the map order work the same way.
 
 	// This is a cheap hack to at least make the output order stable.
-	rhsOrder := make([]fieldpath.PathElement, 0, len(rhs))
+	rhsOrder := make([]fieldpath.PathElement, 0, rLen)
 
 	// First, collect all RHS children.
-	observedRHS := fieldpath.MakePathElementValueMap(len(rhs))
-	for i, child := range rhs {
-		pe, err := listItemToPathElement(t, i, child)
-		if err != nil {
-			errs = append(errs, errorf("rhs: element %v: %v", i, err.Error())...)
-			// If we can't construct the path element, we can't
-			// even report errors deeper in the schema, so bail on
-			// this element.
-			continue
-		}
-		if _, ok := observedRHS.Get(pe); ok {
-			errs = append(errs, errorf("rhs: duplicate entries for key %v", pe.String())...)
-		}
-		observedRHS.Insert(pe, child)
-		rhsOrder = append(rhsOrder, pe)
+	observedRHS := fieldpath.MakePathElementValueMap(rLen)
+	if rhs != nil {
+		rhs.Iterate(func(i int, child value.Value) {
+			pe, err := listItemToPathElement(t, i, child)
+			if err != nil {
+				errs = append(errs, errorf("rhs: element %v: %v", i, err.Error())...)
+				// If we can't construct the path element, we can't
+				// even report errors deeper in the schema, so bail on
+				// this element.
+				return
+			}
+			if _, ok := observedRHS.Get(pe); ok {
+				errs = append(errs, errorf("rhs: duplicate entries for key %v", pe.String())...)
+			}
+			observedRHS.Insert(pe, child)
+			rhsOrder = append(rhsOrder, pe)
+		})
 	}
 
 	// Then merge with LHS children.
-	observedLHS := fieldpath.MakePathElementSet(len(lhs))
-	for i, child := range lhs {
-		pe, err := listItemToPathElement(t, i, child)
-		if err != nil {
-			errs = append(errs, errorf("lhs: element %v: %v", i, err.Error())...)
-			// If we can't construct the path element, we can't
-			// even report errors deeper in the schema, so bail on
-			// this element.
-			continue
-		}
-		if observedLHS.Has(pe) {
-			errs = append(errs, errorf("lhs: duplicate entries for key %v", pe.String())...)
-			continue
-		}
-		observedLHS.Insert(pe)
-		w2 := w.prepareDescent(pe, t.ElementType)
-		val := value.Value(child)
-		w2.lhs = &val
-		if rchild, ok := observedRHS.Get(pe); ok {
-			w2.rhs = &rchild
-		}
-		if newErrs := w2.merge(); len(newErrs) > 0 {
-			errs = append(errs, newErrs.WithPrefix(pe.String())...)
-		} else if w2.out != nil {
-			out = append(out, *w2.out)
-		}
-		w.finishDescent(w2)
+	observedLHS := fieldpath.MakePathElementSet(lLen)
+	if lhs != nil {
+		lhs.Iterate(func(i int, child value.Value) {
+			pe, err := listItemToPathElement(t, i, child)
+			if err != nil {
+				errs = append(errs, errorf("lhs: element %v: %v", i, err.Error())...)
+				// If we can't construct the path element, we can't
+				// even report errors deeper in the schema, so bail on
+				// this element.
+				return
+			}
+			if observedLHS.Has(pe) {
+				errs = append(errs, errorf("lhs: duplicate entries for key %v", pe.String())...)
+				return
+			}
+			observedLHS.Insert(pe)
+			w2 := w.prepareDescent(pe, t.ElementType)
+			val := value.Value(child)
+			w2.lhs = &val
+			if rchild, ok := observedRHS.Get(pe); ok {
+				w2.rhs = &rchild
+			}
+			if newErrs := w2.merge(); len(newErrs) > 0 {
+				errs = append(errs, newErrs.WithPrefix(pe.String())...)
+			} else if w2.out != nil {
+				out = append(out, *w2.out)
+			}
+			w.finishDescent(w2)
+		})
 	}
 
 	for _, pe := range rhsOrder {
@@ -235,14 +247,14 @@ func (w *mergingWalker) visitListItems(t *schema.List, lhs, rhs []interface{}) (
 	}
 
 	if len(out) > 0 {
-		v := value.Value(out)
-		w.out = &v
+		i := interface{}(out)
+		w.out = &i
 	}
 
 	return errs
 }
 
-func (w *mergingWalker) derefList(prefix string, v *value.Value, dest *[]interface{}) (errs ValidationErrors) {
+func (w *mergingWalker) derefList(prefix string, v *value.Value, dest *value.List) (errs ValidationErrors) {
 	// taking dest as input so that it can be called as a one-liner with
 	// append.
 	if v == nil {
@@ -257,14 +269,14 @@ func (w *mergingWalker) derefList(prefix string, v *value.Value, dest *[]interfa
 }
 
 func (w *mergingWalker) doList(t *schema.List) (errs ValidationErrors) {
-	var lhs, rhs []interface{}
+	var lhs, rhs value.List
 	w.derefList("lhs: ", w.lhs, &lhs)
 	w.derefList("rhs: ", w.rhs, &rhs)
 
 	// If both lhs and rhs are empty/null, treat it as a
 	// leaf: this helps preserve the empty/null
 	// distinction.
-	emptyPromoteToLeaf := len(lhs) == 0 && len(rhs) == 0
+	emptyPromoteToLeaf := (lhs == nil || lhs.Length() == 0) && (rhs == nil || rhs.Length() == 0)
 
 	if t.ElementRelationship == schema.Atomic || emptyPromoteToLeaf {
 		w.doLeaf()
@@ -313,7 +325,7 @@ func (w *mergingWalker) visitMapItems(t *schema.Map, lhs, rhs value.Map) (errs V
 						rval = &item
 					}
 				}
-				lval := value.Value(val)
+				lval := value.Value(value.ValueInterface{Value: val})
 				errs = append(errs, w.visitMapItem(t, out, key, &lval, rval)...)
 			}
 		case value.MapInterface:
@@ -327,7 +339,7 @@ func (w *mergingWalker) visitMapItems(t *schema.Map, lhs, rhs value.Map) (errs V
 							rval = &item
 						}
 					}
-					lval := value.Value(val)
+					lval := value.Value(value.ValueInterface{Value: val})
 					errs = append(errs, w.visitMapItem(t, out, key, &lval, rval)...)
 				}
 			}
@@ -343,7 +355,7 @@ func (w *mergingWalker) visitMapItems(t *schema.Map, lhs, rhs value.Map) (errs V
 						continue
 					}
 				}
-				rval := value.Value(val)
+				rval := value.Value(value.ValueInterface{Value: val})
 				errs = append(errs, w.visitMapItem(t, out, key, nil, &rval)...)
 			}
 		case value.MapInterface:
@@ -356,15 +368,15 @@ func (w *mergingWalker) visitMapItems(t *schema.Map, lhs, rhs value.Map) (errs V
 							continue
 						}
 					}
-					rval := value.Value(val)
+					rval := value.Value(value.ValueInterface{Value: val})
 					errs = append(errs, w.visitMapItem(t, out, key, nil, &rval)...)
 				}
 			}
 		}
 	}
 	if len(out) > 0 {
-		v := value.Value(out)
-		w.out = &v
+		i := interface{}(out)
+		w.out = &i
 	}
 
 	return errs

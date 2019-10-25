@@ -98,11 +98,11 @@ func resolveSchema(s *schema.Schema, tr schema.TypeRef, v *value.Value, ah atomH
 func deduceAtom(a schema.Atom, v *value.Value) schema.Atom {
 	switch {
 	case v == nil:
-	case value.IsFloat(*v), value.IsInt(*v), value.IsString(*v), value.IsBool(*v):
+	case (*v).IsFloat(), (*v).IsInt(), (*v).IsString(), (*v).IsBool():
 		return schema.Atom{Scalar: a.Scalar}
-	case value.IsList(*v):
+	case (*v).IsList():
 		return schema.Atom{List: a.List}
-	case value.IsMap(*v):
+	case (*v).IsMap():
 		return schema.Atom{Map: a.Map}
 	}
 	return a
@@ -127,43 +127,42 @@ func handleAtom(a schema.Atom, tr schema.TypeRef, ah atomHandler) ValidationErro
 }
 
 // Returns the list, or an error. Reminder: nil is a valid list and might be returned.
-func listValue(val value.Value) ([]interface{}, error) {
-	if val == nil {
+func listValue(val value.Value) (value.List, error) {
+	if val.IsNull() {
 		// Null is a valid list.
 		return nil, nil
 	}
-	l, ok := val.([]interface{})
-	if !ok {
+	if !val.IsList() {
 		return nil, fmt.Errorf("expected list, got %v", val)
 	}
-	return l, nil
+	return val.List(), nil
 }
 
 // Returns the map, or an error. Reminder: nil is a valid map and might be returned.
 func mapValue(val value.Value) (value.Map, error) {
-	if val == nil {
+	if val.IsNull() {
 		// Null is a valid map.
 		return nil, nil
 	}
-	if !value.IsMap(val) {
+	if !val.IsMap() {
 		return nil, fmt.Errorf("expected map, got %v", val)
 	}
-	return value.ValueMap(val), nil
+	return val.Map(), nil
 }
 
 func keyedAssociativeListItemToPathElement(list *schema.List, index int, child value.Value) (fieldpath.PathElement, error) {
 	pe := fieldpath.PathElement{}
-	if child == nil {
+	if child.IsNull() {
 		// For now, the keys are required which means that null entries
 		// are illegal.
 		return pe, errors.New("associative list with keys may not have a null element")
 	}
-	if !value.IsMap(child) {
+	if !child.IsMap() {
 		return pe, errors.New("associative list with keys may not have non-map elements")
 	}
 	keyMap := value.FieldList{}
 	for _, fieldName := range list.Keys {
-		if val, ok := value.ValueMap(child).Get(fieldName); ok {
+		if val, ok := child.Map().Get(fieldName); ok {
 			keyMap = append(keyMap, value.Field{Name: fieldName, Value: val})
 		} else {
 			return pe, fmt.Errorf("associative list with keys has an element that omits key field %q", fieldName)
@@ -177,15 +176,15 @@ func keyedAssociativeListItemToPathElement(list *schema.List, index int, child v
 func setItemToPathElement(list *schema.List, index int, child value.Value) (fieldpath.PathElement, error) {
 	pe := fieldpath.PathElement{}
 	switch {
-	case value.IsMap(child):
+	case child.IsMap():
 		// TODO: atomic maps should be acceptable.
 		return pe, errors.New("associative list without keys has an element that's a map type")
-	case value.IsList(child):
+	case child.IsList():
 		// Should we support a set of lists? For the moment
 		// let's say we don't.
 		// TODO: atomic lists should be acceptable.
 		return pe, errors.New("not supported: associative list with lists as elements")
-	case child == nil:
+	case child.IsNull():
 		return pe, errors.New("associative list without keys has an element that's an explicit null")
 	default:
 		// We are a set type.

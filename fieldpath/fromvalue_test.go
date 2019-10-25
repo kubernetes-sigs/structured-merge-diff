@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"gopkg.in/yaml.v2"
+	"sigs.k8s.io/structured-merge-diff/value"
 )
 
 func TestFromValue(t *testing.T) {
@@ -70,7 +71,7 @@ func TestFromValue(t *testing.T) {
 			if err != nil {
 				t.Fatalf("couldn't parse: %v", err)
 			}
-			got := SetFromValue(v)
+			got := SetFromValue(value.ValueInterface{Value: v})
 			if !got.Equals(tt.set) {
 				t.Errorf("wanted\n%s\nbut got\n%s\n", tt.set, got)
 			}

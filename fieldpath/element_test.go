@@ -62,9 +62,12 @@ func TestPathElementSet(t *testing.T) {
 	})
 }
 
-func strptr(s string) *string           { return &s }
-func intptr(i int) *int                 { return &i }
-func valptr(i value.Value) *value.Value { return &i }
+func strptr(s string) *string { return &s }
+func intptr(i int) *int       { return &i }
+func valptr(i interface{}) *value.Value {
+	v := value.Value(value.ValueInterface{Value: i})
+	return &v
+}
 
 func TestPathElementLess(t *testing.T) {
 	table := []struct {

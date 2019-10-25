@@ -41,20 +41,20 @@ func (w *removingWalker) doLeaf() ValidationErrors { return nil }
 func (w *removingWalker) doScalar(t *schema.Scalar) ValidationErrors { return nil }
 
 func (w *removingWalker) doList(t *schema.List) (errs ValidationErrors) {
-	l := value.ValueList(*w.value)
+	l := (*w.value).List()
 
 	// If list is null, empty, or atomic just return
-	if l == nil || len(l) == 0 || t.ElementRelationship == schema.Atomic {
+	if l == nil || l.Length() == 0 || t.ElementRelationship == schema.Atomic {
 		return nil
 	}
 
 	var newItems []interface{}
-	for i, item := range l {
+	l.Iterate(func(i int, item value.Value) {
 		// Ignore error because we have already validated this list
 		pe, _ := listItemToPathElement(t, i, item)
 		path, _ := fieldpath.MakePath(pe)
 		if w.toRemove.Has(path) {
-			continue
+			return
 		}
 		if subset := w.toRemove.WithPrefix(pe); !subset.Empty() {
 			val := value.Value(item)
@@ -63,9 +63,9 @@ func (w *removingWalker) doList(t *schema.List) (errs ValidationErrors) {
 
 		}
 		newItems = append(newItems, item)
-	}
+	})
 	if len(newItems) > 0 {
-		*w.value = newItems
+		*w.value = value.Value(value.ValueInterface{Value: newItems})
 	} else {
 		*w.value = nil
 	}
@@ -73,7 +73,7 @@ func (w *removingWalker) doList(t *schema.List) (errs ValidationErrors) {
 }
 
 func (w *removingWalker) doMap(t *schema.Map) ValidationErrors {
-	m := value.ValueMap(*w.value)
+	m := (*w.value).Map()
 
 	// If map is null, empty, or atomic just return
 	if m == nil || m.Length() == 0 || t.ElementRelationship == schema.Atomic {
@@ -104,7 +104,7 @@ func (w *removingWalker) doMap(t *schema.Map) ValidationErrors {
 		return true
 	})
 	if len(newMap) > 0 {
-		*w.value = newMap
+		*w.value = value.Value(value.ValueInterface{Value: newMap})
 	} else {
 		*w.value = nil
 	}
