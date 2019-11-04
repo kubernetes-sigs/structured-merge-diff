@@ -211,6 +211,13 @@ func TestFieldSet(t *testing.T) {
 			typeName:   "io.k8s.api.core.v1.Endpoints",
 		},
 		expectedOutputPath: testdata("endpointsset.json"),
+	}, {
+		options: Options{
+			schemaPath: testdata("k8s-schema.yaml"),
+			fieldset:   testdata("prometheus-crd.yaml"),
+			typeName:   "io.k8s.apiextensions-apiserver.pkg.apis.apiextensions.v1beta1.CustomResourceDefinition",
+		},
+		expectedOutputPath: testdata("prometheus-crdset.json"),
 	}}
 
 	for _, tt := range cases {
