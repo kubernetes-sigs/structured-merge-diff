@@ -59,6 +59,10 @@ func BenchmarkFromUnstructured(b *testing.B) {
 			typename: "io.k8s.api.core.v1.Endpoints",
 			obj:      read(testdata("endpoints.yaml")),
 		},
+		{
+			typename: "io.k8s.apiextensions-apiserver.pkg.apis.apiextensions.v1beta1.CustomResourceDefinition",
+			obj:      read(testdata("prometheus-crd.yaml")),
+		},
 	}
 
 	s, err := ioutil.ReadFile(testdata("k8s-schema.yaml"))
