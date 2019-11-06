@@ -36,7 +36,63 @@ type Value struct {
 
 // Equals returns true iff the two values are equal.
 func (v Value) Equals(rhs Value) bool {
-	return !v.Less(rhs) && !rhs.Less(v)
+	if v.FloatValue != nil || rhs.FloatValue != nil {
+		var lf float64
+		if v.FloatValue != nil {
+			lf = float64(*v.FloatValue)
+		} else if v.IntValue != nil {
+			lf = float64(*v.IntValue)
+		} else {
+			return false
+		}
+		var rf float64
+		if rhs.FloatValue != nil {
+			rf = float64(*rhs.FloatValue)
+		} else if rhs.IntValue != nil {
+			rf = float64(*rhs.IntValue)
+		} else {
+			return false
+		}
+		return lf == rf
+	}
+	if v.IntValue != nil {
+		if rhs.IntValue != nil {
+			return *v.IntValue == *rhs.IntValue
+		}
+		return false
+	}
+	if v.StringValue != nil {
+		if rhs.StringValue != nil {
+			return *v.StringValue == *rhs.StringValue
+		}
+		return false
+	}
+	if v.BooleanValue != nil {
+		if rhs.BooleanValue != nil {
+			return *v.BooleanValue == *rhs.BooleanValue
+		}
+		return false
+	}
+	if v.ListValue != nil {
+		if rhs.ListValue != nil {
+			return v.ListValue.Equals(rhs.ListValue)
+		}
+		return false
+	}
+	if v.MapValue != nil {
+		if rhs.MapValue != nil {
+			return v.MapValue.Equals(rhs.MapValue)
+		}
+		return false
+	}
+	if v.Null {
+		if rhs.Null {
+			return true
+		}
+		return false
+	}
+	// No field is set, on either objects.
+	return true
 }
 
 // Less provides a total ordering for Value (so that they can be sorted, even
@@ -134,6 +190,20 @@ type List struct {
 	Items []Value
 }
 
+// Equals compares two lists lexically.
+func (l *List) Equals(rhs *List) bool {
+	if len(l.Items) != len(rhs.Items) {
+		return false
+	}
+
+	for i, lv := range l.Items {
+		if !lv.Equals(rhs.Items[i]) {
+			return false
+		}
+	}
+	return true
+}
+
 // Less compares two lists lexically.
 func (l *List) Less(rhs *List) bool {
 	i := 0
@@ -189,6 +259,23 @@ func (m *Map) computeOrder() []int {
 		})
 	}
 	return m.order
+}
+
+// Equals compares two maps lexically.
+func (m *Map) Equals(rhs *Map) bool {
+	if len(m.Items) != len(rhs.Items) {
+		return false
+	}
+	for _, lfield := range m.Items {
+		rfield, ok := rhs.Get(lfield.Name)
+		if !ok {
+			return false
+		}
+		if !lfield.Value.Equals(rfield.Value) {
+			return false
+		}
+	}
+	return true
 }
 
 // Less compares two maps lexically.
