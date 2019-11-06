@@ -310,6 +310,19 @@ func TestValueLess(t *testing.T) {
 			if tt.b.Less(tt.b) {
 				t.Errorf("oops, b < a: %#v, %#v", tt.b, tt.a)
 			}
+
+			if tt.eq {
+				if tt.a.Compare(tt.b) != 0 || tt.b.Compare(tt.b) != 0 {
+					t.Errorf("oops, a != b: %#v, %#v", tt.a, tt.b)
+				}
+			} else {
+				if !(tt.a.Compare(tt.b) < 0) {
+					t.Errorf("oops, a is not less than b: %#v, %#v", tt.a, tt.b)
+				}
+				if !(tt.b.Compare(tt.a) > 0) {
+					t.Errorf("oops, b is not more than a: %#v, %#v", tt.a, tt.b)
+				}
+			}
 		})
 	}
 
