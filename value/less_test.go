@@ -296,6 +296,9 @@ func TestValueLess(t *testing.T) {
 		t.Run(table[i].name, func(t *testing.T) {
 			tt := table[i]
 			if tt.eq {
+				if !tt.a.Equals(tt.b) {
+					t.Errorf("oops, a != b: %#v, %#v", tt.a, tt.b)
+				}
 				if tt.a.Less(tt.b) {
 					t.Errorf("oops, a < b: %#v, %#v", tt.a, tt.b)
 				}
