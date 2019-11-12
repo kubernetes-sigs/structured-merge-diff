@@ -23,6 +23,7 @@ import (
 	"unsafe"
 
 	jsoniter "github.com/json-iterator/go"
+	"sigs.k8s.io/structured-merge-diff/fieldpath/strings"
 	"sigs.k8s.io/structured-merge-diff/value"
 )
 
@@ -60,8 +61,13 @@ func (s *Set) ToJSON_V2Experimental() ([]byte, error) {
 }
 
 func (s *Set) ToJSONStream_V2Experimental(w io.Writer) error {
-	stream := writePool.BorrowStream(w)
-	defer writePool.ReturnStream(stream)
+	innerStream := writePool.BorrowStream(w)
+	defer writePool.ReturnStream(innerStream)
+
+	stream, err := strings.NewStreamWithStringTable(innerStream)
+	if err != nil {
+		return err
+	}
 
 	if err := manageMemory(stream); err != nil {
 		return err
@@ -70,7 +76,9 @@ func (s *Set) ToJSONStream_V2Experimental(w io.Writer) error {
 	var r reusableBuilder
 
 	stream.WriteArrayStart()
-	err := s.emitContents_v2(false, stream, &r)
+	stream.WriteInt(strings.DefaultVersion)
+	stream.WriteRaw(",")
+	err = s.emitContents_v2(false, stream, &r)
 	if err != nil {
 		return err
 	}
@@ -78,7 +86,7 @@ func (s *Set) ToJSONStream_V2Experimental(w io.Writer) error {
 	return stream.Flush()
 }
 
-func manageMemory(stream *jsoniter.Stream) error {
+func manageMemory(stream value.Stream) error {
 	// Help jsoniter manage its buffers--without this, it does a bunch of
 	// alloctaions that are not necessary. They were probably optimizing
 	// for folks using the buffer directly.
@@ -201,7 +209,7 @@ func (s *Set) emitContents_v1(includeSelf bool, stream *jsoniter.Stream, r *reus
 	return manageMemory(stream)
 }
 
-func (s *Set) emitContents_v2(includeSelf bool, stream *jsoniter.Stream, r *reusableBuilder) error {
+func (s *Set) emitContents_v2(includeSelf bool, stream value.Stream, r *reusableBuilder) error {
 	mi, ci := 0, 0
 	first := true
 	preWrite := func() {
@@ -297,8 +305,11 @@ func (s *Set) emitContents_v2(includeSelf bool, stream *jsoniter.Stream, r *reus
 
 // FromJSON clears s and reads a JSON formatted set structure.
 func (s *Set) FromJSON(r io.Reader) error {
+	pr := strings.NewReaderWithStringTable(r)
+	defer pr.Close()
+
 	// The iterator pool is completely useless for memory management, grrr.
-	iter := jsoniter.Parse(jsoniter.ConfigCompatibleWithStandardLibrary, r, 4096)
+	iter := jsoniter.Parse(jsoniter.ConfigCompatibleWithStandardLibrary, pr, 4096)
 
 	next := iter.WhatIsNext()
 	switch next {
@@ -437,16 +448,21 @@ func readIter_v2(iter *jsoniter.Iterator) (children *Set, isMember bool) {
 				}
 				pe.Value = &v
 			case vtKey:
-				v, err := value.ReadJSONIter(iter)
-				if err != nil {
-					iter.Error = err
+				kvPairs := value.FieldList{}
+				if next := iter.WhatIsNext(); next != jsoniter.ObjectValue {
+					iter.Error = fmt.Errorf("expecting array got: %v", next)
 					return false
 				}
-				if v.MapValue == nil {
-					iter.Error = fmt.Errorf("expected key value pairs but got %#v", v)
-					return false
-				}
-				pe.Key = v.MapValue
+				iter.ReadObjectCB(func(iter *jsoniter.Iterator, key string) bool {
+					v, err := value.ReadJSONIter(iter)
+					if err != nil {
+						iter.Error = err
+						return false
+					}
+					kvPairs = append(kvPairs, value.Field{Name: key, Value: v})
+					return true
+				})
+				pe.Key = &kvPairs
 			case vtIndex:
 				i := iter.ReadInt()
 				pe.Index = &i

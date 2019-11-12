@@ -261,7 +261,7 @@ var (
 	}()
 )
 
-func emitV2Prefix(stream *jsoniter.Stream, vt v2ValueType, et v2EntryType) error {
+func emitV2Prefix(stream value.Stream, vt v2ValueType, et v2EntryType) error {
 	var scratch [3]byte
 	n := v2CombineTypes(et, vt)
 	str, ok := v2NumberToAscii[n]
@@ -280,7 +280,7 @@ func emitV2Prefix(stream *jsoniter.Stream, vt v2ValueType, et v2EntryType) error
 }
 
 // you must write the trailing "," if you need it.
-func serializePathElementToStreamV2(stream *jsoniter.Stream, pe PathElement, et v2EntryType) error {
+func serializePathElementToStreamV2(stream value.Stream, pe PathElement, et v2EntryType) error {
 	switch {
 	case pe.FieldName != nil:
 		if err := emitV2Prefix(stream, vtField, et); err != nil {
@@ -291,8 +291,16 @@ func serializePathElementToStreamV2(stream *jsoniter.Stream, pe PathElement, et 
 		if err := emitV2Prefix(stream, vtKey, et); err != nil {
 			return err
 		}
-		v := value.Value{MapValue: pe.Key}
-		v.WriteJSONStream(stream)
+		stream.WriteObjectStart()
+		kvPairs := *pe.Key
+		for i := range kvPairs {
+			if i > 0 {
+				stream.WriteMore()
+			}
+			stream.WriteObjectField(kvPairs[i].Name)
+			kvPairs[i].Value.WriteJSONStream(stream)
+		}
+		stream.WriteObjectEnd()
 	case pe.Value != nil:
 		if err := emitV2Prefix(stream, vtValue, et); err != nil {
 			return err

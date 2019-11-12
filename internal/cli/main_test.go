@@ -192,6 +192,8 @@ func TestCompare(t *testing.T) {
 func TestFieldSet(t *testing.T) {
 	cases := []testCase{{
 		options: Options{
+			fieldsetVersion: "v1",
+
 			schemaPath: testdata("k8s-schema.yaml"),
 			fieldset:   testdata("pod.yaml"),
 			typeName:   "io.k8s.api.core.v1.Pod",
@@ -199,6 +201,8 @@ func TestFieldSet(t *testing.T) {
 		expectedOutputPath: testdata("podset.json"),
 	}, {
 		options: Options{
+			fieldsetVersion: "v1",
+
 			schemaPath: testdata("k8s-schema.yaml"),
 			fieldset:   testdata("node.yaml"),
 			typeName:   "io.k8s.api.core.v1.Node",
@@ -206,6 +210,8 @@ func TestFieldSet(t *testing.T) {
 		expectedOutputPath: testdata("nodeset.json"),
 	}, {
 		options: Options{
+			fieldsetVersion: "v1",
+
 			schemaPath: testdata("k8s-schema.yaml"),
 			fieldset:   testdata("endpoints.yaml"),
 			typeName:   "io.k8s.api.core.v1.Endpoints",
@@ -213,6 +219,8 @@ func TestFieldSet(t *testing.T) {
 		expectedOutputPath: testdata("endpointsset.json"),
 	}, {
 		options: Options{
+			fieldsetVersion: "v1",
+
 			schemaPath: testdata("k8s-schema.yaml"),
 			fieldset:   testdata("prometheus-crd.yaml"),
 			typeName:   "io.k8s.apiextensions-apiserver.pkg.apis.apiextensions.v1beta1.CustomResourceDefinition",
