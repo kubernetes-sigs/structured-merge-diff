@@ -27,9 +27,10 @@ var reverseTables []map[string]int
 var versions []string = []string{
 	v0,
 	v1,
+	v2,
 }
 
-var DefaultVersion = 1
+var DefaultVersion = 2
 
 func init() {
 	for _, v := range versions {

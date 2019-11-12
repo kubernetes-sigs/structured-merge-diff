@@ -17,6 +17,8 @@ limitations under the License.
 package strings
 
 import (
+	"fmt"
+
 	"sigs.k8s.io/structured-merge-diff/value"
 )
 
@@ -43,7 +45,7 @@ func NewStreamWithStringTable(s value.Stream) (value.Stream, error) {
 func (s *streamWithStringTable) WriteString(str string) {
 	if x, ok := s.stringTable[str]; ok {
 		s.Stream.WriteRaw("!")
-		s.Stream.WriteInt(x)
+		s.Stream.WriteRaw(toBase64(x))
 	} else {
 		s.Stream.WriteString(str)
 	}
@@ -52,9 +54,23 @@ func (s *streamWithStringTable) WriteString(str string) {
 func (s *streamWithStringTable) WriteObjectField(str string) {
 	if x, ok := s.stringTable[str]; ok {
 		s.Stream.WriteRaw("!")
-		s.Stream.WriteInt(x)
+		s.Stream.WriteRaw(toBase64(x))
 		s.Stream.WriteRaw(":")
 	} else {
 		s.Stream.WriteObjectField(str)
 	}
+}
+
+var digits = []byte("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/")
+
+func toBase64(x int) string {
+	if x == 0 {
+		return "A"
+	}
+	var s string
+	for x > 0 {
+		s = fmt.Sprintf("%v%v", string(digits[x%64]), s)
+		x /= 64
+	}
+	return s
 }

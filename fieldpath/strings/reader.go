@@ -19,7 +19,6 @@ package strings
 import (
 	"fmt"
 	"io"
-	"strconv"
 )
 
 func NewReaderWithStringTable(r io.Reader) *io.PipeReader {
@@ -102,7 +101,7 @@ func (p *replacer) read(b byte) (err error) {
 	}
 	if p.readStringTableVersion {
 		if b == byte(',') || b == byte(':') || b == byte('}') || b == byte(']') {
-			k := parseIndex(p.indexBuffer)
+			k := parseInt(p.indexBuffer)
 
 			if p.stringTable, err = GetTable(k); err != nil {
 				return err
@@ -124,7 +123,7 @@ func (p *replacer) read(b byte) (err error) {
 	}
 	if p.readIndex {
 		if b == byte(',') || b == byte(':') || b == byte('}') || b == byte(']') {
-			k := parseIndex(p.indexBuffer)
+			k := parseBase64(p.indexBuffer)
 
 			if k < len(p.stringTable) {
 				p.write([]byte(fmt.Sprintf("%q", p.stringTable[k]))...)
@@ -149,7 +148,30 @@ func (p *replacer) read(b byte) (err error) {
 	return nil
 }
 
-func parseIndex(b []byte) int {
-	n, _ := strconv.Atoi(string(b))
+func parseInt(b []byte) int {
+	n := 0
+	for _, d := range b {
+		if d >= byte('0') && d <= byte('9') {
+			n = n*10 + int(d) - int('0')
+		}
+	}
+	return n
+}
+
+func parseBase64(b []byte) int {
+	n := 0
+	for _, d := range b {
+		if d >= byte('A') && d <= byte('Z') {
+			n = n*64 + int(d) - int('A')
+		} else if d >= byte('a') && d <= byte('z') {
+			n = n*64 + int(d) - int('a') + 26
+		} else if d >= byte('0') && d <= byte('9') {
+			n = n*64 + int(d) - int('0') + 52
+		} else if d == byte('+') {
+			n = n*64 + 62
+		} else if d == byte('/') {
+			n = n*64 + 63
+		}
+	}
 	return n
 }
