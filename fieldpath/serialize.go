@@ -305,15 +305,17 @@ func (s *Set) emitContents_v2(includeSelf bool, stream value.Stream, r *reusable
 
 // FromJSON clears s and reads a JSON formatted set structure.
 func (s *Set) FromJSON(r io.Reader) error {
-	pr := strings.NewReaderWithStringTable(r)
-	defer pr.Close()
+	firstByte := make([]byte, 1)
+	n, err := r.Read(firstByte)
+	if n != 1 || err != nil {
+		return err
+	}
 
-	// The iterator pool is completely useless for memory management, grrr.
-	iter := jsoniter.Parse(jsoniter.ConfigCompatibleWithStandardLibrary, pr, 4096)
-
-	next := iter.WhatIsNext()
-	switch next {
-	case jsoniter.ObjectValue:
+	switch firstByte[0] {
+	case byte('{'):
+		r = io.MultiReader(bytes.NewReader(firstByte), r)
+		// The iterator pool is completely useless for memory management, grrr.
+		iter := jsoniter.Parse(jsoniter.ConfigCompatibleWithStandardLibrary, r, 4096)
 		found, _ := readIter_v1(iter)
 		if found == nil {
 			*s = Set{}
@@ -321,7 +323,14 @@ func (s *Set) FromJSON(r io.Reader) error {
 			*s = *found
 		}
 		return iter.Error
-	case jsoniter.ArrayValue:
+	case byte('['):
+		r, err = strings.NewReaderWithStringTable(r)
+		if err != nil {
+			return err
+		}
+		r = io.MultiReader(bytes.NewReader(firstByte), r)
+		// The iterator pool is completely useless for memory management, grrr.
+		iter := jsoniter.Parse(jsoniter.ConfigCompatibleWithStandardLibrary, r, 4096)
 		found, _ := readIter_v2(iter)
 		if found == nil {
 			*s = Set{}
@@ -330,7 +339,8 @@ func (s *Set) FromJSON(r io.Reader) error {
 		}
 		return iter.Error
 	}
-	return fmt.Errorf("expected object or list, got %v", next)
+
+	return fmt.Errorf("expected object or list, got %v", firstByte[0])
 }
 
 // returns true if this subtree is also (or only) a member of parent; s is nil

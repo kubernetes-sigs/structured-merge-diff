@@ -21,7 +21,7 @@ import (
 	"strings"
 )
 
-var stringTables [][]string
+var stringTables [][][]byte
 var reverseTables []map[string]int
 
 var versions []string = []string{
@@ -35,7 +35,12 @@ var DefaultVersion = 2
 func init() {
 	for _, v := range versions {
 		s := strings.Split(strings.TrimSpace(v), "\n")
-		stringTables = append(stringTables, s)
+
+		b := make([][]byte, len(s))
+		for i := range s {
+			b[i] = []byte(fmt.Sprintf("%q", s[i]))
+		}
+		stringTables = append(stringTables, b)
 
 		m := map[string]int{}
 		for i := range s {
@@ -45,14 +50,14 @@ func init() {
 	}
 }
 
-func GetTable(i int) ([]string, error) {
+func getTable(i int) ([][]byte, error) {
 	if i < 0 || i > len(stringTables) {
 		return nil, fmt.Errorf("unable to lookup string table version %v", i)
 	}
 	return stringTables[i], nil
 }
 
-func GetReverseTable(i int) (map[string]int, error) {
+func getReverseTable(i int) (map[string]int, error) {
 	if i < 0 || i > len(reverseTables) {
 		return nil, fmt.Errorf("unable to lookup reverse string table version %v", i)
 	}

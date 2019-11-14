@@ -17,8 +17,6 @@ limitations under the License.
 package strings
 
 import (
-	"fmt"
-
 	"sigs.k8s.io/structured-merge-diff/value"
 )
 
@@ -31,7 +29,7 @@ type streamWithStringTable struct {
 var _ value.Stream = &streamWithStringTable{}
 
 func NewStreamWithStringTable(s value.Stream) (value.Stream, error) {
-	reverseStringTable, err := GetReverseTable(DefaultVersion)
+	reverseStringTable, err := getReverseTable(DefaultVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -45,7 +43,7 @@ func NewStreamWithStringTable(s value.Stream) (value.Stream, error) {
 func (s *streamWithStringTable) WriteString(str string) {
 	if x, ok := s.stringTable[str]; ok {
 		s.Stream.WriteRaw("!")
-		s.Stream.WriteRaw(toBase64(x))
+		toBase64(s, x)
 	} else {
 		s.Stream.WriteString(str)
 	}
@@ -54,7 +52,7 @@ func (s *streamWithStringTable) WriteString(str string) {
 func (s *streamWithStringTable) WriteObjectField(str string) {
 	if x, ok := s.stringTable[str]; ok {
 		s.Stream.WriteRaw("!")
-		s.Stream.WriteRaw(toBase64(x))
+		toBase64(s, x)
 		s.Stream.WriteRaw(":")
 	} else {
 		s.Stream.WriteObjectField(str)
@@ -63,14 +61,18 @@ func (s *streamWithStringTable) WriteObjectField(str string) {
 
 var digits = []byte("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/")
 
-func toBase64(x int) string {
+func toBase64(s *streamWithStringTable, x int) {
 	if x == 0 {
-		return "A"
+		s.Stream.Write(digits[0:1])
+	} else {
+		toBase64Helper(s, x)
 	}
-	var s string
-	for x > 0 {
-		s = fmt.Sprintf("%v%v", string(digits[x%64]), s)
-		x /= 64
+}
+
+func toBase64Helper(s *streamWithStringTable, x int) {
+	if x == 0 {
+		return
 	}
-	return s
+	toBase64Helper(s, x/64)
+	s.Stream.Write(digits[x%64 : x%64+1])
 }

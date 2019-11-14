@@ -141,7 +141,7 @@ func serializePathElementToWriter(w io.Writer, pe PathElement) error {
 		stream.WriteObjectStart()
 		for i, field := range *pe.Key {
 			if i > 0 {
-				stream.WriteMore()
+				stream.WriteRaw(",")
 			}
 			stream.WriteObjectField(field.Name)
 			field.Value.WriteJSONStream(stream)
@@ -262,21 +262,14 @@ var (
 )
 
 func emitV2Prefix(stream value.Stream, vt v2ValueType, et v2EntryType) error {
-	var scratch [3]byte
 	n := v2CombineTypes(et, vt)
 	str, ok := v2NumberToAscii[n]
 	if !ok {
 		return fmt.Errorf("unexpected entry number %v", n)
 	}
-	prefix := scratch[:1]
-	prefix[0] = str[0]
-	if len(str) > 1 {
-		prefix = append(prefix, str[1], ',')
-	} else {
-		prefix = append(prefix, ',')
-	}
-	_, err := stream.Write(prefix)
-	return err
+	stream.WriteRaw(str)
+	stream.WriteRaw(",")
+	return nil
 }
 
 // you must write the trailing "," if you need it.
@@ -295,7 +288,7 @@ func serializePathElementToStreamV2(stream value.Stream, pe PathElement, et v2En
 		kvPairs := *pe.Key
 		for i := range kvPairs {
 			if i > 0 {
-				stream.WriteMore()
+				stream.WriteRaw(",")
 			}
 			stream.WriteObjectField(kvPairs[i].Name)
 			kvPairs[i].Value.WriteJSONStream(stream)

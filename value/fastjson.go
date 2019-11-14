@@ -162,7 +162,6 @@ type Stream interface {
 	WriteObjectStart()
 	WriteObjectEnd()
 	WriteObjectField(string)
-	WriteMore()
 	Buffer() []byte
 	Flush() error
 	SetBuffer(buf []byte)
