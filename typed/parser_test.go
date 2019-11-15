@@ -42,7 +42,7 @@ func lastPart(s string) string {
 	return s[strings.LastIndex(s, ".")+1:]
 }
 
-func BenchmarkFromUnstructured(b *testing.B) {
+func BenchmarkConvertUnstructured(b *testing.B) {
 	tests := []struct {
 		typename string
 		obj      []byte
@@ -75,22 +75,33 @@ func BenchmarkFromUnstructured(b *testing.B) {
 	}
 
 	for _, test := range tests {
+		pt := parser.Type(test.typename)
+
+		obj := map[string]interface{}{}
+		if err := yaml.Unmarshal(test.obj, &obj); err != nil {
+			b.Fatal(err)
+		}
+
 		b.Run(lastPart(test.typename), func(b *testing.B) {
-			pt := parser.Type(test.typename)
-
-			obj := map[string]interface{}{}
-			if err := yaml.Unmarshal(test.obj, &obj); err != nil {
-				b.Fatal(err)
-			}
-
-			b.ReportAllocs()
-			b.ResetTimer()
-			for n := 0; n < b.N; n++ {
-				if _, err := pt.FromUnstructured(obj); err != nil {
-					b.Fatal(err)
+			var u *typed.TypedValue
+			b.Run("From", func(b *testing.B) {
+				b.ReportAllocs()
+				b.ResetTimer()
+				for n := 0; n < b.N; n++ {
+					var err error
+					if u, err = pt.FromUnstructured(obj); err != nil {
+						b.Fatal(err)
+					}
 				}
-			}
+			})
+			b.Run("To", func(b *testing.B) {
+				b.ReportAllocs()
+				b.ResetTimer()
+
+				for n := 0; n < b.N; n++ {
+					_ = u.AsValue().ToUnstructured(false)
+				}
+			})
 		})
 	}
-
 }
