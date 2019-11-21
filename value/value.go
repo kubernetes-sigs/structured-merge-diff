@@ -99,7 +99,7 @@ func Equals(lhs, rhs Value) bool {
 	}
 	if IsMap(lhs) {
 		if IsMap(rhs) {
-			return MapEquals(ValueMap(lhs), ValueMap(rhs))
+			return ValueMap(lhs).Equals(ValueMap(rhs))
 		}
 		return false
 	}

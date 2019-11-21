@@ -26,25 +26,9 @@ type Map interface {
 	Set(key string, val Value)
 	Get(key string) (Value, bool)
 	Delete(key string)
+	Equals(other Map) bool
 	Iterate(func(key string, value Value) bool) bool
 	Length() int
-}
-
-// Equals compares two maps lexically.
-func MapEquals(lhs, rhs Map) bool {
-	if lhs.Length() != rhs.Length() {
-		return false
-	}
-	return lhs.Iterate(func(k string, vl Value) bool {
-		vr, ok := rhs.Get(k)
-		if !ok {
-			return false
-		}
-		if !Equals(vl, vr) {
-			return false
-		}
-		return true
-	})
 }
 
 // Less compares two maps lexically.
@@ -150,6 +134,23 @@ func (m MapInterface) Length() int {
 	return len(m)
 }
 
+func (m MapInterface) Equals(other Map) bool {
+	for k, v := range m {
+		ks, ok := k.(string)
+		if !ok {
+			return false
+		}
+		vo, ok := other.Get(ks)
+		if !ok {
+			return false
+		}
+		if !Equals(v, vo) {
+			return false
+		}
+	}
+	return true
+}
+
 type MapString map[string]interface{}
 
 func (m MapString) Set(key string, val Value) {
@@ -179,4 +180,17 @@ func (m MapString) Iterate(fn func(key string, value Value) bool) bool {
 
 func (m MapString) Length() int {
 	return len(m)
+}
+
+func (m MapString) Equals(other Map) bool {
+	for k, v := range m {
+		vo, ok := other.Get(k)
+		if !ok {
+			return false
+		}
+		if !Equals(v, vo) {
+			return false
+		}
+	}
+	return true
 }
