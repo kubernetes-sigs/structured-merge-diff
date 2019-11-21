@@ -121,10 +121,9 @@ func (v *toFieldSetWalker) doList(t *schema.List) (errs ValidationErrors) {
 	return errs
 }
 
-func (v *toFieldSetWalker) visitMapItems(t *schema.Map, m map[string]interface{}) (errs ValidationErrors) {
-	for key, val := range m {
-		k := key
-		pe := fieldpath.PathElement{FieldName: &k}
+func (v *toFieldSetWalker) visitMapItems(t *schema.Map, m value.Map) (errs ValidationErrors) {
+	m.Iterate(func(key string, val value.Value) bool {
+		pe := fieldpath.PathElement{FieldName: &key}
 
 		tr := t.ElementType
 		if sf, ok := t.FindField(key); ok {
@@ -137,8 +136,8 @@ func (v *toFieldSetWalker) visitMapItems(t *schema.Map, m map[string]interface{}
 			v2.set.Insert(v2.path)
 		}
 		v.finishDescent(v2)
-
-	}
+		return true
+	})
 	return errs
 }
 

@@ -22,39 +22,49 @@ import (
 	"strings"
 )
 
+type Map interface {
+	Set(key string, val Value)
+	Get(key string) (Value, bool)
+	Delete(key string)
+	Iterate(func(key string, value Value) bool) bool
+	Length() int
+}
+
 // Equals compares two maps lexically.
-func MapEquals(lhs, rhs map[string]interface{}) bool {
-	if len(lhs) != len(rhs) {
+func MapEquals(lhs, rhs Map) bool {
+	if lhs.Length() != rhs.Length() {
 		return false
 	}
-	for k, vl := range lhs {
-		vr, ok := rhs[k]
+	return lhs.Iterate(func(k string, vl Value) bool {
+		vr, ok := rhs.Get(k)
 		if !ok {
 			return false
 		}
 		if !Equals(vl, vr) {
 			return false
 		}
-	}
-	return true
+		return true
+	})
 }
 
 // Less compares two maps lexically.
-func MapLess(lhs, rhs map[string]interface{}) bool {
+func MapLess(lhs, rhs Map) bool {
 	return Compare(lhs, rhs) == -1
 }
 
 // Compare compares two maps lexically.
-func MapCompare(lhs, rhs map[string]interface{}) int {
-	lorder := make([]string, 0, len(lhs))
-	for key := range lhs {
+func MapCompare(lhs, rhs Map) int {
+	lorder := make([]string, 0, lhs.Length())
+	lhs.Iterate(func(key string, _ Value) bool {
 		lorder = append(lorder, key)
-	}
+		return true
+	})
 	sort.Strings(lorder)
-	rorder := make([]string, 0, len(rhs))
-	for key := range rhs {
+	rorder := make([]string, 0, rhs.Length())
+	rhs.Iterate(func(key string, _ Value) bool {
 		rorder = append(rorder, key)
-	}
+		return true
+	})
 	sort.Strings(rorder)
 
 	i := 0
@@ -74,7 +84,9 @@ func MapCompare(lhs, rhs map[string]interface{}) int {
 		if c := strings.Compare(lorder[i], rorder[i]); c != 0 {
 			return c
 		}
-		if c := Compare(lhs[lorder[i]], rhs[lorder[i]]); c != 0 {
+		litem, _ := lhs.Get(lorder[i])
+		ritem, _ := rhs.Get(rorder[i])
+		if c := Compare(litem, ritem); c != 0 {
 			return c
 		}
 		// The items are equal; continue.
@@ -90,22 +102,81 @@ func IsMap(v Value) bool {
 	}
 	return false
 }
-
-func ValueMap(v Value) map[string]interface{} {
+func ValueMap(v Value) Map {
 	if v == nil {
-		return map[string]interface{}{}
+		return MapString(map[string]interface{}{})
 	}
 	switch t := v.(type) {
 	case map[string]interface{}:
-		return t
+		return MapString(t)
 	case map[interface{}]interface{}:
-		m := make(map[string]interface{}, len(t))
-		for key, value := range t {
-			if ks, ok := key.(string); ok {
-				m[ks] = value
-			}
-		}
-		return m
+		return MapInterface(t)
 	}
 	panic(fmt.Errorf("not a map: %#v", v))
+}
+
+type MapInterface map[interface{}]interface{}
+
+func (m MapInterface) Set(key string, val Value) {
+	m[key] = val
+}
+
+func (m MapInterface) Get(key string) (Value, bool) {
+	if v, ok := m[key]; !ok {
+		return nil, false
+	} else {
+		return v, true
+	}
+}
+
+func (m MapInterface) Delete(key string) {
+	delete(m, key)
+}
+
+func (m MapInterface) Iterate(fn func(key string, value Value) bool) bool {
+	for k, v := range m {
+		if ks, ok := k.(string); !ok {
+			continue
+		} else {
+			if !fn(ks, v) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func (m MapInterface) Length() int {
+	return len(m)
+}
+
+type MapString map[string]interface{}
+
+func (m MapString) Set(key string, val Value) {
+	m[key] = val
+}
+
+func (m MapString) Get(key string) (Value, bool) {
+	if v, ok := m[key]; !ok {
+		return nil, false
+	} else {
+		return v, true
+	}
+}
+
+func (m MapString) Delete(key string) {
+	delete(m, key)
+}
+
+func (m MapString) Iterate(fn func(key string, value Value) bool) bool {
+	for k, v := range m {
+		if !fn(k, v) {
+			return false
+		}
+	}
+	return true
+}
+
+func (m MapString) Length() int {
+	return len(m)
 }

@@ -76,7 +76,7 @@ func (w *removingWalker) doMap(t *schema.Map) ValidationErrors {
 	m := value.ValueMap(*w.value)
 
 	// If map is null, empty, or atomic just return
-	if len(m) == 0 || t.ElementRelationship == schema.Atomic {
+	if m == nil || m.Length() == 0 || t.ElementRelationship == schema.Atomic {
 		return nil
 	}
 
@@ -86,16 +86,15 @@ func (w *removingWalker) doMap(t *schema.Map) ValidationErrors {
 	}
 
 	newMap := map[string]interface{}{}
-	for key, val := range m {
-		k := key
+	m.Iterate(func(k string, val value.Value) bool {
 		pe := fieldpath.PathElement{FieldName: &k}
 		path, _ := fieldpath.MakePath(pe)
 		fieldType := t.ElementType
-		if ft, ok := fieldTypes[key]; ok {
+		if ft, ok := fieldTypes[k]; ok {
 			fieldType = ft
 		} else {
 			if w.toRemove.Has(path) {
-				continue
+				return true
 			}
 		}
 		if subset := w.toRemove.WithPrefix(pe); !subset.Empty() {
@@ -103,8 +102,9 @@ func (w *removingWalker) doMap(t *schema.Map) ValidationErrors {
 			removeItemsWithSchema(&v, subset, w.schema, fieldType)
 			val = v
 		}
-		newMap[key] = val
-	}
+		newMap[k] = val
+		return true
+	})
 	if len(newMap) > 0 {
 		*w.value = newMap
 	} else {

@@ -155,23 +155,22 @@ func (v *validatingObjectWalker) doList(t *schema.List) (errs ValidationErrors) 
 	return errs
 }
 
-func (v *validatingObjectWalker) visitMapItems(t *schema.Map, m map[string]interface{}) (errs ValidationErrors) {
-	// Avoiding the closure on m.Iterate here significantly improves
-	// performance, so we have to switch on each type of maps.
-	for key, val := range m {
-		k := key
-		pe := fieldpath.PathElement{FieldName: &k}
+func (v *validatingObjectWalker) visitMapItems(t *schema.Map, m value.Map) (errs ValidationErrors) {
+	m.Iterate(func(key string, val value.Value) bool {
+		pe := fieldpath.PathElement{FieldName: &key}
 		tr := t.ElementType
 		if sf, ok := t.FindField(key); ok {
 			tr = sf.Type
 		} else if (t.ElementType == schema.TypeRef{}) {
-			return append(errs, errorf("field not declared in schema").WithPrefix(pe.String())...)
+			errs = append(errs, errorf("field not declared in schema").WithPrefix(pe.String())...)
+			return false
 		}
 		v2 := v.prepareDescent(tr)
 		v2.value = val
 		errs = append(errs, v2.validate()...)
 		v.finishDescent(v2)
-	}
+		return true
+	})
 	return errs
 }
 

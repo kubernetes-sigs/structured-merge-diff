@@ -148,7 +148,7 @@ func (w *mergingWalker) finishDescent(w2 *mergingWalker) {
 	*w.spareWalkers = append(*w.spareWalkers, w2)
 }
 
-func (w *mergingWalker) derefMap(prefix string, v *value.Value, dest *map[string]interface{}) (errs ValidationErrors) {
+func (w *mergingWalker) derefMap(prefix string, v *value.Value, dest *value.Map) (errs ValidationErrors) {
 	// taking dest as input so that it can be called as a one-liner with
 	// append.
 	if v == nil {
@@ -298,29 +298,35 @@ func (w *mergingWalker) visitMapItem(t *schema.Map, out map[string]interface{}, 
 	return nil
 }
 
-func (w *mergingWalker) visitMapItems(t *schema.Map, lhs, rhs map[string]interface{}) (errs ValidationErrors) {
+func (w *mergingWalker) visitMapItems(t *schema.Map, lhs, rhs value.Map) (errs ValidationErrors) {
 	out := map[string]interface{}{}
 
-	for key, val := range lhs {
-		var rval *value.Value
-		if rhs != nil {
-			if item, ok := rhs[key]; ok {
-				v := value.Value(item)
-				rval = &v
+	if lhs != nil {
+		lhs.Iterate(func(key string, val value.Value) bool {
+			var rval *value.Value
+			if rhs != nil {
+				if item, ok := rhs.Get(key); ok {
+					v := value.Value(item)
+					rval = &v
+				}
 			}
-		}
-		lval := value.Value(val)
-		errs = append(errs, w.visitMapItem(t, out, key, &lval, rval)...)
+			lval := value.Value(val)
+			errs = append(errs, w.visitMapItem(t, out, key, &lval, rval)...)
+			return true
+		})
 	}
 
-	for key, val := range rhs {
-		if lhs != nil {
-			if _, ok := lhs[key]; ok {
-				continue
+	if rhs != nil {
+		rhs.Iterate(func(key string, val value.Value) bool {
+			if lhs != nil {
+				if _, ok := lhs.Get(key); ok {
+					return true
+				}
 			}
-		}
-		rval := value.Value(val)
-		errs = append(errs, w.visitMapItem(t, out, key, nil, &rval)...)
+			rval := value.Value(val)
+			errs = append(errs, w.visitMapItem(t, out, key, nil, &rval)...)
+			return true
+		})
 	}
 	if len(out) > 0 {
 		v := value.Value(out)
@@ -331,14 +337,14 @@ func (w *mergingWalker) visitMapItems(t *schema.Map, lhs, rhs map[string]interfa
 }
 
 func (w *mergingWalker) doMap(t *schema.Map) (errs ValidationErrors) {
-	var lhs, rhs map[string]interface{}
+	var lhs, rhs value.Map
 	w.derefMap("lhs: ", w.lhs, &lhs)
 	w.derefMap("rhs: ", w.rhs, &rhs)
 
 	// If both lhs and rhs are empty/null, treat it as a
 	// leaf: this helps preserve the empty/null
 	// distinction.
-	emptyPromoteToLeaf := len(lhs) == 0 && len(rhs) == 0
+	emptyPromoteToLeaf := (lhs == nil || lhs.Length() == 0) && (rhs == nil || rhs.Length() == 0)
 
 	if t.ElementRelationship == schema.Atomic || emptyPromoteToLeaf {
 		w.doLeaf()

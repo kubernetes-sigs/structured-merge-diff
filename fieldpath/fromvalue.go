@@ -66,13 +66,13 @@ func (w *objectWalker) walk() {
 		// If the map/struct were atomic, we'd break here, but we don't
 		// have a schema, so we can't tell.
 
-		for key, val := range value.ValueMap(w.value) {
+		value.ValueMap(w.value).Iterate(func(k string, val value.Value) bool {
 			w2 := *w
-			k := key
 			w2.path = append(w.path, PathElement{FieldName: &k})
 			w2.value = val
 			w2.walk()
-		}
+			return true
+		})
 		return
 	}
 
@@ -105,7 +105,7 @@ func GuessBestListPathElement(index int, item value.Value) PathElement {
 
 	var keys value.FieldList
 	for _, name := range AssociativeListCandidateFieldNames {
-		f, ok := value.ValueMap(item)[name]
+		f, ok := value.ValueMap(item).Get(name)
 		if !ok {
 			continue
 		}

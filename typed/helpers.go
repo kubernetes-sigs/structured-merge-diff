@@ -150,7 +150,7 @@ func listValue(val value.Value) ([]interface{}, error) {
 }
 
 // Returns the map, or an error. Reminder: nil is a valid map and might be returned.
-func mapValue(val value.Value) (map[string]interface{}, error) {
+func mapValue(val value.Value) (value.Map, error) {
 	if val == nil {
 		// Null is a valid map.
 		return nil, nil
@@ -173,7 +173,7 @@ func keyedAssociativeListItemToPathElement(list *schema.List, index int, child v
 	}
 	keyMap := value.FieldList{}
 	for _, fieldName := range list.Keys {
-		if val, ok := value.ValueMap(child)[fieldName]; ok {
+		if val, ok := value.ValueMap(child).Get(fieldName); ok {
 			keyMap = append(keyMap, value.Field{Name: fieldName, Value: val})
 		} else {
 			return pe, fmt.Errorf("associative list with keys has an element that omits key field %q", fieldName)

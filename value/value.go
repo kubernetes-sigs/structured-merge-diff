@@ -41,10 +41,11 @@ func Copy(v Value) Value {
 		return l
 	}
 	if IsMap(v) {
-		m := make(map[string]interface{}, len(ValueMap(v)))
-		for key, item := range ValueMap(v) {
-			m[key] = Copy(item)
-		}
+		m := make(map[string]interface{}, ValueMap(v).Length())
+		ValueMap(v).Iterate(func(key string, value Value) bool {
+			m[key] = Copy(value)
+			return true
+		})
 		return m
 	}
 	// Scalars don't have to be copied
@@ -253,9 +254,10 @@ func ToString(v Value) string {
 		return "[" + strings.Join(strs, ",") + "]"
 	case IsMap(v):
 		strs := []string{}
-		for k, v := range ValueMap(v) {
+		ValueMap(v).Iterate(func(k string, v Value) bool {
 			strs = append(strs, fmt.Sprintf("%v=%v", k, ToString(v)))
-		}
+			return true
+		})
 		return "{" + strings.Join(strs, ";") + "}"
 	}
 	return fmt.Sprintf("{{undefined(%#v)}}", v)
