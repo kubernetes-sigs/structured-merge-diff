@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"sort"
 	"strings"
 
 	jsoniter "github.com/json-iterator/go"
@@ -30,6 +29,27 @@ var (
 	readPool  = jsoniter.NewIterator(jsoniter.ConfigCompatibleWithStandardLibrary).Pool()
 	writePool = jsoniter.NewStream(jsoniter.ConfigCompatibleWithStandardLibrary, nil, 1024).Pool()
 )
+
+type Value interface{}
+
+func Copy(v Value) Value {
+	if IsList(v) {
+		l := make([]interface{}, 0, len(ValueList(v)))
+		for _, item := range ValueList(v) {
+			l = append(l, Copy(item))
+		}
+		return l
+	}
+	if IsMap(v) {
+		m := make(map[string]interface{}, len(ValueMap(v)))
+		for key, item := range ValueMap(v) {
+			m[key] = Copy(item)
+		}
+		return m
+	}
+	// Scalars don't have to be copied
+	return v
+}
 
 // Equals returns true iff the two values are equal.
 func Equals(lhs, rhs Value) bool {
@@ -212,163 +232,6 @@ func WriteJSONStream(v Value, stream *jsoniter.Stream) {
 	stream.WriteVal(v)
 }
 
-// IntCompare compares integers. The result will be 0 if i==rhs, -1 if i <
-// rhs, and +1 if i > rhs.
-func IntCompare(lhs, rhs int64) int {
-	if lhs > rhs {
-		return 1
-	} else if lhs < rhs {
-		return -1
-	}
-	return 0
-}
-
-// Compare compares floats. The result will be 0 if lhs==rhs, -1 if f <
-// rhs, and +1 if f > rhs.
-func FloatCompare(lhs, rhs float64) int {
-	if lhs > rhs {
-		return 1
-	} else if lhs < rhs {
-		return -1
-	}
-	return 0
-}
-
-// Compare compares booleans. The result will be 0 if b==rhs, -1 if b <
-// rhs, and +1 if b > rhs.
-func BoolCompare(lhs, rhs bool) int {
-	if lhs == rhs {
-		return 0
-	} else if lhs == false {
-		return -1
-	}
-	return 1
-}
-
-// Field is an individual key-value pair.
-type Field struct {
-	Name  string
-	Value Value
-}
-
-// FieldList is a list of key-value pairs. Each field is expected to
-// have a different name.
-type FieldList []Field
-
-// Sort sorts the field list by Name.
-func (f FieldList) Sort() {
-	if len(f) < 2 {
-		return
-	}
-	if len(f) == 2 {
-		if f[1].Name < f[0].Name {
-			f[0], f[1] = f[1], f[0]
-		}
-		return
-	}
-	sort.SliceStable(f, func(i, j int) bool {
-		return f[i].Name < f[j].Name
-	})
-}
-
-// Less compares two lists lexically.
-func (f FieldList) Less(rhs FieldList) bool {
-	return f.Compare(rhs) == -1
-}
-
-// Less compares two lists lexically. The result will be 0 if f==rhs, -1
-// if f < rhs, and +1 if f > rhs.
-func (f FieldList) Compare(rhs FieldList) int {
-	i := 0
-	for {
-		if i >= len(f) && i >= len(rhs) {
-			// Maps are the same length and all items are equal.
-			return 0
-		}
-		if i >= len(f) {
-			// F is shorter.
-			return -1
-		}
-		if i >= len(rhs) {
-			// RHS is shorter.
-			return 1
-		}
-		if c := strings.Compare(f[i].Name, rhs[i].Name); c != 0 {
-			return c
-		}
-		if c := Compare(f[i].Value, rhs[i].Value); c != 0 {
-			return c
-		}
-		// The items are equal; continue.
-		i++
-	}
-}
-
-type Value interface{}
-
-func Copy(v Value) Value {
-	if IsList(v) {
-		l := make([]interface{}, 0, len(ValueList(v)))
-		for _, item := range ValueList(v) {
-			l = append(l, Copy(item))
-		}
-		return l
-	}
-	if IsMap(v) {
-		m := make(map[string]interface{}, len(ValueMap(v)))
-		for key, item := range ValueMap(v) {
-			m[key] = Copy(item)
-		}
-		return m
-	}
-	// Scalars don't have to be copied
-	return v
-}
-
-// Equals compares two lists lexically.
-func ListEquals(lhs, rhs []interface{}) bool {
-	if len(lhs) != len(rhs) {
-		return false
-	}
-
-	for i, lv := range lhs {
-		if !Equals(lv, rhs[i]) {
-			return false
-		}
-	}
-	return true
-}
-
-// Less compares two lists lexically.
-func ListLess(lhs, rhs []interface{}) bool {
-	return ListCompare(lhs, rhs) == -1
-}
-
-// Compare compares two lists lexically. The result will be 0 if l==rhs, -1
-// if l < rhs, and +1 if l > rhs.
-func ListCompare(lhs, rhs []interface{}) int {
-	i := 0
-	for {
-		if i >= len(lhs) && i >= len(rhs) {
-			// Lists are the same length and all items are equal.
-			return 0
-		}
-		if i >= len(lhs) {
-			// LHS is shorter.
-			return -1
-		}
-		if i >= len(rhs) {
-			// RHS is shorter.
-			return 1
-		}
-		if c := Compare(lhs[i], rhs[i]); c != 0 {
-			return c
-		}
-		// The items are equal; continue.
-		i++
-	}
-}
-
 func ToString(v Value) string {
 	if v == nil {
 		return "null"
@@ -396,180 +259,4 @@ func ToString(v Value) string {
 		return "{" + strings.Join(strs, ";") + "}"
 	}
 	return fmt.Sprintf("{{undefined(%#v)}}", v)
-}
-
-// Equals compares two maps lexically.
-func MapEquals(lhs, rhs map[string]interface{}) bool {
-	if len(lhs) != len(rhs) {
-		return false
-	}
-	for k, vl := range lhs {
-		vr, ok := rhs[k]
-		if !ok {
-			return false
-		}
-		if !Equals(vl, vr) {
-			return false
-		}
-	}
-	return true
-}
-
-// Less compares two maps lexically.
-func MapLess(lhs, rhs map[string]interface{}) bool {
-	return Compare(lhs, rhs) == -1
-}
-
-// Compare compares two maps lexically.
-func MapCompare(lhs, rhs map[string]interface{}) int {
-	lorder := make([]string, 0, len(lhs))
-	for key := range lhs {
-		lorder = append(lorder, key)
-	}
-	sort.Strings(lorder)
-	rorder := make([]string, 0, len(rhs))
-	for key := range rhs {
-		rorder = append(rorder, key)
-	}
-	sort.Strings(rorder)
-
-	i := 0
-	for {
-		if i >= len(lorder) && i >= len(rorder) {
-			// Maps are the same length and all items are equal.
-			return 0
-		}
-		if i >= len(lorder) {
-			// LHS is shorter.
-			return -1
-		}
-		if i >= len(rorder) {
-			// RHS is shorter.
-			return 1
-		}
-		if c := strings.Compare(lorder[i], rorder[i]); c != 0 {
-			return c
-		}
-		if c := Compare(lhs[lorder[i]], rhs[lorder[i]]); c != 0 {
-			return c
-		}
-		// The items are equal; continue.
-		i++
-	}
-}
-
-func IsMap(v Value) bool {
-	if _, ok := v.(map[string]interface{}); ok {
-		return true
-	} else if _, ok := v.(map[interface{}]interface{}); ok {
-		return true
-	}
-	return false
-}
-
-func ValueMap(v Value) map[string]interface{} {
-	if v == nil {
-		return map[string]interface{}{}
-	}
-	switch t := v.(type) {
-	case map[string]interface{}:
-		return t
-	case map[interface{}]interface{}:
-		m := make(map[string]interface{}, len(t))
-		for key, value := range t {
-			if ks, ok := key.(string); ok {
-				m[ks] = value
-			}
-		}
-		return m
-	}
-	panic(fmt.Errorf("not a map: %#v", v))
-}
-
-func IsList(v Value) bool {
-	if v == nil {
-		return false
-	}
-	_, ok := v.([]interface{})
-	return ok
-}
-
-func ValueList(v Value) []interface{} {
-	return v.([]interface{})
-}
-
-func IsFloat(v Value) bool {
-	if v == nil {
-		return false
-	} else if _, ok := v.(float64); ok {
-		return true
-	} else if _, ok := v.(float32); ok {
-		return true
-	}
-	return false
-}
-
-func ValueFloat(v Value) float64 {
-	if f, ok := v.(float32); ok {
-		return float64(f)
-	}
-	return v.(float64)
-}
-
-func IsInt(v Value) bool {
-	if v == nil {
-		return false
-	} else if _, ok := v.(int); ok {
-		return true
-	} else if _, ok := v.(int8); ok {
-		return true
-	} else if _, ok := v.(int16); ok {
-		return true
-	} else if _, ok := v.(int32); ok {
-		return true
-	} else if _, ok := v.(int64); ok {
-		return true
-	}
-	return false
-}
-
-func ValueInt(v Value) int64 {
-	if i, ok := v.(int); ok {
-		return int64(i)
-	} else if i, ok := v.(int8); ok {
-		return int64(i)
-	} else if i, ok := v.(int16); ok {
-		return int64(i)
-	} else if i, ok := v.(int32); ok {
-		return int64(i)
-	}
-	return v.(int64)
-}
-
-func IsString(v Value) bool {
-	if v == nil {
-		return false
-	}
-	_, ok := v.(string)
-	return ok
-}
-
-func ValueString(v Value) string {
-	return v.(string)
-}
-
-func IsBool(v Value) bool {
-	if v == nil {
-		return false
-	}
-	_, ok := v.(bool)
-	return ok
-}
-
-func ValueBool(v Value) bool {
-	return v.(bool)
-}
-
-func IsNull(v Value) bool {
-	return v == nil
 }
