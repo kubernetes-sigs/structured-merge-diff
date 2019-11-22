@@ -20,28 +20,29 @@ import (
 )
 
 type removingWalker struct {
-	value    *value.Value
+	value    value.Value
+	out      interface{}
 	schema   *schema.Schema
 	toRemove *fieldpath.Set
 }
 
-func removeItemsWithSchema(value *value.Value, toRemove *fieldpath.Set, schema *schema.Schema, typeRef schema.TypeRef) {
+func removeItemsWithSchema(val value.Value, toRemove *fieldpath.Set, schema *schema.Schema, typeRef schema.TypeRef) value.Value {
 	w := &removingWalker{
-		value:    value,
+		value:    val,
 		schema:   schema,
 		toRemove: toRemove,
 	}
-	resolveSchema(schema, typeRef, value, w)
+	resolveSchema(schema, typeRef, &val, w)
+	return value.ValueInterface{Value: w.out}
 }
 
-// doLeaf should be called on leaves before descending into children, if there
-// will be a descent. It modifies w.inLeaf.
-func (w *removingWalker) doLeaf() ValidationErrors { return nil }
-
-func (w *removingWalker) doScalar(t *schema.Scalar) ValidationErrors { return nil }
+func (w *removingWalker) doScalar(t *schema.Scalar) ValidationErrors {
+	w.out = w.value.Interface()
+	return nil
+}
 
 func (w *removingWalker) doList(t *schema.List) (errs ValidationErrors) {
-	l := (*w.value).List()
+	l := w.value.List()
 
 	// If list is null, empty, or atomic just return
 	if l == nil || l.Length() == 0 || t.ElementRelationship == schema.Atomic {
@@ -58,23 +59,18 @@ func (w *removingWalker) doList(t *schema.List) (errs ValidationErrors) {
 			continue
 		}
 		if subset := w.toRemove.WithPrefix(pe); !subset.Empty() {
-			val := value.Value(item)
-			removeItemsWithSchema(&val, subset, w.schema, t.ElementType)
-			item = val
-
+			item = removeItemsWithSchema(item, subset, w.schema, t.ElementType)
 		}
-		newItems = append(newItems, item)
+		newItems = append(newItems, item.Interface())
 	}
 	if len(newItems) > 0 {
-		*w.value = value.Value(value.ValueInterface{Value: newItems})
-	} else {
-		*w.value = nil
+		w.out = newItems
 	}
 	return nil
 }
 
 func (w *removingWalker) doMap(t *schema.Map) ValidationErrors {
-	m := (*w.value).Map()
+	m := w.value.Map()
 
 	// If map is null, empty, or atomic just return
 	if m == nil || m.Length() == 0 || t.ElementRelationship == schema.Atomic {
@@ -99,15 +95,13 @@ func (w *removingWalker) doMap(t *schema.Map) ValidationErrors {
 			}
 		}
 		if subset := w.toRemove.WithPrefix(pe); !subset.Empty() {
-			removeItemsWithSchema(&val, subset, w.schema, fieldType)
+			val = removeItemsWithSchema(val, subset, w.schema, fieldType)
 		}
-		newMap[k] = val
+		newMap[k] = val.Interface()
 		return true
 	})
 	if len(newMap) > 0 {
-		*w.value = value.Value(value.ValueInterface{Value: newMap})
-	} else {
-		*w.value = nil
+		w.out = newMap
 	}
 	return nil
 }

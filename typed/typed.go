@@ -140,8 +140,7 @@ func (tv TypedValue) Compare(rhs *TypedValue) (c *Comparison, err error) {
 
 // RemoveItems removes each provided list or map item from the value.
 func (tv TypedValue) RemoveItems(items *fieldpath.Set) *TypedValue {
-	tv.value = tv.value.Copy()
-	removeItemsWithSchema(&tv.value, items, tv.schema, tv.typeRef)
+	tv.value = removeItemsWithSchema(tv.value, items, tv.schema, tv.typeRef)
 	return &tv
 }
 
