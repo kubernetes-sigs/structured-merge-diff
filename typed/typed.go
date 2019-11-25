@@ -202,7 +202,7 @@ func (tv TypedValue) NormalizeUnionsApply(new *TypedValue) (*TypedValue, error) 
 }
 
 func (tv TypedValue) Empty() *TypedValue {
-	tv.value = value.ValueInterface{Value: nil}
+	tv.value = value.NewValueInterface(nil)
 	return &tv
 }
 
@@ -249,7 +249,7 @@ func merge(lhs, rhs *TypedValue, rule, postRule mergeRule) (*TypedValue, error) 
 		typeRef: lhs.typeRef,
 	}
 	if mw.out != nil {
-		out.value = value.ValueInterface{Value: *mw.out}
+		out.value = value.NewValueInterface(*mw.out)
 	}
 	return out, nil
 }

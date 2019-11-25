@@ -112,7 +112,7 @@ func (d *discriminator) Set(m value.Map, v discriminated) {
 	if d == nil {
 		return
 	}
-	m.Set(d.name, value.ValueInterface{Value: string(v)})
+	m.Set(d.name, value.NewValueInterface(string(v)))
 }
 
 func (d *discriminator) Get(m value.Map) discriminated {

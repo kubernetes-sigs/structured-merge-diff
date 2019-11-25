@@ -221,7 +221,7 @@ func TestValueLess(t *testing.T) {
 		i := i
 		t.Run(table[i].name, func(t *testing.T) {
 			tt := table[i]
-			a, b := ValueInterface{Value: tt.a}, ValueInterface{Value: tt.b}
+			a, b := NewValueInterface(tt.a), NewValueInterface(tt.b)
 			if tt.eq {
 				if !Equals(a, b) {
 					t.Errorf("oops, a != b: %#v, %#v", tt.a, tt.b)

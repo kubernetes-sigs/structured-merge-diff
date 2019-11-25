@@ -72,6 +72,8 @@ func MapCompare(lhs, rhs Map) int {
 		if c := Compare(litem, ritem); c != 0 {
 			return c
 		}
+		litem.Recycle()
+		ritem.Recycle()
 		// The items are equal; continue.
 		i++
 	}
@@ -87,7 +89,7 @@ func (m MapInterface) Get(key string) (Value, bool) {
 	if v, ok := m[key]; !ok {
 		return nil, false
 	} else {
-		return ValueInterface{Value: v}, true
+		return NewValueInterface(v), true
 	}
 }
 
@@ -100,9 +102,12 @@ func (m MapInterface) Iterate(fn func(key string, value Value) bool) bool {
 		if ks, ok := k.(string); !ok {
 			continue
 		} else {
-			if !fn(ks, ValueInterface{Value: v}) {
+			vv := NewValueInterface(v)
+			if !fn(ks, vv) {
+				vv.Recycle()
 				return false
 			}
+			vv.Recycle()
 		}
 	}
 	return true
@@ -113,6 +118,9 @@ func (m MapInterface) Length() int {
 }
 
 func (m MapInterface) Equals(other Map) bool {
+	if m.Length() != other.Length() {
+		return false
+	}
 	for k, v := range m {
 		ks, ok := k.(string)
 		if !ok {
@@ -122,9 +130,14 @@ func (m MapInterface) Equals(other Map) bool {
 		if !ok {
 			return false
 		}
-		if !Equals(ValueInterface{Value: v}, vo) {
+		vv := NewValueInterface(v)
+		if !Equals(vv, vo) {
+			vv.Recycle()
+			vo.Recycle()
 			return false
 		}
+		vo.Recycle()
+		vv.Recycle()
 	}
 	return true
 }
@@ -139,7 +152,7 @@ func (m MapString) Get(key string) (Value, bool) {
 	if v, ok := m[key]; !ok {
 		return nil, false
 	} else {
-		return ValueInterface{Value: v}, true
+		return NewValueInterface(v), true
 	}
 }
 
@@ -149,9 +162,12 @@ func (m MapString) Delete(key string) {
 
 func (m MapString) Iterate(fn func(key string, value Value) bool) bool {
 	for k, v := range m {
-		if !fn(k, ValueInterface{v}) {
+		vv := NewValueInterface(v)
+		if !fn(k, vv) {
+			vv.Recycle()
 			return false
 		}
+		vv.Recycle()
 	}
 	return true
 }
@@ -161,14 +177,22 @@ func (m MapString) Length() int {
 }
 
 func (m MapString) Equals(other Map) bool {
+	if m.Length() != other.Length() {
+		return false
+	}
 	for k, v := range m {
 		vo, ok := other.Get(k)
 		if !ok {
 			return false
 		}
-		if !Equals(ValueInterface{Value: v}, vo) {
+		vv := NewValueInterface(v)
+		if !Equals(vv, vo) {
+			vo.Recycle()
+			vv.Recycle()
 			return false
 		}
+		vo.Recycle()
+		vv.Recycle()
 	}
 	return true
 }

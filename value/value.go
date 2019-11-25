@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"sync"
 
 	jsoniter "github.com/json-iterator/go"
 )
@@ -60,7 +61,7 @@ func ReadJSONIter(iter *jsoniter.Iterator) (Value, error) {
 	if iter.Error != nil && iter.Error != io.EOF {
 		return nil, iter.Error
 	}
-	return ValueInterface{Value: v}, nil
+	return NewValueInterface(v), nil
 }
 
 func WriteJSONStream(v Value, stream *jsoniter.Stream) {
@@ -83,8 +84,24 @@ type Value interface {
 	Float() float64
 	String() string
 
+	// Returns a value of this type that is no longer needed. The
+	// value shouldn't be used after this call.
+	Recycle()
+
 	Copy() Value
 	Interface() interface{}
+}
+
+var viPool = sync.Pool{
+	New: func() interface{} {
+		return &ValueInterface{}
+	},
+}
+
+func NewValueInterface(v interface{}) Value {
+	vi := viPool.Get().(*ValueInterface)
+	vi.Value = v
+	return Value(vi)
 }
 
 type ValueInterface struct {
@@ -202,17 +219,21 @@ func (v ValueInterface) IsNull() bool {
 	return v.Value == nil
 }
 
+func (v *ValueInterface) Recycle() {
+	viPool.Put(v)
+}
+
 func (v ValueInterface) Interface() interface{} {
 	return v.Value
 }
 
-func (v ValueInterface) Copy() Value {
+func (v *ValueInterface) Copy() Value {
 	if v.IsList() {
 		l := make([]interface{}, 0, v.List().Length())
 		for i := 0; i < v.List().Length(); i++ {
 			l = append(l, v.List().At(i).Copy().Interface())
 		}
-		return ValueInterface{Value: l}
+		return NewValueInterface(l)
 	}
 	if v.IsMap() {
 		m := make(map[string]interface{}, v.Map().Length())
@@ -220,7 +241,7 @@ func (v ValueInterface) Copy() Value {
 			m[key] = item.Copy().Interface()
 			return true
 		})
-		return ValueInterface{Value: m}
+		return NewValueInterface(m)
 	}
 	// Scalars don't have to be copied
 	return v

@@ -71,7 +71,7 @@ func TestFromValue(t *testing.T) {
 			if err != nil {
 				t.Fatalf("couldn't parse: %v", err)
 			}
-			got := SetFromValue(value.ValueInterface{Value: v})
+			got := SetFromValue(value.NewValueInterface(v))
 			if !got.Equals(tt.set) {
 				t.Errorf("wanted\n%s\nbut got\n%s\n", tt.set, got)
 			}

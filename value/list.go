@@ -33,7 +33,7 @@ func (l ListInterface) Length() int {
 }
 
 func (l ListInterface) At(i int) Value {
-	return ValueInterface{Value: l[i]}
+	return NewValueInterface(l[i])
 }
 
 // Equals compares two lists lexically.
@@ -44,9 +44,14 @@ func ListEquals(lhs, rhs List) bool {
 
 	for i := 0; i < lhs.Length(); i++ {
 		lv := lhs.At(i)
-		if !Equals(lv, rhs.At(i)) {
+		rv := rhs.At(i)
+		if !Equals(lv, rv) {
+			lv.Recycle()
+			rv.Recycle()
 			return false
 		}
+		lv.Recycle()
+		rv.Recycle()
 	}
 	return true
 }
@@ -73,9 +78,13 @@ func ListCompare(lhs, rhs List) int {
 			// RHS is shorter.
 			return 1
 		}
-		if c := Compare(lhs.At(i), rhs.At(i)); c != 0 {
+		lv := lhs.At(i)
+		rv := rhs.At(i)
+		if c := Compare(lv, rv); c != 0 {
 			return c
 		}
+		lv.Recycle()
+		rv.Recycle()
 		// The items are equal; continue.
 		i++
 	}

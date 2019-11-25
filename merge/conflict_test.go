@@ -30,7 +30,7 @@ var (
 	_P   = fieldpath.MakePathOrDie
 	_KBF = fieldpath.KeyByFields
 	_V   = func(i interface{}) *value.Value {
-		v := value.Value(value.ValueInterface{Value: i})
+		v := value.NewValueInterface(i)
 		return &v
 	}
 )

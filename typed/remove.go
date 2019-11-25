@@ -33,7 +33,7 @@ func removeItemsWithSchema(val value.Value, toRemove *fieldpath.Set, schema *sch
 		toRemove: toRemove,
 	}
 	resolveSchema(schema, typeRef, &val, w)
-	return value.ValueInterface{Value: w.out}
+	return value.NewValueInterface(w.out)
 }
 
 func (w *removingWalker) doScalar(t *schema.Scalar) ValidationErrors {
