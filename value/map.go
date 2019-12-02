@@ -21,21 +21,30 @@ import (
 	"strings"
 )
 
+// Map represents a Map or go structure.
 type Map interface {
+	// Set changes or set the value of the given key.
 	Set(key string, val Value)
+	// Get returns the value for the given key, if present, or (nil, false) otherwise.
 	Get(key string) (Value, bool)
+	// Delete removes the key from the map.
 	Delete(key string)
+	// Equals compares the two maps, and return true if they are the same, false otherwise.
 	Equals(other Map) bool
+	// Iterate runs the given function for each key/value in the
+	// map. Returning false in the closure prematurely stops the
+	// iteration.
 	Iterate(func(key string, value Value) bool) bool
+	// Length returns the number of items in the map.
 	Length() int
 }
 
-// Less compares two maps lexically.
+// MapLess compares two maps lexically.
 func MapLess(lhs, rhs Map) bool {
 	return MapCompare(lhs, rhs) == -1
 }
 
-// Compare compares two maps lexically.
+// MapCompare compares two maps lexically.
 func MapCompare(lhs, rhs Map) int {
 	lorder := make([]string, 0, lhs.Length())
 	lhs.Iterate(func(key string, _ Value) bool {
@@ -77,122 +86,4 @@ func MapCompare(lhs, rhs Map) int {
 		// The items are equal; continue.
 		i++
 	}
-}
-
-type MapInterface map[interface{}]interface{}
-
-func (m MapInterface) Set(key string, val Value) {
-	m[key] = val.Interface()
-}
-
-func (m MapInterface) Get(key string) (Value, bool) {
-	if v, ok := m[key]; !ok {
-		return nil, false
-	} else {
-		return NewValueInterface(v), true
-	}
-}
-
-func (m MapInterface) Delete(key string) {
-	delete(m, key)
-}
-
-func (m MapInterface) Iterate(fn func(key string, value Value) bool) bool {
-	for k, v := range m {
-		if ks, ok := k.(string); !ok {
-			continue
-		} else {
-			vv := NewValueInterface(v)
-			if !fn(ks, vv) {
-				vv.Recycle()
-				return false
-			}
-			vv.Recycle()
-		}
-	}
-	return true
-}
-
-func (m MapInterface) Length() int {
-	return len(m)
-}
-
-func (m MapInterface) Equals(other Map) bool {
-	if m.Length() != other.Length() {
-		return false
-	}
-	for k, v := range m {
-		ks, ok := k.(string)
-		if !ok {
-			return false
-		}
-		vo, ok := other.Get(ks)
-		if !ok {
-			return false
-		}
-		vv := NewValueInterface(v)
-		if !Equals(vv, vo) {
-			vv.Recycle()
-			vo.Recycle()
-			return false
-		}
-		vo.Recycle()
-		vv.Recycle()
-	}
-	return true
-}
-
-type MapString map[string]interface{}
-
-func (m MapString) Set(key string, val Value) {
-	m[key] = val.Interface()
-}
-
-func (m MapString) Get(key string) (Value, bool) {
-	if v, ok := m[key]; !ok {
-		return nil, false
-	} else {
-		return NewValueInterface(v), true
-	}
-}
-
-func (m MapString) Delete(key string) {
-	delete(m, key)
-}
-
-func (m MapString) Iterate(fn func(key string, value Value) bool) bool {
-	for k, v := range m {
-		vv := NewValueInterface(v)
-		if !fn(k, vv) {
-			vv.Recycle()
-			return false
-		}
-		vv.Recycle()
-	}
-	return true
-}
-
-func (m MapString) Length() int {
-	return len(m)
-}
-
-func (m MapString) Equals(other Map) bool {
-	if m.Length() != other.Length() {
-		return false
-	}
-	for k, v := range m {
-		vo, ok := other.Get(k)
-		if !ok {
-			return false
-		}
-		vv := NewValueInterface(v)
-		if !Equals(vv, vo) {
-			vo.Recycle()
-			vv.Recycle()
-			return false
-		}
-		vo.Recycle()
-		vv.Recycle()
-	}
-	return true
 }

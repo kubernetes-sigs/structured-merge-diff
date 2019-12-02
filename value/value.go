@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"sync"
 
 	jsoniter "github.com/json-iterator/go"
 )
@@ -31,16 +30,65 @@ var (
 	writePool = jsoniter.NewStream(jsoniter.ConfigCompatibleWithStandardLibrary, nil, 1024).Pool()
 )
 
+// A Value corresponds to an 'atom' in the schema.
+type Value interface {
+	// IsMap returns true if the Value is a Map, false otherwise.
+	IsMap() bool
+	// IsList returns true if the Value is a List, false otherwise.
+	IsList() bool
+	// IsBool returns true if the Value is a bool, false otherwise.
+	IsBool() bool
+	// IsInt returns true if the Value is a int64, false otherwise.
+	IsInt() bool
+	// IsFloat returns true if the Value is a float64, false
+	// otherwise.
+	IsFloat() bool
+	// IsString returns true if the Value is a string, false
+	// otherwise.
+	IsString() bool
+	// IsMap returns true if the Value is null, false otherwise.
+	IsNull() bool
+
+	// Map converts the Value into a Map (or panic if the type
+	// doesn't allow it).
+	Map() Map
+	// List converts the Value into a List (or panic if the type
+	// doesn't allow it).
+	List() List
+	// Bool converts the Value into a bool (or panic if the type
+	// doesn't allow it).
+	Bool() bool
+	// Int converts the Value into an int64 (or panic if the type
+	// doesn't allow it).
+	Int() int64
+	// Float converts the Value into a float64 (or panic if the type
+	// doesn't allow it).
+	Float() float64
+	// String converts the Value into a string (or panic if the type
+	// doesn't allow it).
+	String() string
+
+	// Returns a value of this type that is no longer needed. The
+	// value shouldn't be used after this call.
+	Recycle()
+
+	// Converts the Value into an interface{}.
+	Interface() interface{}
+}
+
+// FromJSON is a helper function for reading a JSON document.
 func FromJSON(input []byte) (Value, error) {
 	return FromJSONFast(input)
 }
 
+// FromJSONFast is a helper function for reading a JSON document.
 func FromJSONFast(input []byte) (Value, error) {
 	iter := readPool.BorrowIterator(input)
 	defer readPool.ReturnIterator(iter)
 	return ReadJSONIter(iter)
 }
 
+// ToJSON is a helper function for producing a JSon document.
 func ToJSON(v Value) ([]byte, error) {
 	buf := bytes.Buffer{}
 	stream := writePool.BorrowStream(&buf)
@@ -56,6 +104,7 @@ func ToJSON(v Value) ([]byte, error) {
 	return buf.Bytes(), err
 }
 
+// ReadJSONIter reads a Value from a JSON iterator.
 func ReadJSONIter(iter *jsoniter.Iterator) (Value, error) {
 	v := iter.Read()
 	if iter.Error != nil && iter.Error != io.EOF {
@@ -64,187 +113,9 @@ func ReadJSONIter(iter *jsoniter.Iterator) (Value, error) {
 	return NewValueInterface(v), nil
 }
 
+// WriteJSONStream writes a value into a JSON stream.
 func WriteJSONStream(v Value, stream *jsoniter.Stream) {
 	stream.WriteVal(v.Interface())
-}
-
-type Value interface {
-	IsMap() bool
-	IsList() bool
-	IsBool() bool
-	IsInt() bool
-	IsFloat() bool
-	IsString() bool
-	IsNull() bool
-
-	Map() Map
-	List() List
-	Bool() bool
-	Int() int64
-	Float() float64
-	String() string
-
-	// Returns a value of this type that is no longer needed. The
-	// value shouldn't be used after this call.
-	Recycle()
-
-	Copy() Value
-	Interface() interface{}
-}
-
-var viPool = sync.Pool{
-	New: func() interface{} {
-		return &ValueInterface{}
-	},
-}
-
-func NewValueInterface(v interface{}) Value {
-	vi := viPool.Get().(*ValueInterface)
-	vi.Value = v
-	return Value(vi)
-}
-
-type ValueInterface struct {
-	Value interface{}
-}
-
-func (v ValueInterface) IsMap() bool {
-	if _, ok := v.Value.(map[string]interface{}); ok {
-		return true
-	}
-	if _, ok := v.Value.(map[interface{}]interface{}); ok {
-		return true
-	}
-	return false
-}
-
-func (v ValueInterface) Map() Map {
-	if v.Value == nil {
-		return MapString(nil)
-	}
-	switch t := v.Value.(type) {
-	case map[string]interface{}:
-		return MapString(t)
-	case map[interface{}]interface{}:
-		return MapInterface(t)
-	}
-	panic(fmt.Errorf("not a map: %#v", v))
-}
-
-func (v ValueInterface) IsList() bool {
-	if v.Value == nil {
-		return false
-	}
-	_, ok := v.Value.([]interface{})
-	return ok
-}
-
-func (v ValueInterface) List() List {
-	return ListInterface(v.Value.([]interface{}))
-}
-
-func (v ValueInterface) IsFloat() bool {
-	if v.Value == nil {
-		return false
-	} else if _, ok := v.Value.(float64); ok {
-		return true
-	} else if _, ok := v.Value.(float32); ok {
-		return true
-	}
-	return false
-}
-
-func (v ValueInterface) Float() float64 {
-	if f, ok := v.Value.(float32); ok {
-		return float64(f)
-	}
-	return v.Value.(float64)
-}
-
-func (v ValueInterface) IsInt() bool {
-	if v.Value == nil {
-		return false
-	} else if _, ok := v.Value.(int); ok {
-		return true
-	} else if _, ok := v.Value.(int8); ok {
-		return true
-	} else if _, ok := v.Value.(int16); ok {
-		return true
-	} else if _, ok := v.Value.(int32); ok {
-		return true
-	} else if _, ok := v.Value.(int64); ok {
-		return true
-	}
-	return false
-}
-
-func (v ValueInterface) Int() int64 {
-	if i, ok := v.Value.(int); ok {
-		return int64(i)
-	} else if i, ok := v.Value.(int8); ok {
-		return int64(i)
-	} else if i, ok := v.Value.(int16); ok {
-		return int64(i)
-	} else if i, ok := v.Value.(int32); ok {
-		return int64(i)
-	}
-	return v.Value.(int64)
-}
-
-func (v ValueInterface) IsString() bool {
-	if v.Value == nil {
-		return false
-	}
-	_, ok := v.Value.(string)
-	return ok
-}
-
-func (v ValueInterface) String() string {
-	return v.Value.(string)
-}
-
-func (v ValueInterface) IsBool() bool {
-	if v.Value == nil {
-		return false
-	}
-	_, ok := v.Value.(bool)
-	return ok
-}
-
-func (v ValueInterface) Bool() bool {
-	return v.Value.(bool)
-}
-
-func (v ValueInterface) IsNull() bool {
-	return v.Value == nil
-}
-
-func (v *ValueInterface) Recycle() {
-	viPool.Put(v)
-}
-
-func (v ValueInterface) Interface() interface{} {
-	return v.Value
-}
-
-func (v *ValueInterface) Copy() Value {
-	if v.IsList() {
-		l := make([]interface{}, 0, v.List().Length())
-		for i := 0; i < v.List().Length(); i++ {
-			l = append(l, v.List().At(i).Copy().Interface())
-		}
-		return NewValueInterface(l)
-	}
-	if v.IsMap() {
-		m := make(map[string]interface{}, v.Map().Length())
-		v.Map().Iterate(func(key string, item Value) bool {
-			m[key] = item.Copy().Interface()
-			return true
-		})
-		return NewValueInterface(m)
-	}
-	// Scalars don't have to be copied
-	return v
 }
 
 // Equals returns true iff the two values are equal.
@@ -308,6 +179,7 @@ func Equals(lhs, rhs Value) bool {
 	return true
 }
 
+// String returns a human-readable representation of the value.
 func ToString(v Value) string {
 	if v.IsNull() {
 		return "null"

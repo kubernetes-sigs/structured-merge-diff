@@ -52,7 +52,7 @@ func (f FieldList) Less(rhs FieldList) bool {
 	return f.Compare(rhs) == -1
 }
 
-// Less compares two lists lexically. The result will be 0 if f==rhs, -1
+// Compare compares two lists lexically. The result will be 0 if f==rhs, -1
 // if f < rhs, and +1 if f > rhs.
 func (f FieldList) Compare(rhs FieldList) int {
 	i := 0

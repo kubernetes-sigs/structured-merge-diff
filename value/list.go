@@ -16,27 +16,16 @@ limitations under the License.
 
 package value
 
+// List represents a list object.
 type List interface {
-	Interface() []interface{}
+	// Length returns how many items can be found in the map.
 	Length() int
+	// At returns the item at the given position in the map. It will
+	// panic if the index is out of range.
 	At(int) Value
 }
 
-type ListInterface []interface{}
-
-func (l ListInterface) Interface() []interface{} {
-	return l
-}
-
-func (l ListInterface) Length() int {
-	return len(l)
-}
-
-func (l ListInterface) At(i int) Value {
-	return NewValueInterface(l[i])
-}
-
-// Equals compares two lists lexically.
+// ListEquals compares two lists lexically.
 func ListEquals(lhs, rhs List) bool {
 	if lhs.Length() != rhs.Length() {
 		return false
@@ -56,12 +45,12 @@ func ListEquals(lhs, rhs List) bool {
 	return true
 }
 
-// Less compares two lists lexically.
+// ListLess compares two lists lexically.
 func ListLess(lhs, rhs List) bool {
 	return ListCompare(lhs, rhs) == -1
 }
 
-// Compare compares two lists lexically. The result will be 0 if l==rhs, -1
+// ListCompare compares two lists lexically. The result will be 0 if l==rhs, -1
 // if l < rhs, and +1 if l > rhs.
 func ListCompare(lhs, rhs List) int {
 	i := 0
