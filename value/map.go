@@ -30,6 +30,7 @@ type Map interface {
 	// Delete removes the key from the map.
 	Delete(key string)
 	// Equals compares the two maps, and return true if they are the same, false otherwise.
+	// Implementations can use MapEquals as a general implementation for this methods.
 	Equals(other Map) bool
 	// Iterate runs the given function for each key/value in the
 	// map. Returning false in the closure prematurely stops the
@@ -86,4 +87,25 @@ func MapCompare(lhs, rhs Map) int {
 		// The items are equal; continue.
 		i++
 	}
+}
+
+// MapEquals returns true if lhs == rhs, false otherwise. This function
+// acts on generic types and should not be used by callers, but can help
+// implement Map.Equals.
+func MapEquals(lhs, rhs Map) bool {
+	if lhs.Length() != rhs.Length() {
+		return false
+	}
+	return lhs.Iterate(func(k string, v Value) bool {
+		vo, ok := rhs.Get(k)
+		if !ok {
+			return false
+		}
+		if !Equals(v, vo) {
+			vo.Recycle()
+			return false
+		}
+		vo.Recycle()
+		return true
+	})
 }
