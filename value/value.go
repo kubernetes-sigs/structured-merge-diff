@@ -72,8 +72,8 @@ type Value interface {
 	// value shouldn't be used after this call.
 	Recycle()
 
-	// Converts the Value into an interface{}.
-	Interface() interface{}
+	// Converts the Value into an Unstructured interface{}.
+	Unstructured() interface{}
 }
 
 // FromJSON is a helper function for reading a JSON document.
@@ -115,7 +115,7 @@ func ReadJSONIter(iter *jsoniter.Iterator) (Value, error) {
 
 // WriteJSONStream writes a value into a JSON stream.
 func WriteJSONStream(v Value, stream *jsoniter.Stream) {
-	stream.WriteVal(v.Interface())
+	stream.WriteVal(v.Unstructured())
 }
 
 // Equals returns true iff the two values are equal.

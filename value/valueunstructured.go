@@ -23,23 +23,23 @@ import (
 
 var viPool = sync.Pool{
 	New: func() interface{} {
-		return &valueInterface{}
+		return &valueUnstructured{}
 	},
 }
 
 // NewValueInterface creates a Value backed by an "interface{}" type,
 // typically an unstructured object in Kubernetes world.
 func NewValueInterface(v interface{}) Value {
-	vi := viPool.Get().(*valueInterface)
+	vi := viPool.Get().(*valueUnstructured)
 	vi.Value = v
 	return Value(vi)
 }
 
-type valueInterface struct {
+type valueUnstructured struct {
 	Value interface{}
 }
 
-func (v valueInterface) IsMap() bool {
+func (v valueUnstructured) IsMap() bool {
 	if _, ok := v.Value.(map[string]interface{}); ok {
 		return true
 	}
@@ -49,20 +49,20 @@ func (v valueInterface) IsMap() bool {
 	return false
 }
 
-func (v valueInterface) Map() Map {
+func (v valueUnstructured) Map() Map {
 	if v.Value == nil {
 		return nil
 	}
 	switch t := v.Value.(type) {
 	case map[string]interface{}:
-		return mapString(t)
+		return mapUnstructuredString(t)
 	case map[interface{}]interface{}:
-		return mapInterface(t)
+		return mapUnstructuredInterface(t)
 	}
 	panic(fmt.Errorf("not a map: %#v", v))
 }
 
-func (v valueInterface) IsList() bool {
+func (v valueUnstructured) IsList() bool {
 	if v.Value == nil {
 		return false
 	}
@@ -70,11 +70,11 @@ func (v valueInterface) IsList() bool {
 	return ok
 }
 
-func (v valueInterface) List() List {
-	return listInterface(v.Value.([]interface{}))
+func (v valueUnstructured) List() List {
+	return listUnstructured(v.Value.([]interface{}))
 }
 
-func (v valueInterface) IsFloat() bool {
+func (v valueUnstructured) IsFloat() bool {
 	if v.Value == nil {
 		return false
 	} else if _, ok := v.Value.(float64); ok {
@@ -85,14 +85,14 @@ func (v valueInterface) IsFloat() bool {
 	return false
 }
 
-func (v valueInterface) Float() float64 {
+func (v valueUnstructured) Float() float64 {
 	if f, ok := v.Value.(float32); ok {
 		return float64(f)
 	}
 	return v.Value.(float64)
 }
 
-func (v valueInterface) IsInt() bool {
+func (v valueUnstructured) IsInt() bool {
 	if v.Value == nil {
 		return false
 	} else if _, ok := v.Value.(int); ok {
@@ -117,7 +117,7 @@ func (v valueInterface) IsInt() bool {
 	return false
 }
 
-func (v valueInterface) Int() int64 {
+func (v valueUnstructured) Int() int64 {
 	if i, ok := v.Value.(int); ok {
 		return int64(i)
 	} else if i, ok := v.Value.(int8); ok {
@@ -138,7 +138,7 @@ func (v valueInterface) Int() int64 {
 	return v.Value.(int64)
 }
 
-func (v valueInterface) IsString() bool {
+func (v valueUnstructured) IsString() bool {
 	if v.Value == nil {
 		return false
 	}
@@ -146,11 +146,11 @@ func (v valueInterface) IsString() bool {
 	return ok
 }
 
-func (v valueInterface) String() string {
+func (v valueUnstructured) String() string {
 	return v.Value.(string)
 }
 
-func (v valueInterface) IsBool() bool {
+func (v valueUnstructured) IsBool() bool {
 	if v.Value == nil {
 		return false
 	}
@@ -158,18 +158,18 @@ func (v valueInterface) IsBool() bool {
 	return ok
 }
 
-func (v valueInterface) Bool() bool {
+func (v valueUnstructured) Bool() bool {
 	return v.Value.(bool)
 }
 
-func (v valueInterface) IsNull() bool {
+func (v valueUnstructured) IsNull() bool {
 	return v.Value == nil
 }
 
-func (v *valueInterface) Recycle() {
+func (v *valueUnstructured) Recycle() {
 	viPool.Put(v)
 }
 
-func (v valueInterface) Interface() interface{} {
+func (v valueUnstructured) Unstructured() interface{} {
 	return v.Value
 }

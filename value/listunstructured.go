@@ -16,12 +16,12 @@ limitations under the License.
 
 package value
 
-type listInterface []interface{}
+type listUnstructured []interface{}
 
-func (l listInterface) Length() int {
+func (l listUnstructured) Length() int {
 	return len(l)
 }
 
-func (l listInterface) At(i int) Value {
+func (l listUnstructured) At(i int) Value {
 	return NewValueInterface(l[i])
 }

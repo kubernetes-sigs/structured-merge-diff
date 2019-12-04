@@ -16,13 +16,13 @@ limitations under the License.
 
 package value
 
-type mapInterface map[interface{}]interface{}
+type mapUnstructuredInterface map[interface{}]interface{}
 
-func (m mapInterface) Set(key string, val Value) {
-	m[key] = val.Interface()
+func (m mapUnstructuredInterface) Set(key string, val Value) {
+	m[key] = val.Unstructured()
 }
 
-func (m mapInterface) Get(key string) (Value, bool) {
+func (m mapUnstructuredInterface) Get(key string) (Value, bool) {
 	if v, ok := m[key]; !ok {
 		return nil, false
 	} else {
@@ -30,11 +30,11 @@ func (m mapInterface) Get(key string) (Value, bool) {
 	}
 }
 
-func (m mapInterface) Delete(key string) {
+func (m mapUnstructuredInterface) Delete(key string) {
 	delete(m, key)
 }
 
-func (m mapInterface) Iterate(fn func(key string, value Value) bool) bool {
+func (m mapUnstructuredInterface) Iterate(fn func(key string, value Value) bool) bool {
 	for k, v := range m {
 		if ks, ok := k.(string); !ok {
 			continue
@@ -50,11 +50,11 @@ func (m mapInterface) Iterate(fn func(key string, value Value) bool) bool {
 	return true
 }
 
-func (m mapInterface) Length() int {
+func (m mapUnstructuredInterface) Length() int {
 	return len(m)
 }
 
-func (m mapInterface) Equals(other Map) bool {
+func (m mapUnstructuredInterface) Equals(other Map) bool {
 	if m.Length() != other.Length() {
 		return false
 	}
@@ -79,13 +79,13 @@ func (m mapInterface) Equals(other Map) bool {
 	return true
 }
 
-type mapString map[string]interface{}
+type mapUnstructuredString map[string]interface{}
 
-func (m mapString) Set(key string, val Value) {
-	m[key] = val.Interface()
+func (m mapUnstructuredString) Set(key string, val Value) {
+	m[key] = val.Unstructured()
 }
 
-func (m mapString) Get(key string) (Value, bool) {
+func (m mapUnstructuredString) Get(key string) (Value, bool) {
 	if v, ok := m[key]; !ok {
 		return nil, false
 	} else {
@@ -93,11 +93,11 @@ func (m mapString) Get(key string) (Value, bool) {
 	}
 }
 
-func (m mapString) Delete(key string) {
+func (m mapUnstructuredString) Delete(key string) {
 	delete(m, key)
 }
 
-func (m mapString) Iterate(fn func(key string, value Value) bool) bool {
+func (m mapUnstructuredString) Iterate(fn func(key string, value Value) bool) bool {
 	for k, v := range m {
 		vv := NewValueInterface(v)
 		if !fn(k, vv) {
@@ -109,11 +109,11 @@ func (m mapString) Iterate(fn func(key string, value Value) bool) bool {
 	return true
 }
 
-func (m mapString) Length() int {
+func (m mapUnstructuredString) Length() int {
 	return len(m)
 }
 
-func (m mapString) Equals(other Map) bool {
+func (m mapUnstructuredString) Equals(other Map) bool {
 	if m.Length() != other.Length() {
 		return false
 	}

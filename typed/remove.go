@@ -37,7 +37,7 @@ func removeItemsWithSchema(val value.Value, toRemove *fieldpath.Set, schema *sch
 }
 
 func (w *removingWalker) doScalar(t *schema.Scalar) ValidationErrors {
-	w.out = w.value.Interface()
+	w.out = w.value.Unstructured()
 	return nil
 }
 
@@ -61,7 +61,7 @@ func (w *removingWalker) doList(t *schema.List) (errs ValidationErrors) {
 		if subset := w.toRemove.WithPrefix(pe); !subset.Empty() {
 			item = removeItemsWithSchema(item, subset, w.schema, t.ElementType)
 		}
-		newItems = append(newItems, item.Interface())
+		newItems = append(newItems, item.Unstructured())
 	}
 	if len(newItems) > 0 {
 		w.out = newItems
@@ -97,7 +97,7 @@ func (w *removingWalker) doMap(t *schema.Map) ValidationErrors {
 		if subset := w.toRemove.WithPrefix(pe); !subset.Empty() {
 			val = removeItemsWithSchema(val, subset, w.schema, fieldType)
 		}
-		newMap[k] = val.Interface()
+		newMap[k] = val.Unstructured()
 		return true
 	})
 	if len(newMap) > 0 {

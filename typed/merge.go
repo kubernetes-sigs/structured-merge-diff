@@ -58,10 +58,10 @@ type mergeRule func(w *mergingWalker)
 var (
 	ruleKeepRHS = mergeRule(func(w *mergingWalker) {
 		if w.rhs != nil {
-			v := w.rhs.Interface()
+			v := w.rhs.Unstructured()
 			w.out = &v
 		} else if w.lhs != nil {
-			v := w.lhs.Interface()
+			v := w.lhs.Unstructured()
 			w.out = &v
 		}
 	})

@@ -66,7 +66,7 @@ func normalizeUnionsApply(w *mergingWalker) error {
 		if err := newUnion(&union).NormalizeApply(old, w.rhs.Map(), out.Map()); err != nil {
 			return err
 		}
-		*w.out = out.Interface()
+		*w.out = out.Unstructured()
 	}
 	return nil
 }
