@@ -300,6 +300,244 @@ var symdiffCases = []symdiffTestCase{{
 		added:    _NS(_P("a", "b")),
 	}},
 }, {
+	name:         "untyped deduced",
+	rootTypeName: "__untyped_deduced_",
+	schema: `types:
+- name: __untyped_atomic_
+  scalar: untyped
+  list:
+    elementType:
+      namedType: __untyped_atomic_
+    elementRelationship: atomic
+  map:
+    elementType:
+      namedType: __untyped_atomic_
+    elementRelationship: atomic
+- name: __untyped_deduced_
+  scalar: untyped
+  list:
+    elementType:
+      namedType: __untyped_atomic_
+    elementRelationship: atomic
+  map:
+    elementType:
+      namedType: __untyped_deduced_
+    elementRelationship: separable
+`,
+	quints: []symdiffQuint{{
+		lhs:      `{"a":{}}}`,
+		rhs:      `{"a":{"b":{}}}`,
+		removed:  _NS(),
+		modified: _NS(),
+		added:    _NS(_P("a", "b")),
+	}, {
+		lhs:      `{"a":null}`,
+		rhs:      `{"a":{"b":{}}}`,
+		removed:  _NS(),
+		modified: _NS(),
+		added:    _NS(_P("a", "b")),
+	}, {
+		lhs:      `{"a":{"b":{}}}`,
+		rhs:      `{"a":{}}}`,
+		removed:  _NS(_P("a", "b")),
+		modified: _NS(),
+		added:    _NS(),
+	}, {
+		lhs:      `{"a":{"b":{}}}`,
+		rhs:      `{"a":null}`,
+		removed:  _NS(_P("a", "b")),
+		modified: _NS(),
+		added:    _NS(),
+	}, {
+		lhs:      `{"a":[]}`,
+		rhs:      `{"a":["b"]}`,
+		removed:  _NS(),
+		modified: _NS(_P("a")),
+		added:    _NS(),
+	}, {
+		lhs:      `{"a":null}`,
+		rhs:      `{"a":["b"]}`,
+		removed:  _NS(),
+		modified: _NS(_P("a")),
+		added:    _NS(),
+	}, {
+		lhs:      `{"a":["b"]}`,
+		rhs:      `{"a":[]}`,
+		removed:  _NS(),
+		modified: _NS(_P("a")),
+		added:    _NS(),
+	}, {
+		lhs:      `{"a":["b"]}`,
+		rhs:      `{"a":null}`,
+		removed:  _NS(),
+		modified: _NS(_P("a")),
+		added:    _NS(),
+	}, {
+		lhs:      `{"a":null}`,
+		rhs:      `{"a":"b"}`,
+		removed:  _NS(),
+		modified: _NS(_P("a")),
+		added:    _NS(),
+	}, {
+		lhs:      `{"a":"b"}`,
+		rhs:      `{"a":null}`,
+		removed:  _NS(),
+		modified: _NS(_P("a")),
+		added:    _NS(),
+	}, {
+		lhs:      `{"a":{"b":{}}}`,
+		rhs:      `{"a":["b"]}}`,
+		removed:  _NS(_P("a", "b")),
+		modified: _NS(_P("a")),
+		added:    _NS(),
+	}, {
+		lhs:      `{"a":["b"]}}`,
+		rhs:      `{"a":{"b":{}}}`,
+		removed:  _NS(),
+		modified: _NS(_P("a")),
+		added:    _NS(_P("a", "b")),
+	}, {
+		lhs:      `{"a":{"b":{}}}`,
+		rhs:      `{"a":"b"}`,
+		removed:  _NS(_P("a", "b")),
+		modified: _NS(_P("a")),
+		added:    _NS(),
+	}, {
+		lhs:      `{"a":"b"}`,
+		rhs:      `{"a":{"b":{}}}`,
+		removed:  _NS(),
+		modified: _NS(_P("a")),
+		added:    _NS(_P("a", "b")),
+	}, {
+		lhs:      `{"a":["b"]}}`,
+		rhs:      `{"a":"b"}`,
+		removed:  _NS(),
+		modified: _NS(_P("a")),
+		added:    _NS(),
+	}, {
+		lhs:      `{"a":"b"}`,
+		rhs:      `{"a":["b"]}}`,
+		removed:  _NS(),
+		modified: _NS(_P("a")),
+		added:    _NS(),
+	}},
+}, {
+	name:         "untyped separable",
+	rootTypeName: "__untyped_separable_",
+	schema: `types:
+- name: __untyped_separable_
+  scalar: untyped
+  list:
+    elementType:
+      namedType: __untyped_separable_
+    elementRelationship: associative
+  map:
+    elementType:
+      namedType: __untyped_separable_
+    elementRelationship: separable
+`,
+	quints: []symdiffQuint{{
+		lhs:      `{"a":{}}}`,
+		rhs:      `{"a":{"b":{}}}`,
+		removed:  _NS(),
+		modified: _NS(),
+		added:    _NS(_P("a", "b")),
+	}, {
+		lhs:      `{"a":null}`,
+		rhs:      `{"a":{"b":{}}}`,
+		removed:  _NS(),
+		modified: _NS(),
+		added:    _NS(_P("a", "b")),
+	}, {
+		lhs:      `{"a":{"b":{}}}`,
+		rhs:      `{"a":{}}}`,
+		removed:  _NS(_P("a", "b")),
+		modified: _NS(),
+		added:    _NS(),
+	}, {
+		lhs:      `{"a":{"b":{}}}`,
+		rhs:      `{"a":null}`,
+		removed:  _NS(_P("a", "b")),
+		modified: _NS(),
+		added:    _NS(),
+	}, {
+		lhs:      `{"a":[]}`,
+		rhs:      `{"a":["b"]}`,
+		removed:  _NS(),
+		modified: _NS(),
+		added:    _NS(_P("a", _SV("b"))),
+	}, {
+		lhs:     `{"a":null}`,
+		rhs:     `{"a":["b"]}`,
+		removed: _NS(),
+		// TODO: result should be the same as the previous case
+		// nothing shoule be modified here.
+		modified: _NS(_P("a")),
+		added:    _NS(_P("a", _SV("b"))),
+	}, {
+		lhs:      `{"a":["b"]}`,
+		rhs:      `{"a":[]}`,
+		removed:  _NS(_P("a", _SV("b"))),
+		modified: _NS(),
+		added:    _NS(),
+	}, {
+		lhs:     `{"a":["b"]}`,
+		rhs:     `{"a":null}`,
+		removed: _NS(_P("a", _SV("b"))),
+		// TODO: result should be the same as the previous case
+		// nothing shoule be modified here.
+		modified: _NS(_P("a")),
+		added:    _NS(),
+	}, {
+		lhs:      `{"a":null}`,
+		rhs:      `{"a":"b"}`,
+		removed:  _NS(),
+		modified: _NS(_P("a")),
+		added:    _NS(),
+	}, {
+		lhs:      `{"a":"b"}`,
+		rhs:      `{"a":null}`,
+		removed:  _NS(),
+		modified: _NS(_P("a")),
+		added:    _NS(),
+	}, {
+		lhs:      `{"a":{"b":{}}}`,
+		rhs:      `{"a":["b"]}}`,
+		removed:  _NS(_P("a", "b")),
+		modified: _NS(),
+		added:    _NS(_P("a", _SV("b"))),
+	}, {
+		lhs:      `{"a":["b"]}}`,
+		rhs:      `{"a":{"b":{}}}`,
+		removed:  _NS(_P("a", _SV("b"))),
+		modified: _NS(),
+		added:    _NS(_P("a", "b")),
+	}, {
+		lhs:      `{"a":{"b":{}}}`,
+		rhs:      `{"a":"b"}`,
+		removed:  _NS(_P("a", "b")),
+		modified: _NS(_P("a")),
+		added:    _NS(),
+	}, {
+		lhs:      `{"a":"b"}`,
+		rhs:      `{"a":{"b":{}}}`,
+		removed:  _NS(),
+		modified: _NS(_P("a")),
+		added:    _NS(_P("a", "b")),
+	}, {
+		lhs:      `{"a":["b"]}}`,
+		rhs:      `{"a":"b"}`,
+		removed:  _NS(_P("a", _SV("b"))),
+		modified: _NS(_P("a")),
+		added:    _NS(),
+	}, {
+		lhs:      `{"a":"b"}`,
+		rhs:      `{"a":["b"]}}`,
+		removed:  _NS(),
+		modified: _NS(_P("a")),
+		added:    _NS(_P("a", _SV("b"))),
+	}},
+}, {
 	name:         "struct grab bag",
 	rootTypeName: "myStruct",
 	schema: `types:
