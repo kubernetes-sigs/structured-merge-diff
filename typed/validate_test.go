@@ -18,6 +18,7 @@ package typed_test
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"sigs.k8s.io/structured-merge-diff/schema"
@@ -216,6 +217,8 @@ var validationCases = []validationTestCase{{
 	invalidObjects: []typed.YAMLObject{
 		`{"key":true,"value":1}`,
 		`{"list":{"key":true,"value":1}}`,
+		`{"list":true}`,
+		`true`,
 		`{"list":[{"key":true,"value":1}]}`,
 		`{"list":[{"key":[],"value":1}]}`,
 		`{"list":[{"key":{},"value":1}]}`,
@@ -260,6 +263,9 @@ func (tt validationTestCase) test(t *testing.T) {
 			_, err := pt.FromYAML(iv)
 			if err == nil {
 				t.Errorf("Object should fail: %v\n%v", err, iv)
+			}
+			if strings.Contains(err.Error(), "invalid atom") {
+				t.Errorf("Error should be useful, but got: %v\n%v", err, iv)
 			}
 		})
 	}
