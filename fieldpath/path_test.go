@@ -23,10 +23,7 @@ import (
 )
 
 var (
-	_V = func(i interface{}) *value.Value {
-		v := value.NewValueInterface(i)
-		return &v
-	}
+	_V = value.NewValueInterface
 )
 
 func TestPathString(t *testing.T) {

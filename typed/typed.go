@@ -119,7 +119,7 @@ func (tv TypedValue) Compare(rhs *TypedValue) (c *Comparison, err error) {
 			c.Added.Insert(w.path)
 		} else if w.rhs == nil {
 			c.Removed.Insert(w.path)
-		} else if !value.Equals(*w.rhs, *w.lhs) {
+		} else if !value.Equals(w.rhs, w.lhs) {
 			// TODO: Equality is not sufficient for this.
 			// Need to implement equality check on the value type.
 			c.Modified.Insert(w.path)
@@ -158,7 +158,7 @@ func (tv TypedValue) NormalizeUnions(new *TypedValue) (*TypedValue, error) {
 	var errs ValidationErrors
 	var normalizeFn = func(w *mergingWalker) {
 		if w.rhs != nil {
-			v := (*w.rhs).Interface()
+			v := w.rhs.Interface()
 			w.out = &v
 		}
 		if err := normalizeUnions(w); err != nil {
@@ -184,7 +184,7 @@ func (tv TypedValue) NormalizeUnionsApply(new *TypedValue) (*TypedValue, error) 
 	var errs ValidationErrors
 	var normalizeFn = func(w *mergingWalker) {
 		if w.rhs != nil {
-			v := (*w.rhs).Interface()
+			v := w.rhs.Interface()
 			w.out = &v
 		}
 		if err := normalizeUnionsApply(w); err != nil {
@@ -232,8 +232,8 @@ func merge(lhs, rhs *TypedValue, rule, postRule mergeRule) (*TypedValue, error) 
 		mwPool.Put(mw)
 	}()
 
-	mw.lhs = &lhs.value
-	mw.rhs = &rhs.value
+	mw.lhs = lhs.value
+	mw.rhs = rhs.value
 	mw.schema = lhs.schema
 	mw.typeRef = lhs.typeRef
 	mw.rule = rule

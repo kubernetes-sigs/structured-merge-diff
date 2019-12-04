@@ -25,8 +25,8 @@ import (
 )
 
 type mergingWalker struct {
-	lhs     *value.Value
-	rhs     *value.Value
+	lhs     value.Value
+	rhs     value.Value
 	schema  *schema.Schema
 	typeRef schema.TypeRef
 
@@ -58,10 +58,10 @@ type mergeRule func(w *mergingWalker)
 var (
 	ruleKeepRHS = mergeRule(func(w *mergingWalker) {
 		if w.rhs != nil {
-			v := (*w.rhs).Interface()
+			v := w.rhs.Interface()
 			w.out = &v
 		} else if w.lhs != nil {
-			v := (*w.lhs).Interface()
+			v := w.lhs.Interface()
 			w.out = &v
 		}
 	})
@@ -148,13 +148,13 @@ func (w *mergingWalker) finishDescent(w2 *mergingWalker) {
 	*w.spareWalkers = append(*w.spareWalkers, w2)
 }
 
-func (w *mergingWalker) derefMap(prefix string, v *value.Value, dest *value.Map) (errs ValidationErrors) {
+func (w *mergingWalker) derefMap(prefix string, v value.Value, dest *value.Map) (errs ValidationErrors) {
 	// taking dest as input so that it can be called as a one-liner with
 	// append.
 	if v == nil {
 		return nil
 	}
-	m, err := mapValue(*v)
+	m, err := mapValue(v)
 	if err != nil {
 		return errorf("%v: %v", prefix, err)
 	}
@@ -219,10 +219,9 @@ func (w *mergingWalker) visitListItems(t *schema.List, lhs, rhs value.List) (err
 			}
 			observedLHS.Insert(pe)
 			w2 := w.prepareDescent(pe, t.ElementType)
-			val := value.Value(child)
-			w2.lhs = &val
+			w2.lhs = value.Value(child)
 			if rchild, ok := observedRHS.Get(pe); ok {
-				w2.rhs = &rchild
+				w2.rhs = rchild
 			}
 			if newErrs := w2.merge(); len(newErrs) > 0 {
 				errs = append(errs, newErrs.WithPrefix(pe.String())...)
@@ -239,7 +238,7 @@ func (w *mergingWalker) visitListItems(t *schema.List, lhs, rhs value.List) (err
 		}
 		value, _ := observedRHS.Get(pe)
 		w2 := w.prepareDescent(pe, t.ElementType)
-		w2.rhs = &value
+		w2.rhs = value
 		if newErrs := w2.merge(); len(newErrs) > 0 {
 			errs = append(errs, newErrs.WithPrefix(pe.String())...)
 		} else if w2.out != nil {
@@ -256,13 +255,13 @@ func (w *mergingWalker) visitListItems(t *schema.List, lhs, rhs value.List) (err
 	return errs
 }
 
-func (w *mergingWalker) derefList(prefix string, v *value.Value, dest *value.List) (errs ValidationErrors) {
+func (w *mergingWalker) derefList(prefix string, v value.Value, dest *value.List) (errs ValidationErrors) {
 	// taking dest as input so that it can be called as a one-liner with
 	// append.
 	if v == nil {
 		return nil
 	}
-	l, err := listValue(*v)
+	l, err := listValue(v)
 	if err != nil {
 		return errorf("%v: %v", prefix, err)
 	}
@@ -294,7 +293,7 @@ func (w *mergingWalker) doList(t *schema.List) (errs ValidationErrors) {
 	return errs
 }
 
-func (w *mergingWalker) visitMapItem(t *schema.Map, out map[string]interface{}, key string, lhs, rhs *value.Value) (errs ValidationErrors) {
+func (w *mergingWalker) visitMapItem(t *schema.Map, out map[string]interface{}, key string, lhs, rhs value.Value) (errs ValidationErrors) {
 	fieldType := t.ElementType
 	if sf, ok := t.FindField(key); ok {
 		fieldType = sf.Type
@@ -317,14 +316,14 @@ func (w *mergingWalker) visitMapItems(t *schema.Map, lhs, rhs value.Map) (errs V
 
 	if lhs != nil {
 		lhs.Iterate(func(key string, val value.Value) bool {
-			var rval *value.Value
+			var rval value.Value
 			if rhs != nil {
 				if item, ok := rhs.Get(key); ok {
-					rval = &item
-					defer (*rval).Recycle()
+					rval = item
+					defer rval.Recycle()
 				}
 			}
-			errs = append(errs, w.visitMapItem(t, out, key, &val, rval)...)
+			errs = append(errs, w.visitMapItem(t, out, key, val, rval)...)
 			return true
 		})
 	}
@@ -337,7 +336,7 @@ func (w *mergingWalker) visitMapItems(t *schema.Map, lhs, rhs value.Map) (errs V
 					return true
 				}
 			}
-			errs = append(errs, w.visitMapItem(t, out, key, nil, &val)...)
+			errs = append(errs, w.visitMapItem(t, out, key, nil, val)...)
 			return true
 		})
 	}

@@ -29,10 +29,7 @@ var (
 	_NS  = fieldpath.NewSet
 	_P   = fieldpath.MakePathOrDie
 	_KBF = fieldpath.KeyByFields
-	_V   = func(i interface{}) *value.Value {
-		v := value.NewValueInterface(i)
-		return &v
-	}
+	_V   = value.NewValueInterface
 )
 
 func TestNewFromSets(t *testing.T) {

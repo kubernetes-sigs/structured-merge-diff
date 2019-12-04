@@ -43,6 +43,7 @@ type objectWalker struct {
 
 func (w *objectWalker) walk() {
 	switch {
+	case w.value.IsNull():
 	case w.value.IsFloat():
 	case w.value.IsInt():
 	case w.value.IsString():
@@ -54,11 +55,11 @@ func (w *objectWalker) walk() {
 	case w.value.IsList():
 		// If the list were atomic, we'd break here, but we don't have
 		// a schema, so we can't tell.
-
-		for i := 0; i < w.value.List().Length(); i++ {
+		list := w.value.List()
+		for i := 0; i < list.Length(); i++ {
 			w2 := *w
-			w2.path = append(w.path, GuessBestListPathElement(i, w.value.List().At(i)))
-			w2.value = w.value.List().At(i)
+			w2.path = append(w.path, GuessBestListPathElement(i, list.At(i)))
+			w2.value = list.At(i)
 			w2.walk()
 		}
 		return

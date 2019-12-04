@@ -85,7 +85,7 @@ type atomHandler interface {
 	doMap(*schema.Map) ValidationErrors
 }
 
-func resolveSchema(s *schema.Schema, tr schema.TypeRef, v *value.Value, ah atomHandler) ValidationErrors {
+func resolveSchema(s *schema.Schema, tr schema.TypeRef, v value.Value, ah atomHandler) ValidationErrors {
 	a, ok := s.Resolve(tr)
 	if !ok {
 		return errorf("schema error: no type found matching: %v", *tr.NamedType)
@@ -99,18 +99,18 @@ func resolveSchema(s *schema.Schema, tr schema.TypeRef, v *value.Value, ah atomH
 // If val is of a type allowed by atom, return a copy of atom with all other types set to nil.
 // if val is nil, or is not of a type allowed by atom, just return the original atom,
 // and validation will fail at a later stage. (with a more useful error)
-func deduceAtom(atom schema.Atom, val *value.Value) schema.Atom {
+func deduceAtom(atom schema.Atom, val value.Value) schema.Atom {
 	switch {
-	case val == nil, *val == nil:
-	case (*val).IsFloat(), (*val).IsInt(), (*val).IsString(), (*val).IsBool():
+	case val == nil:
+	case val.IsFloat(), val.IsInt(), val.IsString(), val.IsBool():
 		if atom.Scalar != nil {
 			return schema.Atom{Scalar: atom.Scalar}
 		}
-	case (*val).IsList():
+	case val.IsList():
 		if atom.List != nil {
 			return schema.Atom{List: atom.List}
 		}
-	case (*val).IsMap():
+	case val.IsMap():
 		if atom.Map != nil {
 			return schema.Atom{Map: atom.Map}
 		}

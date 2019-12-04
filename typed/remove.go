@@ -32,7 +32,7 @@ func removeItemsWithSchema(val value.Value, toRemove *fieldpath.Set, schema *sch
 		schema:   schema,
 		toRemove: toRemove,
 	}
-	resolveSchema(schema, typeRef, &val, w)
+	resolveSchema(schema, typeRef, val, w)
 	return value.NewValueInterface(w.out)
 }
 

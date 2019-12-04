@@ -82,7 +82,7 @@ func (v *toFieldSetWalker) finishDescent(v2 *toFieldSetWalker) {
 }
 
 func (v *toFieldSetWalker) toFieldSet() ValidationErrors {
-	return resolveSchema(v.schema, v.typeRef, &v.value, v)
+	return resolveSchema(v.schema, v.typeRef, v.value, v)
 }
 
 func (v *toFieldSetWalker) doScalar(t *schema.Scalar) ValidationErrors {

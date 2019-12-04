@@ -74,36 +74,36 @@ func (v *validatingObjectWalker) finishDescent(v2 *validatingObjectWalker) {
 }
 
 func (v *validatingObjectWalker) validate() ValidationErrors {
-	return resolveSchema(v.schema, v.typeRef, &v.value, v)
+	return resolveSchema(v.schema, v.typeRef, v.value, v)
 }
 
-func validateScalar(t *schema.Scalar, v *value.Value, prefix string) (errs ValidationErrors) {
+func validateScalar(t *schema.Scalar, v value.Value, prefix string) (errs ValidationErrors) {
 	if v == nil {
 		return nil
 	}
-	if (*v).IsNull() {
+	if v.IsNull() {
 		return nil
 	}
 	switch *t {
 	case schema.Numeric:
-		if !(*v).IsFloat() && !(*v).IsInt() {
+		if !v.IsFloat() && !v.IsInt() {
 			// TODO: should the schema separate int and float?
-			return errorf("%vexpected numeric (int or float), got %T", prefix, *v)
+			return errorf("%vexpected numeric (int or float), got %T", prefix, v)
 		}
 	case schema.String:
-		if !(*v).IsString() {
-			return errorf("%vexpected string, got %#v", prefix, *v)
+		if !v.IsString() {
+			return errorf("%vexpected string, got %#v", prefix, v)
 		}
 	case schema.Boolean:
-		if !(*v).IsBool() {
-			return errorf("%vexpected boolean, got %v", prefix, *v)
+		if !v.IsBool() {
+			return errorf("%vexpected boolean, got %v", prefix, v)
 		}
 	}
 	return nil
 }
 
 func (v *validatingObjectWalker) doScalar(t *schema.Scalar) ValidationErrors {
-	if errs := validateScalar(t, &v.value, ""); len(errs) > 0 {
+	if errs := validateScalar(t, v.value, ""); len(errs) > 0 {
 		return errs
 	}
 	return nil
