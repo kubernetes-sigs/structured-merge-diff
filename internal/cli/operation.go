@@ -21,8 +21,8 @@ import (
 	"io"
 	"io/ioutil"
 
-	"gopkg.in/yaml.v2"
 	"sigs.k8s.io/structured-merge-diff/typed"
+	"sigs.k8s.io/structured-merge-diff/value"
 )
 
 type Operation interface {
@@ -114,7 +114,7 @@ func (m merge) Execute(w io.Writer) error {
 		return err
 	}
 
-	yaml, err := yaml.Marshal(out.AsValue().Unstructured())
+	yaml, err := value.ToYAML(out.AsValue())
 	if err != nil {
 		return err
 	}

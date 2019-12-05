@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	jsoniter "github.com/json-iterator/go"
+	"gopkg.in/yaml.v2"
 )
 
 var (
@@ -116,6 +117,11 @@ func ReadJSONIter(iter *jsoniter.Iterator) (Value, error) {
 // WriteJSONStream writes a value into a JSON stream.
 func WriteJSONStream(v Value, stream *jsoniter.Stream) {
 	stream.WriteVal(v.Unstructured())
+}
+
+// ToYAML marshals a value as YAML.
+func ToYAML(v Value) ([]byte, error) {
+	return yaml.Marshal(v.Unstructured())
 }
 
 // Equals returns true iff the two values are equal.
