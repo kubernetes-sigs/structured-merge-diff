@@ -73,8 +73,8 @@ func (v *validatingObjectWalker) finishDescent(v2 *validatingObjectWalker) {
 	*v.spareWalkers = append(*v.spareWalkers, v2)
 }
 
-func (v *validatingObjectWalker) validate() ValidationErrors {
-	return resolveSchema(v.schema, v.typeRef, v.value, v)
+func (v *validatingObjectWalker) validate(prefixFn func() string) ValidationErrors {
+	return resolveSchema(v.schema, v.typeRef, v.value, v).WithLazyPrefix(prefixFn)
 }
 
 func validateScalar(t *schema.Scalar, v value.Value, prefix string) (errs ValidationErrors) {
@@ -133,9 +133,7 @@ func (v *validatingObjectWalker) visitListItems(t *schema.List, list value.List)
 		}
 		v2 := v.prepareDescent(t.ElementType)
 		v2.value = child
-		if newErrs := v2.validate(); len(newErrs) != 0 {
-			errs = append(errs, newErrs.WithPrefix(pe.String())...)
-		}
+		errs = append(errs, v2.validate(pe.String)...)
 		v.finishDescent(v2)
 	}
 	return errs
@@ -168,7 +166,8 @@ func (v *validatingObjectWalker) visitMapItems(t *schema.Map, m value.Map) (errs
 		}
 		v2 := v.prepareDescent(tr)
 		v2.value = val
-		errs = append(errs, v2.validate()...)
+		// Giving pe.String as a parameter actually increases the allocations.
+		errs = append(errs, v2.validate(func() string { return pe.String() })...)
 		v.finishDescent(v2)
 		return true
 	})

@@ -70,7 +70,7 @@ func (tv TypedValue) AsValue() value.Value {
 func (tv TypedValue) Validate() error {
 	w := tv.walker()
 	defer w.finished()
-	if errs := w.validate(); len(errs) != 0 {
+	if errs := w.validate(nil); len(errs) != 0 {
 		return errs
 	}
 	return nil
@@ -239,7 +239,7 @@ func merge(lhs, rhs *TypedValue, rule, postRule mergeRule) (*TypedValue, error) 
 	mw.rule = rule
 	mw.postItemHook = postRule
 
-	errs := mw.merge()
+	errs := mw.merge(nil)
 	if len(errs) > 0 {
 		return nil, errs
 	}

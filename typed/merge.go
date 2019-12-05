@@ -68,7 +68,7 @@ var (
 )
 
 // merge sets w.out.
-func (w *mergingWalker) merge() (errs ValidationErrors) {
+func (w *mergingWalker) merge(prefixFn func() string) (errs ValidationErrors) {
 	if w.lhs == nil && w.rhs == nil {
 		// check this condidition here instead of everywhere below.
 		return errorf("at least one of lhs and rhs must be provided")
@@ -91,7 +91,7 @@ func (w *mergingWalker) merge() (errs ValidationErrors) {
 	if !w.inLeaf && w.postItemHook != nil {
 		w.postItemHook(w)
 	}
-	return errs
+	return errs.WithLazyPrefix(prefixFn)
 }
 
 // doLeaf should be called on leaves before descending into children, if there
@@ -223,9 +223,8 @@ func (w *mergingWalker) visitListItems(t *schema.List, lhs, rhs value.List) (err
 			if rchild, ok := observedRHS.Get(pe); ok {
 				w2.rhs = rchild
 			}
-			if newErrs := w2.merge(); len(newErrs) > 0 {
-				errs = append(errs, newErrs.WithPrefix(pe.String())...)
-			} else if w2.out != nil {
+			errs = append(errs, w2.merge(pe.String)...)
+			if w2.out != nil {
 				out = append(out, *w2.out)
 			}
 			w.finishDescent(w2)
@@ -239,9 +238,8 @@ func (w *mergingWalker) visitListItems(t *schema.List, lhs, rhs value.List) (err
 		value, _ := observedRHS.Get(pe)
 		w2 := w.prepareDescent(pe, t.ElementType)
 		w2.rhs = value
-		if newErrs := w2.merge(); len(newErrs) > 0 {
-			errs = append(errs, newErrs.WithPrefix(pe.String())...)
-		} else if w2.out != nil {
+		errs = append(errs, w2.merge(pe.String)...)
+		if w2.out != nil {
 			out = append(out, *w2.out)
 		}
 		w.finishDescent(w2)
@@ -302,13 +300,12 @@ func (w *mergingWalker) visitMapItem(t *schema.Map, out map[string]interface{}, 
 	w2 := w.prepareDescent(pe, fieldType)
 	w2.lhs = lhs
 	w2.rhs = rhs
-	if newErrs := w2.merge(); len(newErrs) > 0 {
-		errs = append(errs, newErrs.WithPrefix(pe.String())...)
-	} else if w2.out != nil {
+	errs = append(errs, w2.merge(pe.String)...)
+	if w2.out != nil {
 		out[key] = *w2.out
 	}
 	w.finishDescent(w2)
-	return nil
+	return errs
 }
 
 func (w *mergingWalker) visitMapItems(t *schema.Map, lhs, rhs value.Map) (errs ValidationErrors) {

@@ -64,9 +64,26 @@ func (errs ValidationErrors) WithPath(p string) ValidationErrors {
 	return errs
 }
 
-// Prefix all errors path with the given pathelement. This is useful
-// when unwinding the stack on errors.
+// WithPrefix prefixes all errors path with the given pathelement. This
+// is useful when unwinding the stack on errors.
 func (errs ValidationErrors) WithPrefix(prefix string) ValidationErrors {
+	for i := range errs {
+		errs[i].Path = prefix + errs[i].Path
+	}
+	return errs
+}
+
+// WithLazyPrefix prefixes all errors path with the given pathelement.
+// This is useful when unwinding the stack on errors. Prefix is
+// computed lazily only if there is an error.
+func (errs ValidationErrors) WithLazyPrefix(fn func() string) ValidationErrors {
+	if len(errs) == 0 {
+		return errs
+	}
+	prefix := ""
+	if fn != nil {
+		prefix = fn()
+	}
 	for i := range errs {
 		errs[i].Path = prefix + errs[i].Path
 	}
