@@ -31,7 +31,9 @@ var (
 	writePool = jsoniter.NewStream(jsoniter.ConfigCompatibleWithStandardLibrary, nil, 1024).Pool()
 )
 
-// A Value corresponds to an 'atom' in the schema.
+// A Value corresponds to an 'atom' in the schema. It should return true
+// for at least one of the IsXXX methods below, or the value is
+// considered "invalid"
 type Value interface {
 	// IsMap returns true if the Value is a Map, false otherwise.
 	IsMap() bool

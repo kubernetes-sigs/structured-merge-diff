@@ -20,6 +20,8 @@ import (
 	"testing"
 )
 
+var InvalidValue = struct{}{}
+
 func TestValueLess(t *testing.T) {
 	table := []struct {
 		name string
@@ -29,6 +31,39 @@ func TestValueLess(t *testing.T) {
 		eq   bool
 	}{
 		{
+			name: "Invalid-1",
+			a:    InvalidValue,
+			b:    InvalidValue,
+			eq:   true,
+		}, {
+			name: "Invalid-2",
+			a:    1.,
+			b:    InvalidValue,
+		}, {
+			name: "Invalid-3",
+			a:    1,
+			b:    InvalidValue,
+		}, {
+			name: "Invalid-4",
+			a:    "aoeu",
+			b:    InvalidValue,
+		}, {
+			name: "Invalid-5",
+			a:    true,
+			b:    InvalidValue,
+		}, {
+			name: "Invalid-6",
+			a:    []interface{}{},
+			b:    InvalidValue,
+		}, {
+			name: "Invalid-7",
+			a:    map[string]interface{}{},
+			b:    InvalidValue,
+		}, {
+			name: "Invalid-8",
+			a:    nil,
+			b:    InvalidValue,
+		}, {
 			name: "Float-1",
 			a:    1.14,
 			b:    3.14,
