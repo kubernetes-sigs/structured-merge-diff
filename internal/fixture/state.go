@@ -130,7 +130,7 @@ func (s *State) UpdateObject(tv *typed.TypedValue, version fieldpath.APIVersion,
 
 // Update the current state with the passed in object
 func (s *State) Update(obj typed.YAMLObject, version fieldpath.APIVersion, manager string) error {
-	tv, err := s.Parser.Type(string(version)).FromYAML(FixTabsOrDie(obj))
+	tv, err := s.parseConfig(version, obj)
 	if err != nil {
 		return err
 	}
@@ -159,7 +159,7 @@ func (s *State) ApplyObject(tv *typed.TypedValue, version fieldpath.APIVersion, 
 
 // Apply the passed in object to the current state
 func (s *State) Apply(obj typed.YAMLObject, version fieldpath.APIVersion, manager string, force bool) error {
-	tv, err := s.Parser.Type(string(version)).FromYAML(FixTabsOrDie(obj))
+	tv, err := s.parseConfig(version, obj)
 	if err != nil {
 		return err
 	}
@@ -182,6 +182,10 @@ func (s *State) CompareLive(obj typed.YAMLObject, version fieldpath.APIVersion) 
 		return nil, err
 	}
 	return live.Compare(tv)
+}
+
+func (s *State) parseConfig(apiVersion fieldpath.APIVersion, obj typed.YAMLObject) (*typed.TypedValue, error) {
+	return s.Parser.Type(string(apiVersion)).FromYAML(FixTabsOrDie(obj))
 }
 
 // dummyConverter doesn't convert, it just returns the same exact object, as long as a version is provided.
@@ -471,12 +475,12 @@ func (tc TestCase) TestWithConverter(parser Parser, converter merge.Converter) e
 
 	// If LastObject was specified, compare it with LiveState
 	if tc.Object != typed.YAMLObject("") {
-		comparison, err := state.CompareLive(tc.Object, tc.APIVersion)
-		if err != nil {
-			return fmt.Errorf("failed to compare live with config: %v", err)
+		expect := ExpectState{
+			APIVersion: tc.APIVersion, Object: tc.Object,
 		}
-		if !comparison.IsSame() {
-			return fmt.Errorf("expected live and config to be the same:\n%v\nConfig: %v\n", comparison, value.ToString(state.Live.AsValue()))
+
+		if err := expect.run(&state); err != nil {
+			return err
 		}
 	}
 
@@ -504,4 +508,45 @@ func (tc TestCase) TestWithConverter(parser Parser, converter merge.Converter) e
 	}
 
 	return nil
+}
+
+// PrintState is an Operation printing the current state to help with debugging tests
+type PrintState struct{}
+
+var _ Operation = PrintState{}
+
+func (op PrintState) run(s *State) error {
+	fmt.Println(value.ToString(s.Live.AsValue()))
+	return nil
+}
+
+func (op PrintState) preprocess(_ Parser) (Operation, error) {
+	return op, nil
+}
+
+// ExpectState is an Operation comparing the current state to the defined config to help with debugging tests
+type ExpectState struct {
+	APIVersion fieldpath.APIVersion
+	Object     typed.YAMLObject
+}
+
+var _ Operation = ExpectState{}
+
+func (op ExpectState) run(state *State) error {
+	comparison, err := state.CompareLive(op.Object, op.APIVersion)
+	if err != nil {
+		return fmt.Errorf("failed to compare live with config: %v", err)
+	}
+	if !comparison.IsSame() {
+		config, err := state.parseConfig(op.APIVersion, op.Object)
+		if err != nil {
+			return fmt.Errorf("failed to parse config: %w", err)
+		}
+		return fmt.Errorf("expected live and config to be the same:\n%v\nConfig: %v\nLive:   %v\n", comparison, value.ToString(config.AsValue()), value.ToString(state.Live.AsValue()))
+	}
+	return nil
+}
+
+func (op ExpectState) preprocess(parser Parser) (Operation, error) {
+	return op, nil
 }

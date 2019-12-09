@@ -670,7 +670,7 @@ func TestMultipleAppliersNestedType(t *testing.T) {
 			},
 			Object: `
 				mapOfMapsRecursive:
-				  a:
+				  a: {}
 				  c:
 				    d:
 				      e:
@@ -788,7 +788,7 @@ func TestMultipleAppliersDeducedType(t *testing.T) {
 				},
 			},
 			Object: `
-				a:
+				a: {}
 				c:
 				  d:
 				    e:
