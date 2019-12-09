@@ -51,7 +51,7 @@ func (v valueUnstructured) IsMap() bool {
 
 func (v valueUnstructured) Map() Map {
 	if v.Value == nil {
-		return nil
+		panic("invalid nil")
 	}
 	switch t := v.Value.(type) {
 	case map[string]interface{}:

@@ -35,7 +35,7 @@ func normalizeUnions(w *mergingWalker) error {
 	}
 
 	var old value.Map
-	if w.lhs != nil {
+	if w.lhs != nil && !w.lhs.IsNull() {
 		old = w.lhs.Map()
 	}
 	for _, union := range atom.Map.Unions {
@@ -57,7 +57,7 @@ func normalizeUnionsApply(w *mergingWalker) error {
 	}
 
 	var old value.Map
-	if w.lhs != nil {
+	if w.lhs != nil && !w.lhs.IsNull() {
 		old = w.lhs.Map()
 	}
 
