@@ -22,6 +22,10 @@ import (
 	"sigs.k8s.io/structured-merge-diff/value"
 )
 
+var (
+	_V = value.NewValueInterface
+)
+
 func TestPathString(t *testing.T) {
 	table := []struct {
 		name   string
@@ -31,16 +35,20 @@ func TestPathString(t *testing.T) {
 		{"basic1", MakePathOrDie("foo", 1), ".foo[1]"},
 		{"basic2", MakePathOrDie("foo", "bar", 1, "baz"), ".foo.bar[1].baz"},
 		{"associative-list-ref", MakePathOrDie("foo", KeyByFields(
-			"a", value.StringValue("b"),
-			"c", value.IntValue(1),
-			"d", value.FloatValue(1.5),
-			"e", value.BooleanValue(true),
+			// This makes sure we test all types: string,
+			// floats, integers and booleans.
+			"a", "b",
+			"c", 1,
+			"d", 1.5,
+			"e", true,
 		)), `.foo[a="b",c=1,d=1.5,e=true]`},
 		{"sets", MakePathOrDie("foo",
-			value.StringValue("b"),
-			value.IntValue(5),
-			value.BooleanValue(false),
-			value.FloatValue(3.14159),
+			// This makes sure we test all types: string,
+			// floats, integers and booleans.
+			_V("b"),
+			_V(5),
+			_V(false),
+			_V(3.14159),
 		), `.foo[="b"][=5][=false][=3.14159]`},
 	}
 	for _, tt := range table {

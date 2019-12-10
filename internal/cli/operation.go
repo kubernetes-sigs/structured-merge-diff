@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 
 	"sigs.k8s.io/structured-merge-diff/typed"
+	"sigs.k8s.io/structured-merge-diff/value"
 )
 
 type Operation interface {
@@ -113,7 +114,7 @@ func (m merge) Execute(w io.Writer) error {
 		return err
 	}
 
-	yaml, err := out.AsValue().ToYAML()
+	yaml, err := value.ToYAML(out.AsValue())
 	if err != nil {
 		return err
 	}

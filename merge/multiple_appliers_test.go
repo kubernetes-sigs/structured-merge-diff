@@ -22,6 +22,7 @@ import (
 	"strings"
 	"testing"
 
+	"gopkg.in/yaml.v2"
 	"sigs.k8s.io/structured-merge-diff/fieldpath"
 	. "sigs.k8s.io/structured-merge-diff/internal/fixture"
 	"sigs.k8s.io/structured-merge-diff/merge"
@@ -66,16 +67,16 @@ func TestMultipleAppliersSet(t *testing.T) {
 			Managed: fieldpath.ManagedFields{
 				"apply-one": fieldpath.NewVersionedSet(
 					_NS(
-						_P("list", _KBF("name", _SV("a"))),
-						_P("list", _KBF("name", _SV("a")), "name"),
+						_P("list", _KBF("name", "a")),
+						_P("list", _KBF("name", "a"), "name"),
 					),
 					"v3",
 					false,
 				),
 				"apply-two": fieldpath.NewVersionedSet(
 					_NS(
-						_P("list", _KBF("name", _SV("c"))),
-						_P("list", _KBF("name", _SV("c")), "name"),
+						_P("list", _KBF("name", "c")),
+						_P("list", _KBF("name", "c"), "name"),
 					),
 					"v2",
 					false,
@@ -111,18 +112,18 @@ func TestMultipleAppliersSet(t *testing.T) {
 			Managed: fieldpath.ManagedFields{
 				"apply-one": fieldpath.NewVersionedSet(
 					_NS(
-						_P("list", _KBF("name", _SV("a"))),
-						_P("list", _KBF("name", _SV("a")), "name"),
-						_P("list", _KBF("name", _SV("a")), "value"),
+						_P("list", _KBF("name", "a")),
+						_P("list", _KBF("name", "a"), "name"),
+						_P("list", _KBF("name", "a"), "value"),
 					),
 					"v1",
 					false,
 				),
 				"apply-two": fieldpath.NewVersionedSet(
 					_NS(
-						_P("list", _KBF("name", _SV("a"))),
-						_P("list", _KBF("name", _SV("a")), "name"),
-						_P("list", _KBF("name", _SV("a")), "value"),
+						_P("list", _KBF("name", "a")),
+						_P("list", _KBF("name", "a"), "name"),
+						_P("list", _KBF("name", "a"), "value"),
 					),
 					"v2",
 					false,
@@ -149,7 +150,7 @@ func TestMultipleAppliersSet(t *testing.T) {
 						  value: 1
 					`,
 					Conflicts: merge.Conflicts{
-						merge.Conflict{Manager: "apply-one", Path: _P("list", _KBF("name", _SV("a")), "value")},
+						merge.Conflict{Manager: "apply-one", Path: _P("list", _KBF("name", "a"), "value")},
 					},
 				},
 			},
@@ -161,9 +162,9 @@ func TestMultipleAppliersSet(t *testing.T) {
 			Managed: fieldpath.ManagedFields{
 				"apply-one": fieldpath.NewVersionedSet(
 					_NS(
-						_P("list", _KBF("name", _SV("a"))),
-						_P("list", _KBF("name", _SV("a")), "name"),
-						_P("list", _KBF("name", _SV("a")), "value"),
+						_P("list", _KBF("name", "a")),
+						_P("list", _KBF("name", "a"), "name"),
+						_P("list", _KBF("name", "a"), "value"),
 					),
 					"v1",
 					false,
@@ -209,18 +210,18 @@ func TestMultipleAppliersSet(t *testing.T) {
 			Managed: fieldpath.ManagedFields{
 				"apply-one": fieldpath.NewVersionedSet(
 					_NS(
-						_P("list", _KBF("name", _SV("a"))),
-						_P("list", _KBF("name", _SV("a")), "name"),
+						_P("list", _KBF("name", "a")),
+						_P("list", _KBF("name", "a"), "name"),
 					),
 					"v3",
 					false,
 				),
 				"apply-two": fieldpath.NewVersionedSet(
 					_NS(
-						_P("list", _KBF("name", _SV("c"))),
-						_P("list", _KBF("name", _SV("d"))),
-						_P("list", _KBF("name", _SV("c")), "name"),
-						_P("list", _KBF("name", _SV("d")), "name"),
+						_P("list", _KBF("name", "c")),
+						_P("list", _KBF("name", "d")),
+						_P("list", _KBF("name", "c"), "name"),
+						_P("list", _KBF("name", "d"), "name"),
 					),
 					"v2",
 					false,
@@ -282,17 +283,17 @@ func TestMultipleAppliersNestedType(t *testing.T) {
 			Managed: fieldpath.ManagedFields{
 				"apply-one": fieldpath.NewVersionedSet(
 					_NS(
-						_P("listOfLists", _KBF("name", _SV("a"))),
-						_P("listOfLists", _KBF("name", _SV("a")), "name"),
+						_P("listOfLists", _KBF("name", "a")),
+						_P("listOfLists", _KBF("name", "a"), "name"),
 					),
 					"v3",
 					false,
 				),
 				"apply-two": fieldpath.NewVersionedSet(
 					_NS(
-						_P("listOfLists", _KBF("name", _SV("b"))),
-						_P("listOfLists", _KBF("name", _SV("b")), "name"),
-						_P("listOfLists", _KBF("name", _SV("b")), "value", _SV("d")),
+						_P("listOfLists", _KBF("name", "b")),
+						_P("listOfLists", _KBF("name", "b"), "name"),
+						_P("listOfLists", _KBF("name", "b"), "value", _V("d")),
 					),
 					"v2",
 					false,
@@ -355,24 +356,24 @@ func TestMultipleAppliersNestedType(t *testing.T) {
 			Managed: fieldpath.ManagedFields{
 				"apply-one": fieldpath.NewVersionedSet(
 					_NS(
-						_P("listOfLists", _KBF("name", _SV("a"))),
-						_P("listOfLists", _KBF("name", _SV("a")), "name"),
+						_P("listOfLists", _KBF("name", "a")),
+						_P("listOfLists", _KBF("name", "a"), "name"),
 					),
 					"v3",
 					false,
 				),
 				"apply-two": fieldpath.NewVersionedSet(
 					_NS(
-						_P("listOfLists", _KBF("name", _SV("b"))),
-						_P("listOfLists", _KBF("name", _SV("b")), "name"),
-						_P("listOfLists", _KBF("name", _SV("b")), "value", _SV("d")),
+						_P("listOfLists", _KBF("name", "b")),
+						_P("listOfLists", _KBF("name", "b"), "name"),
+						_P("listOfLists", _KBF("name", "b"), "value", _V("d")),
 					),
 					"v2",
 					false,
 				),
 				"controller": fieldpath.NewVersionedSet(
 					_NS(
-						_P("listOfLists", _KBF("name", _SV("b")), "value", _SV("e")),
+						_P("listOfLists", _KBF("name", "b"), "value", _V("e")),
 					),
 					"v2",
 					false,
@@ -434,17 +435,17 @@ func TestMultipleAppliersNestedType(t *testing.T) {
 			Managed: fieldpath.ManagedFields{
 				"apply-one": fieldpath.NewVersionedSet(
 					_NS(
-						_P("listOfLists", _KBF("name", _SV("a"))),
-						_P("listOfLists", _KBF("name", _SV("a")), "name"),
+						_P("listOfLists", _KBF("name", "a")),
+						_P("listOfLists", _KBF("name", "a"), "name"),
 					),
 					"v3",
 					false,
 				),
 				"apply-two": fieldpath.NewVersionedSet(
 					_NS(
-						_P("listOfLists", _KBF("name", _SV("a"))),
-						_P("listOfLists", _KBF("name", _SV("a")), "name"),
-						_P("listOfLists", _KBF("name", _SV("a")), "value", _SV("b")),
+						_P("listOfLists", _KBF("name", "a")),
+						_P("listOfLists", _KBF("name", "a"), "name"),
+						_P("listOfLists", _KBF("name", "a"), "value", _V("b")),
 					),
 					"v2",
 					false,
@@ -506,17 +507,17 @@ func TestMultipleAppliersNestedType(t *testing.T) {
 			Managed: fieldpath.ManagedFields{
 				"apply-one": fieldpath.NewVersionedSet(
 					_NS(
-						_P("listOfLists", _KBF("name", _SV("a"))),
-						_P("listOfLists", _KBF("name", _SV("a")), "name"),
+						_P("listOfLists", _KBF("name", "a")),
+						_P("listOfLists", _KBF("name", "a"), "name"),
 					),
 					"v3",
 					false,
 				),
 				"apply-two": fieldpath.NewVersionedSet(
 					_NS(
-						_P("listOfLists", _KBF("name", _SV("a"))),
-						_P("listOfLists", _KBF("name", _SV("a")), "name"),
-						_P("listOfLists", _KBF("name", _SV("a")), "value", _SV("b")),
+						_P("listOfLists", _KBF("name", "a")),
+						_P("listOfLists", _KBF("name", "a"), "name"),
+						_P("listOfLists", _KBF("name", "a"), "value", _V("b")),
 					),
 					"v2",
 					false,
@@ -565,17 +566,17 @@ func TestMultipleAppliersNestedType(t *testing.T) {
 			Managed: fieldpath.ManagedFields{
 				"apply-one": fieldpath.NewVersionedSet(
 					_NS(
-						_P("listOfLists", _KBF("name", _SV("a"))),
-						_P("listOfLists", _KBF("name", _SV("a")), "name"),
+						_P("listOfLists", _KBF("name", "a")),
+						_P("listOfLists", _KBF("name", "a"), "name"),
 					),
 					"v3",
 					false,
 				),
 				"apply-two": fieldpath.NewVersionedSet(
 					_NS(
-						_P("listOfLists", _KBF("name", _SV("b"))),
-						_P("listOfLists", _KBF("name", _SV("b")), "name"),
-						_P("listOfLists", _KBF("name", _SV("b")), "value", _SV("d")),
+						_P("listOfLists", _KBF("name", "b")),
+						_P("listOfLists", _KBF("name", "b"), "name"),
+						_P("listOfLists", _KBF("name", "b"), "value", _V("d")),
 					),
 					"v2",
 					false,
@@ -984,7 +985,7 @@ func (r repeatingConverter) Convert(v *typed.TypedValue, version fieldpath.APIVe
 	if err != nil {
 		return nil, missingVersionError
 	}
-	y, err := v.AsValue().ToYAML()
+	y, err := yaml.Marshal(v.AsValue().Unstructured())
 	if err != nil {
 		return nil, err
 	}

@@ -29,8 +29,7 @@ var (
 	_NS  = fieldpath.NewSet
 	_P   = fieldpath.MakePathOrDie
 	_KBF = fieldpath.KeyByFields
-	_SV  = value.StringValue
-	_IV  = value.IntValue
+	_V   = value.NewValueInterface
 )
 
 func TestNewFromSets(t *testing.T) {
@@ -38,7 +37,7 @@ func TestNewFromSets(t *testing.T) {
 		"Bob": fieldpath.NewVersionedSet(
 			_NS(
 				_P("key"),
-				_P("list", _KBF("key", _SV("a"), "id", _IV(2)), "id"),
+				_P("list", _KBF("key", "a", "id", 2), "id"),
 			),
 			"v1",
 			false,
@@ -46,7 +45,7 @@ func TestNewFromSets(t *testing.T) {
 		"Alice": fieldpath.NewVersionedSet(
 			_NS(
 				_P("value"),
-				_P("list", _KBF("key", _SV("a"), "id", _IV(2)), "key"),
+				_P("list", _KBF("key", "a", "id", 2), "key"),
 			),
 			"v1",
 			false,

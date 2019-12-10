@@ -141,10 +141,10 @@ func TestUpdateNestedType(t *testing.T) {
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
 					_NS(
-						_P("listOfLists", _KBF("name", _SV("a"))),
-						_P("listOfLists", _KBF("name", _SV("a")), "name"),
-						_P("listOfLists", _KBF("name", _SV("a")), "value", _SV("a")),
-						_P("listOfLists", _KBF("name", _SV("a")), "value", _SV("c")),
+						_P("listOfLists", _KBF("name", "a")),
+						_P("listOfLists", _KBF("name", "a"), "name"),
+						_P("listOfLists", _KBF("name", "a"), "value", _V("a")),
+						_P("listOfLists", _KBF("name", "a"), "value", _V("c")),
 					),
 					"v1",
 					false,
@@ -186,10 +186,10 @@ func TestUpdateNestedType(t *testing.T) {
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
 					_NS(
-						_P("listOfLists", _KBF("name", _SV("b"))),
-						_P("listOfLists", _KBF("name", _SV("b")), "name"),
-						_P("listOfLists", _KBF("name", _SV("b")), "value", _SV("a")),
-						_P("listOfLists", _KBF("name", _SV("b")), "value", _SV("c")),
+						_P("listOfLists", _KBF("name", "b")),
+						_P("listOfLists", _KBF("name", "b"), "name"),
+						_P("listOfLists", _KBF("name", "b"), "value", _V("a")),
+						_P("listOfLists", _KBF("name", "b"), "value", _V("c")),
 					),
 					"v1",
 					false,
@@ -231,13 +231,13 @@ func TestUpdateNestedType(t *testing.T) {
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
 					_NS(
-						_P("listOfMaps", _KBF("name", _SV("a"))),
-						_P("listOfMaps", _KBF("name", _SV("a")), "name"),
-						_P("listOfMaps", _KBF("name", _SV("a")), "value", "a"),
-						_P("listOfMaps", _KBF("name", _SV("a")), "value", "c"),
+						_P("listOfMaps", _KBF("name", "a")),
+						_P("listOfMaps", _KBF("name", "a"), "name"),
+						_P("listOfMaps", _KBF("name", "a"), "value", "a"),
+						_P("listOfMaps", _KBF("name", "a"), "value", "c"),
 					),
 					"v1",
-					false,
+					true,
 				),
 			},
 		},
@@ -276,10 +276,10 @@ func TestUpdateNestedType(t *testing.T) {
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
 					_NS(
-						_P("listOfMaps", _KBF("name", _SV("b"))),
-						_P("listOfMaps", _KBF("name", _SV("b")), "name"),
-						_P("listOfMaps", _KBF("name", _SV("b")), "value", "a"),
-						_P("listOfMaps", _KBF("name", _SV("b")), "value", "c"),
+						_P("listOfMaps", _KBF("name", "b")),
+						_P("listOfMaps", _KBF("name", "b"), "name"),
+						_P("listOfMaps", _KBF("name", "b"), "value", "a"),
+						_P("listOfMaps", _KBF("name", "b"), "value", "c"),
 					),
 					"v1",
 					false,
@@ -319,11 +319,11 @@ func TestUpdateNestedType(t *testing.T) {
 				"default": fieldpath.NewVersionedSet(
 					_NS(
 						_P("mapOfLists", "a"),
-						_P("mapOfLists", "a", _SV("a")),
-						_P("mapOfLists", "a", _SV("c")),
+						_P("mapOfLists", "a", _V("a")),
+						_P("mapOfLists", "a", _V("c")),
 					),
 					"v1",
-					false,
+					true,
 				),
 			},
 		},
@@ -360,8 +360,8 @@ func TestUpdateNestedType(t *testing.T) {
 				"default": fieldpath.NewVersionedSet(
 					_NS(
 						_P("mapOfLists", "b"),
-						_P("mapOfLists", "b", _SV("a")),
-						_P("mapOfLists", "b", _SV("c")),
+						_P("mapOfLists", "b", _V("a")),
+						_P("mapOfLists", "b", _V("c")),
 					),
 					"v1",
 					false,

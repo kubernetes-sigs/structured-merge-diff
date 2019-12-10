@@ -42,10 +42,7 @@ var (
 	_NS  = fieldpath.NewSet
 	_P   = fieldpath.MakePathOrDie
 	_KBF = fieldpath.KeyByFields
-	_SV  = value.StringValue
-	_BV  = value.BooleanValue
-	_IV  = value.IntValue
-	_FV  = value.FloatValue
+	_V   = value.NewValueInterface
 )
 
 var fieldsetCases = []fieldsetTestCase{{
@@ -154,19 +151,19 @@ var fieldsetCases = []fieldsetTestCase{{
 		{`{"bool":true}`, _NS(_P("bool"))},
 		{`{"bool":false}`, _NS(_P("bool"))},
 		{`{"setStr":["a","b","c"]}`, _NS(
-			_P("setStr", _SV("a")),
-			_P("setStr", _SV("b")),
-			_P("setStr", _SV("c")),
+			_P("setStr", _V("a")),
+			_P("setStr", _V("b")),
+			_P("setStr", _V("c")),
 		)},
 		{`{"setBool":[true,false]}`, _NS(
-			_P("setBool", _BV(true)),
-			_P("setBool", _BV(false)),
+			_P("setBool", _V(true)),
+			_P("setBool", _V(false)),
 		)},
 		{`{"setNumeric":[1,2,3,3.14159]}`, _NS(
-			_P("setNumeric", _IV(1)),
-			_P("setNumeric", _IV(2)),
-			_P("setNumeric", _IV(3)),
-			_P("setNumeric", _FV(3.14159)),
+			_P("setNumeric", _V(1)),
+			_P("setNumeric", _V(2)),
+			_P("setNumeric", _V(3)),
+			_P("setNumeric", _V(3.14159)),
 		)},
 		{`{"color":{}}`, _NS(_P("color"))},
 		{`{"color":null}`, _NS(_P("color"))},
@@ -231,21 +228,21 @@ var fieldsetCases = []fieldsetTestCase{{
 	pairs: []objSetPair{
 		{`{"list":[]}`, _NS()},
 		{`{"list":[{"key":"a","id":1,"value":{"a":"a"}}]}`, _NS(
-			_P("list", _KBF("key", _SV("a"), "id", _IV(1))),
-			_P("list", _KBF("key", _SV("a"), "id", _IV(1)), "key"),
-			_P("list", _KBF("key", _SV("a"), "id", _IV(1)), "id"),
-			_P("list", _KBF("key", _SV("a"), "id", _IV(1)), "value", "a"),
+			_P("list", _KBF("key", "a", "id", 1)),
+			_P("list", _KBF("key", "a", "id", 1), "key"),
+			_P("list", _KBF("key", "a", "id", 1), "id"),
+			_P("list", _KBF("key", "a", "id", 1), "value", "a"),
 		)},
 		{`{"list":[{"key":"a","id":1},{"key":"a","id":2},{"key":"b","id":1}]}`, _NS(
-			_P("list", _KBF("key", _SV("a"), "id", _IV(1))),
-			_P("list", _KBF("key", _SV("a"), "id", _IV(2))),
-			_P("list", _KBF("key", _SV("b"), "id", _IV(1))),
-			_P("list", _KBF("key", _SV("a"), "id", _IV(1)), "key"),
-			_P("list", _KBF("key", _SV("a"), "id", _IV(1)), "id"),
-			_P("list", _KBF("key", _SV("a"), "id", _IV(2)), "key"),
-			_P("list", _KBF("key", _SV("a"), "id", _IV(2)), "id"),
-			_P("list", _KBF("key", _SV("b"), "id", _IV(1)), "key"),
-			_P("list", _KBF("key", _SV("b"), "id", _IV(1)), "id"),
+			_P("list", _KBF("key", "a", "id", 1)),
+			_P("list", _KBF("key", "a", "id", 2)),
+			_P("list", _KBF("key", "b", "id", 1)),
+			_P("list", _KBF("key", "a", "id", 1), "key"),
+			_P("list", _KBF("key", "a", "id", 1), "id"),
+			_P("list", _KBF("key", "a", "id", 2), "key"),
+			_P("list", _KBF("key", "a", "id", 2), "id"),
+			_P("list", _KBF("key", "b", "id", 1), "key"),
+			_P("list", _KBF("key", "b", "id", 1), "id"),
 		)},
 		{`{"atomicList":["a","a","a"]}`, _NS(_P("atomicList"))},
 	},

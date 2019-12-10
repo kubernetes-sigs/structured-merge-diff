@@ -465,7 +465,7 @@ var symdiffCases = []symdiffTestCase{{
 		rhs:      `{"a":["b"]}`,
 		removed:  _NS(),
 		modified: _NS(),
-		added:    _NS(_P("a", _SV("b"))),
+		added:    _NS(_P("a", _V("b"))),
 	}, {
 		lhs:     `{"a":null}`,
 		rhs:     `{"a":["b"]}`,
@@ -473,17 +473,17 @@ var symdiffCases = []symdiffTestCase{{
 		// TODO: result should be the same as the previous case
 		// nothing shoule be modified here.
 		modified: _NS(_P("a")),
-		added:    _NS(_P("a", _SV("b"))),
+		added:    _NS(_P("a", _V("b"))),
 	}, {
 		lhs:      `{"a":["b"]}`,
 		rhs:      `{"a":[]}`,
-		removed:  _NS(_P("a", _SV("b"))),
+		removed:  _NS(_P("a", _V("b"))),
 		modified: _NS(),
 		added:    _NS(),
 	}, {
 		lhs:     `{"a":["b"]}`,
 		rhs:     `{"a":null}`,
-		removed: _NS(_P("a", _SV("b"))),
+		removed: _NS(_P("a", _V("b"))),
 		// TODO: result should be the same as the previous case
 		// nothing shoule be modified here.
 		modified: _NS(_P("a")),
@@ -505,11 +505,11 @@ var symdiffCases = []symdiffTestCase{{
 		rhs:      `{"a":["b"]}}`,
 		removed:  _NS(_P("a", "b")),
 		modified: _NS(),
-		added:    _NS(_P("a", _SV("b"))),
+		added:    _NS(_P("a", _V("b"))),
 	}, {
 		lhs:      `{"a":["b"]}}`,
 		rhs:      `{"a":{"b":{}}}`,
-		removed:  _NS(_P("a", _SV("b"))),
+		removed:  _NS(_P("a", _V("b"))),
 		modified: _NS(),
 		added:    _NS(_P("a", "b")),
 	}, {
@@ -527,7 +527,7 @@ var symdiffCases = []symdiffTestCase{{
 	}, {
 		lhs:      `{"a":["b"]}}`,
 		rhs:      `{"a":"b"}`,
-		removed:  _NS(_P("a", _SV("b"))),
+		removed:  _NS(_P("a", _V("b"))),
 		modified: _NS(_P("a")),
 		added:    _NS(),
 	}, {
@@ -535,7 +535,7 @@ var symdiffCases = []symdiffTestCase{{
 		rhs:      `{"a":["b"]}}`,
 		removed:  _NS(),
 		modified: _NS(_P("a")),
-		added:    _NS(_P("a", _SV("b"))),
+		added:    _NS(_P("a", _V("b"))),
 	}},
 }, {
 	name:         "struct grab bag",
@@ -595,29 +595,29 @@ var symdiffCases = []symdiffTestCase{{
 		rhs:      `{"setStr":["a","b","c"]}`,
 		removed:  _NS(),
 		modified: _NS(),
-		added:    _NS(_P("setStr", _SV("c"))),
+		added:    _NS(_P("setStr", _V("c"))),
 	}, {
 		lhs: `{"setStr":["a","b","c"]}`,
 		rhs: `{"setStr":[]}`,
 		removed: _NS(
-			_P("setStr", _SV("a")),
-			_P("setStr", _SV("b")),
-			_P("setStr", _SV("c")),
+			_P("setStr", _V("a")),
+			_P("setStr", _V("b")),
+			_P("setStr", _V("c")),
 		),
 		modified: _NS(),
 		added:    _NS(),
 	}, {
 		lhs:      `{"setBool":[true]}`,
 		rhs:      `{"setBool":[false]}`,
-		removed:  _NS(_P("setBool", _BV(true))),
+		removed:  _NS(_P("setBool", _V(true))),
 		modified: _NS(),
-		added:    _NS(_P("setBool", _BV(false))),
+		added:    _NS(_P("setBool", _V(false))),
 	}, {
 		lhs:      `{"setNumeric":[1,2,3.14159]}`,
 		rhs:      `{"setNumeric":[1,2,3]}`,
-		removed:  _NS(_P("setNumeric", _FV(3.14159))),
+		removed:  _NS(_P("setNumeric", _V(3.14159))),
 		modified: _NS(),
-		added:    _NS(_P("setNumeric", _IV(3))),
+		added:    _NS(_P("setNumeric", _V(3))),
 	}},
 }, {
 	name:         "associative list",
@@ -675,11 +675,11 @@ var symdiffCases = []symdiffTestCase{{
 		modified: _NS(),
 		added: _NS(
 			_P("list"),
-			_P("list", _KBF("key", _SV("a"), "id", _IV(1))),
-			_P("list", _KBF("key", _SV("a"), "id", _IV(1)), "key"),
-			_P("list", _KBF("key", _SV("a"), "id", _IV(1)), "id"),
-			_P("list", _KBF("key", _SV("a"), "id", _IV(1)), "value"),
-			_P("list", _KBF("key", _SV("a"), "id", _IV(1)), "value", "a"),
+			_P("list", _KBF("key", "a", "id", 1)),
+			_P("list", _KBF("key", "a", "id", 1), "key"),
+			_P("list", _KBF("key", "a", "id", 1), "id"),
+			_P("list", _KBF("key", "a", "id", 1), "value"),
+			_P("list", _KBF("key", "a", "id", 1), "value", "a"),
 		),
 	}, {
 		lhs:      `{"list":[{"key":"a","id":1,"value":{"a":"a"}}]}`,
@@ -691,39 +691,39 @@ var symdiffCases = []symdiffTestCase{{
 		lhs:      `{"list":[{"key":"a","id":1,"value":{"a":"a"}}]}`,
 		rhs:      `{"list":[{"key":"a","id":1,"value":{"a":"b"}}]}`,
 		removed:  _NS(),
-		modified: _NS(_P("list", _KBF("key", _SV("a"), "id", _IV(1)), "value", "a")),
+		modified: _NS(_P("list", _KBF("key", "a", "id", 1), "value", "a")),
 		added:    _NS(),
 	}, {
 		lhs: `{"list":[{"key":"a","id":1,"value":{"a":"a"}}]}`,
 		rhs: `{"list":[{"key":"a","id":2,"value":{"a":"a"}}]}`,
 		removed: _NS(
-			_P("list", _KBF("key", _SV("a"), "id", _IV(1))),
-			_P("list", _KBF("key", _SV("a"), "id", _IV(1)), "key"),
-			_P("list", _KBF("key", _SV("a"), "id", _IV(1)), "id"),
-			_P("list", _KBF("key", _SV("a"), "id", _IV(1)), "value"),
-			_P("list", _KBF("key", _SV("a"), "id", _IV(1)), "value", "a"),
+			_P("list", _KBF("key", "a", "id", 1)),
+			_P("list", _KBF("key", "a", "id", 1), "key"),
+			_P("list", _KBF("key", "a", "id", 1), "id"),
+			_P("list", _KBF("key", "a", "id", 1), "value"),
+			_P("list", _KBF("key", "a", "id", 1), "value", "a"),
 		),
 		modified: _NS(),
 		added: _NS(
-			_P("list", _KBF("key", _SV("a"), "id", _IV(2))),
-			_P("list", _KBF("key", _SV("a"), "id", _IV(2)), "key"),
-			_P("list", _KBF("key", _SV("a"), "id", _IV(2)), "id"),
-			_P("list", _KBF("key", _SV("a"), "id", _IV(2)), "value"),
-			_P("list", _KBF("key", _SV("a"), "id", _IV(2)), "value", "a"),
+			_P("list", _KBF("key", "a", "id", 2)),
+			_P("list", _KBF("key", "a", "id", 2), "key"),
+			_P("list", _KBF("key", "a", "id", 2), "id"),
+			_P("list", _KBF("key", "a", "id", 2), "value"),
+			_P("list", _KBF("key", "a", "id", 2), "value", "a"),
 		),
 	}, {
 		lhs: `{"list":[{"key":"a","id":1},{"key":"b","id":1}]}`,
 		rhs: `{"list":[{"key":"a","id":1},{"key":"a","id":2}]}`,
 		removed: _NS(
-			_P("list", _KBF("key", _SV("b"), "id", _IV(1))),
-			_P("list", _KBF("key", _SV("b"), "id", _IV(1)), "key"),
-			_P("list", _KBF("key", _SV("b"), "id", _IV(1)), "id"),
+			_P("list", _KBF("key", "b", "id", 1)),
+			_P("list", _KBF("key", "b", "id", 1), "key"),
+			_P("list", _KBF("key", "b", "id", 1), "id"),
 		),
 		modified: _NS(),
 		added: _NS(
-			_P("list", _KBF("key", _SV("a"), "id", _IV(2))),
-			_P("list", _KBF("key", _SV("a"), "id", _IV(2)), "key"),
-			_P("list", _KBF("key", _SV("a"), "id", _IV(2)), "id"),
+			_P("list", _KBF("key", "a", "id", 2)),
+			_P("list", _KBF("key", "a", "id", 2), "key"),
+			_P("list", _KBF("key", "a", "id", 2), "id"),
 		),
 	}, {
 		lhs:      `{"atomicList":["a","a","a"]}`,

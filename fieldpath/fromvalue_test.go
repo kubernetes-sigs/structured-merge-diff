@@ -19,6 +19,7 @@ package fieldpath
 import (
 	"testing"
 
+	"gopkg.in/yaml.v2"
 	"sigs.k8s.io/structured-merge-diff/value"
 )
 
@@ -31,19 +32,19 @@ func TestFromValue(t *testing.T) {
 		{`{"a": [{"a": null}]}`, NewSet(
 			MakePathOrDie("a", 0, "a"),
 		)}, {`{"a": [{"id": a}]}`, NewSet(
-			MakePathOrDie("a", KeyByFields("id", value.StringValue("a")), "id"),
+			MakePathOrDie("a", KeyByFields("id", "a"), "id"),
 		)}, {`{"a": [{"name": a}]}`, NewSet(
-			MakePathOrDie("a", KeyByFields("name", value.StringValue("a")), "name"),
+			MakePathOrDie("a", KeyByFields("name", "a"), "name"),
 		)}, {`{"a": [{"key": a}]}`, NewSet(
-			MakePathOrDie("a", KeyByFields("key", value.StringValue("a")), "key"),
+			MakePathOrDie("a", KeyByFields("key", "a"), "key"),
 		)}, {`{"a": [{"name": "a", "key": "b"}]}`, NewSet(
 			MakePathOrDie("a", KeyByFields(
-				"key", value.StringValue("b"),
-				"name", value.StringValue("a"),
+				"key", "b",
+				"name", "a",
 			), "key"),
 			MakePathOrDie("a", KeyByFields(
-				"key", value.StringValue("b"),
-				"name", value.StringValue("a"),
+				"key", "b",
+				"name", "a",
 			), "name"),
 		)}, {`{"a": [5]}`, NewSet(
 			MakePathOrDie("a", 0),
@@ -65,11 +66,12 @@ func TestFromValue(t *testing.T) {
 		tt := tt
 		t.Run(tt.objYAML, func(t *testing.T) {
 			t.Parallel()
-			v, err := value.FromYAML([]byte(tt.objYAML))
+			var v interface{}
+			err := yaml.Unmarshal([]byte(tt.objYAML), &v)
 			if err != nil {
 				t.Fatalf("couldn't parse: %v", err)
 			}
-			got := SetFromValue(v)
+			got := SetFromValue(value.NewValueInterface(v))
 			if !got.Equals(tt.set) {
 				t.Errorf("wanted\n%s\nbut got\n%s\n", tt.set, got)
 			}
