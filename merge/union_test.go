@@ -19,10 +19,10 @@ package merge_test
 import (
 	"testing"
 
-	"sigs.k8s.io/structured-merge-diff/fieldpath"
-	. "sigs.k8s.io/structured-merge-diff/internal/fixture"
-	"sigs.k8s.io/structured-merge-diff/merge"
-	"sigs.k8s.io/structured-merge-diff/typed"
+	"sigs.k8s.io/structured-merge-diff/v2/fieldpath"
+	. "sigs.k8s.io/structured-merge-diff/v2/internal/fixture"
+	"sigs.k8s.io/structured-merge-diff/v2/merge"
+	"sigs.k8s.io/structured-merge-diff/v2/typed"
 )
 
 var unionFieldsParser = func() typed.ParseableType {

@@ -21,8 +21,8 @@ import (
 	"io"
 	"io/ioutil"
 
-	"sigs.k8s.io/structured-merge-diff/typed"
-	"sigs.k8s.io/structured-merge-diff/value"
+	"sigs.k8s.io/structured-merge-diff/v2/typed"
+	"sigs.k8s.io/structured-merge-diff/v2/value"
 )
 
 type Operation interface {

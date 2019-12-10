@@ -19,7 +19,7 @@ package fieldpath
 import (
 	"testing"
 
-	"sigs.k8s.io/structured-merge-diff/value"
+	"sigs.k8s.io/structured-merge-diff/v2/value"
 )
 
 var (

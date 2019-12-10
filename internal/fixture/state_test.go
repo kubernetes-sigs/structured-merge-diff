@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"testing"
 
-	"sigs.k8s.io/structured-merge-diff/typed"
+	"sigs.k8s.io/structured-merge-diff/v2/typed"
 )
 
 func TestFixTabs(t *testing.T) {
