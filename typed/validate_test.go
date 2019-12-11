@@ -21,8 +21,8 @@ import (
 	"strings"
 	"testing"
 
-	"sigs.k8s.io/structured-merge-diff/schema"
-	"sigs.k8s.io/structured-merge-diff/typed"
+	"sigs.k8s.io/structured-merge-diff/v2/schema"
+	"sigs.k8s.io/structured-merge-diff/v2/typed"
 )
 
 type validationTestCase struct {
