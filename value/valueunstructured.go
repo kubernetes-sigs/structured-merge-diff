@@ -29,6 +29,8 @@ var viPool = sync.Pool{
 
 // NewValueInterface creates a Value backed by an "interface{}" type,
 // typically an unstructured object in Kubernetes world.
+// interface{} must be one of: map[string]interface{}, map[interface{}]interface{}, []interface{}, int types, float types,
+// string or boolean. Nested interface{} must also be one of these types.
 func NewValueInterface(v interface{}) Value {
 	vi := viPool.Get().(*valueUnstructured)
 	vi.Value = v
