@@ -102,12 +102,28 @@ func (p ParseableType) FromYAML(object YAMLObject) (*TypedValue, error) {
 	return AsTyped(value.NewValueInterface(v), p.Schema, p.TypeRef)
 }
 
-// FromUnstructured converts a go interface to a TypedValue. It will return an
+// FromUnstructured converts a go "interface{}" type, typically an
+// unstructured object in Kubernetes world. to a TypedValue. It returns an
 // error if the resulting object fails schema validation.
+// The provided interface{} must be one of: map[string]interface{},
+// map[interface{}]interface{}, []interface{}, int types, float types,
+// string or boolean. Nested interface{} must also be one of these types.
 func (p ParseableType) FromUnstructured(in interface{}) (*TypedValue, error) {
 	return AsTyped(value.NewValueInterface(in), p.Schema, p.TypeRef)
 }
 
+// FromStructured converts a go "interface{}" type, typically an structured object in
+// Kubernetes, to a TypedValue. It will return an
+// error if the resulting object fails schema validation.
+// The provided "interface{}" may contain structs and types that are converted to Values
+// // by the jsonMarshaler interface.
+func (p ParseableType) FromStructured(in interface{}) (*TypedValue, error) {
+	v, err := value.NewValueReflect(in)
+	if err != nil {
+		return nil, fmt.Errorf("error creating struct value reflector: %v", err)
+	}
+	return AsTyped(v, p.Schema, p.TypeRef)
+}
 // DeducedParseableType is a ParseableType that deduces the type from
 // the content of the object.
 var DeducedParseableType ParseableType = createOrDie(YAMLObject(`types:

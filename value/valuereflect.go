@@ -32,7 +32,7 @@ var reflectPool = sync.Pool{
 
 // NewValueReflect creates a Value backed by an "interface{}" type,
 // typically an structured object in Kubernetes world that is uses reflection to expose.
-// The provide "interface{}" may contain structs and types that are converted to Values
+// The provided "interface{}" may contain structs and types that are converted to Values
 // by the jsonMarshaler interface.
 func NewValueReflect(value interface{}) (Value, error) {
 	if value == nil {
