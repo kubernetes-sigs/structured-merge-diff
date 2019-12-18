@@ -54,7 +54,7 @@ func (r mapReflect) Delete(key string) {
 	val.SetMapIndex(r.toMapKey(key), reflect.Value{})
 }
 
-// TODO: Do we need to support types that implement json.Marshaler and are used as string keys
+// TODO: Do we need to support types that implement json.Marshaler and are used as string keys?
 func (r mapReflect) toMapKey(key string) reflect.Value {
 	val := r.Value
 	return reflect.ValueOf(key).Convert(val.Type().Key())
