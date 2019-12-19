@@ -17,6 +17,7 @@ limitations under the License.
 package value
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"reflect"
 	"testing"
@@ -37,7 +38,19 @@ func TestReflectPrimitives(t *testing.T) {
 		t.Error("expected IsString to be true")
 	}
 	if rv.String() != "string" {
-		t.Errorf("expected rv.String to be 'string' but got %s", rv.String())
+		t.Errorf("expected rv.String to be 'string' but got %v", rv.Unstructured())
+	}
+
+	rv = MustReflect([]byte("string"))
+	if !rv.IsString() {
+		t.Error("expected IsString to be true")
+	}
+	if rv.IsList() {
+		t.Error("expected IsList to be false ([]byte is represented as a base64 encoded string)")
+	}
+	encoded := base64.StdEncoding.EncodeToString([]byte("string"))
+	if rv.String() != encoded {
+		t.Errorf("expected rv.String to be %v but got %v", []byte(encoded), rv.Unstructured())
 	}
 
 	rv = MustReflect(1)
@@ -45,7 +58,15 @@ func TestReflectPrimitives(t *testing.T) {
 		t.Error("expected IsInt to be true")
 	}
 	if rv.Int() != 1 {
-		t.Errorf("expected rv.Int to be 1 but got %s", rv.String())
+		t.Errorf("expected rv.Int to be 1 but got %v", rv.Unstructured())
+	}
+
+	rv = MustReflect(uint32(3000000000))
+	if !rv.IsInt() {
+		t.Error("expected IsInt to be true")
+	}
+	if rv.Int() != 3000000000 {
+		t.Errorf("expected rv.Int to be 3000000000 but got %v", rv.Unstructured())
 	}
 
 	rv = MustReflect(1.5)
@@ -53,7 +74,7 @@ func TestReflectPrimitives(t *testing.T) {
 		t.Error("expected IsFloat to be true")
 	}
 	if rv.Float() != 1.5 {
-		t.Errorf("expected rv.Float to be 1.1 but got %s", rv.String())
+		t.Errorf("expected rv.Float to be 1.1 but got %v", rv.Unstructured())
 	}
 
 	rv = MustReflect(true)
@@ -61,7 +82,7 @@ func TestReflectPrimitives(t *testing.T) {
 		t.Error("expected IsBool to be true")
 	}
 	if rv.Bool() != true {
-		t.Errorf("expected rv.Bool to be true but got %s", rv.String())
+		t.Errorf("expected rv.Bool to be true but got %v", rv.Unstructured())
 	}
 
 	rv = MustReflect(nil)
