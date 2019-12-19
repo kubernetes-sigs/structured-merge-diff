@@ -18,6 +18,7 @@ package value
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -78,7 +79,8 @@ func (r valueReflect) IsMap() bool {
 }
 
 func (r valueReflect) IsList() bool {
-	return r.isKind(reflect.Slice, reflect.Array)
+	typ := r.Value.Type()
+	return typ.Kind() == reflect.Slice && !(typ.Elem().Kind() == reflect.Uint8)
 }
 
 func (r valueReflect) IsBool() bool {
@@ -86,8 +88,8 @@ func (r valueReflect) IsBool() bool {
 }
 
 func (r valueReflect) IsInt() bool {
-	// This feels wrong. Very wrong.
-	return r.isKind(reflect.Int, reflect.Int64, reflect.Int32, reflect.Int16, reflect.Int8, reflect.Uint64, reflect.Uint, reflect.Uint32, reflect.Uint16, reflect.Uint8)
+	// Uint64 deliberately excluded, see valueUnstructured.Int.
+	return r.isKind(reflect.Int, reflect.Int64, reflect.Int32, reflect.Int16, reflect.Int8, reflect.Uint, reflect.Uint32, reflect.Uint16, reflect.Uint8)
 }
 
 func (r valueReflect) IsFloat() bool {
@@ -95,7 +97,14 @@ func (r valueReflect) IsFloat() bool {
 }
 
 func (r valueReflect) IsString() bool {
-	return r.isKind(reflect.String)
+	kind := r.Value.Kind()
+	if kind == reflect.String {
+		return true
+	}
+	if kind == reflect.Slice && r.Value.Type().Elem().Kind() == reflect.Uint8 {
+		return true
+	}
+	return false
 }
 
 func (r valueReflect) IsNull() bool {
@@ -153,9 +162,13 @@ func (r valueReflect) Bool() bool {
 }
 
 func (r valueReflect) Int() int64 {
-	if r.IsInt() {
+	if r.isKind(reflect.Int, reflect.Int64, reflect.Int32, reflect.Int16, reflect.Int8) {
 		return r.Value.Int()
 	}
+	if r.isKind(reflect.Uint, reflect.Uint32, reflect.Uint16, reflect.Uint8) {
+		return int64(r.Value.Uint())
+	}
+
 	panic("value is not an int")
 }
 
@@ -167,8 +180,12 @@ func (r valueReflect) Float() float64 {
 }
 
 func (r valueReflect) String() string {
-	if r.IsString() {
+	kind := r.Value.Kind()
+	if kind == reflect.String {
 		return r.Value.String()
+	}
+	if kind == reflect.Slice && r.Value.Type().Elem().Kind() == reflect.Uint8 {
+		return base64.StdEncoding.EncodeToString(r.Value.Bytes())
 	}
 	panic("value is not a string")
 }
@@ -193,7 +210,7 @@ func (r valueReflect) Unstructured() interface{} {
 	case r.IsFloat():
 		return r.Float()
 	default:
-		panic("value is not a map or struct")
+		panic(fmt.Sprintf("value of type %s is not a supported by value reflector", val.Type()))
 	}
 }
 

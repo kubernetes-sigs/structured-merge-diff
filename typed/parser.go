@@ -124,6 +124,7 @@ func (p ParseableType) FromStructured(in interface{}) (*TypedValue, error) {
 	}
 	return AsTyped(v, p.Schema, p.TypeRef)
 }
+
 // DeducedParseableType is a ParseableType that deduces the type from
 // the content of the object.
 var DeducedParseableType ParseableType = createOrDie(YAMLObject(`types:
