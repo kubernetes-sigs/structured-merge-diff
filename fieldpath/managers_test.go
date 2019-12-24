@@ -21,7 +21,7 @@ import (
 	"reflect"
 	"testing"
 
-	"sigs.k8s.io/structured-merge-diff/v2/fieldpath"
+	"sigs.k8s.io/structured-merge-diff/v3/fieldpath"
 )
 
 var (

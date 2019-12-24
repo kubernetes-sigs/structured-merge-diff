@@ -1,4 +1,4 @@
-module sigs.k8s.io/structured-merge-diff/v2
+module sigs.k8s.io/structured-merge-diff/v3
 
 require gopkg.in/yaml.v2 v2.2.1
 

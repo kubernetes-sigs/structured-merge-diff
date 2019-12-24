@@ -19,7 +19,7 @@ package fieldpath
 import (
 	"sort"
 
-	"sigs.k8s.io/structured-merge-diff/v2/value"
+	"sigs.k8s.io/structured-merge-diff/v3/value"
 )
 
 // PathElementValueMap is a map from PathElement to value.Value.

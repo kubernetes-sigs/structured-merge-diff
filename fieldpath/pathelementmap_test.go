@@ -19,7 +19,7 @@ package fieldpath
 import (
 	"testing"
 
-	"sigs.k8s.io/structured-merge-diff/v2/value"
+	"sigs.k8s.io/structured-merge-diff/v3/value"
 )
 
 func TestPathElementValueMap(t *testing.T) {
