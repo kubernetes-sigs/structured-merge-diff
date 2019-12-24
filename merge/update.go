@@ -16,8 +16,8 @@ package merge
 import (
 	"fmt"
 
-	"sigs.k8s.io/structured-merge-diff/v2/fieldpath"
-	"sigs.k8s.io/structured-merge-diff/v2/typed"
+	"sigs.k8s.io/structured-merge-diff/v3/fieldpath"
+	"sigs.k8s.io/structured-merge-diff/v3/typed"
 )
 
 // Converter is an interface to the conversion logic. The converter

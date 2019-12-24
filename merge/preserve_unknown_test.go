@@ -19,9 +19,9 @@ package merge_test
 import (
 	"testing"
 
-	"sigs.k8s.io/structured-merge-diff/v2/fieldpath"
-	. "sigs.k8s.io/structured-merge-diff/v2/internal/fixture"
-	"sigs.k8s.io/structured-merge-diff/v2/typed"
+	"sigs.k8s.io/structured-merge-diff/v3/fieldpath"
+	. "sigs.k8s.io/structured-merge-diff/v3/internal/fixture"
+	"sigs.k8s.io/structured-merge-diff/v3/typed"
 )
 
 var preserveUnknownParser = func() typed.ParseableType {

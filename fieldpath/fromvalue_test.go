@@ -20,7 +20,7 @@ import (
 	"testing"
 
 	"gopkg.in/yaml.v2"
-	"sigs.k8s.io/structured-merge-diff/v2/value"
+	"sigs.k8s.io/structured-merge-diff/v3/value"
 )
 
 func TestFromValue(t *testing.T) {

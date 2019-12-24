@@ -20,10 +20,10 @@ import (
 	"bytes"
 	"fmt"
 
-	"sigs.k8s.io/structured-merge-diff/v2/fieldpath"
-	"sigs.k8s.io/structured-merge-diff/v2/merge"
-	"sigs.k8s.io/structured-merge-diff/v2/typed"
-	"sigs.k8s.io/structured-merge-diff/v2/value"
+	"sigs.k8s.io/structured-merge-diff/v3/fieldpath"
+	"sigs.k8s.io/structured-merge-diff/v3/merge"
+	"sigs.k8s.io/structured-merge-diff/v3/typed"
+	"sigs.k8s.io/structured-merge-diff/v3/value"
 )
 
 // State of the current test in terms of live object. One can check at

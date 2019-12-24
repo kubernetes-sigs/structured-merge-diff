@@ -21,9 +21,9 @@ import (
 	"strings"
 	"sync"
 
-	"sigs.k8s.io/structured-merge-diff/v2/fieldpath"
-	"sigs.k8s.io/structured-merge-diff/v2/schema"
-	"sigs.k8s.io/structured-merge-diff/v2/value"
+	"sigs.k8s.io/structured-merge-diff/v3/fieldpath"
+	"sigs.k8s.io/structured-merge-diff/v3/schema"
+	"sigs.k8s.io/structured-merge-diff/v3/value"
 )
 
 // AsTyped accepts a value and a type and returns a TypedValue. 'v' must have
