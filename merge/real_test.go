@@ -22,8 +22,8 @@ import (
 	"strings"
 	"testing"
 
-	. "sigs.k8s.io/structured-merge-diff/internal/fixture"
-	"sigs.k8s.io/structured-merge-diff/typed"
+	. "sigs.k8s.io/structured-merge-diff/v2/internal/fixture"
+	"sigs.k8s.io/structured-merge-diff/v2/typed"
 )
 
 func testdata(file string) string {

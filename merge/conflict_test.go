@@ -19,9 +19,9 @@ package merge_test
 import (
 	"testing"
 
-	"sigs.k8s.io/structured-merge-diff/fieldpath"
-	"sigs.k8s.io/structured-merge-diff/merge"
-	"sigs.k8s.io/structured-merge-diff/value"
+	"sigs.k8s.io/structured-merge-diff/v2/fieldpath"
+	"sigs.k8s.io/structured-merge-diff/v2/merge"
+	"sigs.k8s.io/structured-merge-diff/v2/value"
 )
 
 var (

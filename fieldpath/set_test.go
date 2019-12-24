@@ -22,7 +22,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"sigs.k8s.io/structured-merge-diff/value"
+	"sigs.k8s.io/structured-merge-diff/v2/value"
 )
 
 type randomPathAlphabet []PathElement

@@ -1,4 +1,4 @@
-module sigs.k8s.io/structured-merge-diff
+module sigs.k8s.io/structured-merge-diff/v2
 
 require gopkg.in/yaml.v2 v2.2.1
 
@@ -9,3 +9,5 @@ require (
 	github.com/modern-go/reflect2 v1.0.1 // indirect
 	github.com/stretchr/testify v1.3.0 // indirect
 )
+
+go 1.13
