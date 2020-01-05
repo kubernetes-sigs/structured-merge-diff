@@ -23,12 +23,83 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
+	"sync/atomic"
 )
 
 var reflectPool = sync.Pool{
 	New: func() interface{} {
 		return &valueReflect{}
 	},
+}
+
+var (
+	MarshalerCache = newMarshalerCache()
+)
+
+type marshalerTypeCache struct {
+	// use an atomic and copy-on-write since there are a fixed (typically very small) number of structs compiled into any
+	// go program using this cache
+	value atomic.Value
+	// mu is held by writers when performing load/modify/store operations on the cache, readers do not need to hold a
+	// read-lock since the atomic value is always read-only
+	mu sync.Mutex
+}
+
+func newMarshalerCache() *marshalerTypeCache {
+	cache := &marshalerTypeCache{}
+	cache.value.Store(make(marshalerCacheMap))
+	return cache
+}
+
+type marshalerCacheMap map[reflect.Type]marshalerCacheEntry
+
+type marshalerCacheEntry struct {
+	isJsonMarshaler    bool
+	isPtrJsonMarshaler bool
+
+	typeConverter UnstructuredStringConverter
+}
+
+// Get returns true and marshalerCacheEntry for the given type if the type is in the cache. Otherwise Get returns false.
+func (c *marshalerTypeCache) Get(t reflect.Type) (marshalerCacheEntry, bool) {
+	entry, ok := c.value.Load().(marshalerCacheMap)[t]
+	return entry, ok
+}
+
+// Update sets the marshalerCacheEntry for the given type via a copy-on-write update to the struct cache.
+func (c *marshalerTypeCache) Update(t reflect.Type, m marshalerCacheEntry) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	oldCacheMap := c.value.Load().(marshalerCacheMap)
+	newCacheMap := make(marshalerCacheMap, len(oldCacheMap)+1)
+	for k, v := range oldCacheMap {
+		newCacheMap[k] = v
+	}
+	newCacheMap[t] = m
+	c.value.Store(newCacheMap)
+}
+
+func (c *marshalerTypeCache) RegisterConverter(t reflect.Type, converter UnstructuredStringConverter) {
+	c.Update(t, marshalerCacheEntry{typeConverter: converter})
+}
+
+// The below getMarshalerCacheEntry function is an improvement to getMarshaler from
+// https://github.com/kubernetes/kubernetes/blob/40df9f82d0572a123f5ad13f48312978a2ff5877/staging/src/k8s.io/apimachinery/pkg/runtime/converter.go#L509
+// and should somehow be consolidated with it
+
+var marshalerType = reflect.TypeOf(new(json.Marshaler)).Elem()
+
+func getMarshalerCacheEntry(t reflect.Type) marshalerCacheEntry {
+	if record, ok := MarshalerCache.Get(t); ok {
+		return record
+	}
+	record := marshalerCacheEntry{
+		isJsonMarshaler:    t.Implements(marshalerType),
+		isPtrJsonMarshaler: reflect.PtrTo(t).Implements(marshalerType),
+	}
+	MarshalerCache.Update(t, record)
+	return record
 }
 
 // NewValueReflect creates a Value backed by an "interface{}" type,
@@ -43,10 +114,12 @@ func NewValueReflect(value interface{}) (Value, error) {
 }
 
 func wrapValueReflect(value reflect.Value) (Value, error) {
-	// TODO: conversion of json.Marshaller interface types is expensive. This can be mostly optimized away by
-	// introducing conversion functions that do not require going through JSON and using those here.
-	if marshaler, ok := getMarshaler(value); ok {
+	marshelerEntry := getMarshalerCacheEntry(value.Type())
+	if marshaler, ok := getMarshaler(marshelerEntry, value); ok {
 		return toUnstructured(marshaler, value)
+	}
+	if marshelerEntry.typeConverter != nil {
+		return reflectConverted{Value: value, Converter: marshelerEntry.typeConverter}, nil
 	}
 	value = dereference(value)
 	val := reflectPool.Get().(*valueReflect)
@@ -214,22 +287,18 @@ func (r valueReflect) Unstructured() interface{} {
 	}
 }
 
-// The below getMarshaler and toUnstructured functions are based on
+// The below toUnstructured functions are based on
 // https://github.com/kubernetes/kubernetes/blob/40df9f82d0572a123f5ad13f48312978a2ff5877/staging/src/k8s.io/apimachinery/pkg/runtime/converter.go#L509
 // and should somehow be consolidated with it
 
-var marshalerType = reflect.TypeOf(new(json.Marshaler)).Elem()
-
-func getMarshaler(v reflect.Value) (json.Marshaler, bool) {
-	// Check value receivers if v is not a pointer and pointer receivers if v is a pointer
-	if v.Type().Implements(marshalerType) {
+func getMarshaler(entry marshalerCacheEntry, v reflect.Value) (json.Marshaler, bool) {
+	if entry.isJsonMarshaler {
 		return v.Interface().(json.Marshaler), true
 	}
-	// Check pointer receivers if v is not a pointer
-	if v.Kind() != reflect.Ptr && v.CanAddr() {
-		v = v.Addr()
-		if v.Type().Implements(marshalerType) {
-			return v.Interface().(json.Marshaler), true
+	if entry.isPtrJsonMarshaler {
+		// Check pointer receivers if v is not a pointer
+		if v.Kind() != reflect.Ptr && v.CanAddr() {
+			return v.Addr().Interface().(json.Marshaler), true
 		}
 	}
 	return nil, false
@@ -298,4 +367,86 @@ func toUnstructured(marshaler json.Marshaler, sv reflect.Value) (Value, error) {
 		}
 		return nil, fmt.Errorf("error decoding number from json: %v", err)
 	}
+}
+
+type UnstructuredStringConverter interface {
+	ToString(v reflect.Value) string
+	IsNull(v reflect.Value) bool
+}
+
+type reflectConverted struct {
+	Value     reflect.Value
+	Converter UnstructuredStringConverter
+}
+
+func (r reflectConverted) IsMap() bool {
+	return false
+}
+
+func (r reflectConverted) IsList() bool {
+	return false
+}
+
+func (r reflectConverted) IsBool() bool {
+	return false
+}
+
+func (r reflectConverted) IsInt() bool {
+	return false
+}
+
+func (r reflectConverted) IsFloat() bool {
+	return false
+}
+
+func (r reflectConverted) IsString() bool {
+	return !r.IsNull()
+}
+
+func (r reflectConverted) IsNull() bool {
+	if safeIsNil(r.Value) {
+		return true
+	}
+	if r.Value.Kind() == reflect.Ptr {
+		return r.Converter.IsNull(r.Value.Elem())
+	}
+	return r.Converter.IsNull(r.Value)
+}
+
+func (r reflectConverted) Map() Map {
+	panic("value is not a map")
+}
+
+func (r reflectConverted) List() List {
+	panic("value is not a fieldList")
+}
+
+func (r reflectConverted) Bool() bool {
+	panic("value is not a boolean")
+}
+
+func (r reflectConverted) Int() int64 {
+	panic("value is not a int")
+}
+
+func (r reflectConverted) Float() float64 {
+	panic("value is not a float")
+}
+
+func (r reflectConverted) String() string {
+	if r.Value.Kind() == reflect.Ptr {
+		return r.Converter.ToString(r.Value.Elem())
+	}
+	return r.Converter.ToString(r.Value)
+}
+
+func (r reflectConverted) Recycle() {
+
+}
+
+func (r reflectConverted) Unstructured() interface{} {
+	if r.IsNull() {
+		return nil
+	}
+	return r.String()
 }
