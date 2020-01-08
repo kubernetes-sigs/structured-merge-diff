@@ -52,30 +52,30 @@ type Value interface {
 	// IsMap returns true if the Value is null, false otherwise.
 	IsNull() bool
 
-	// Map converts the Value into a Map (or panic if the type
+	// AsMap converts the Value into a Map (or panic if the type
 	// doesn't allow it).
-	Map() Map
-	// List converts the Value into a List (or panic if the type
+	AsMap() Map
+	// AsList converts the Value into a List (or panic if the type
 	// doesn't allow it).
-	List() List
-	// Bool converts the Value into a bool (or panic if the type
+	AsList() List
+	// AsBool converts the Value into a bool (or panic if the type
 	// doesn't allow it).
-	Bool() bool
-	// Int converts the Value into an int64 (or panic if the type
+	AsBool() bool
+	// AsInt converts the Value into an int64 (or panic if the type
 	// doesn't allow it).
-	Int() int64
-	// Float converts the Value into a float64 (or panic if the type
+	AsInt() int64
+	// AsFloat converts the Value into a float64 (or panic if the type
 	// doesn't allow it).
-	Float() float64
-	// String converts the Value into a string (or panic if the type
+	AsFloat() float64
+	// AsString converts the Value into a string (or panic if the type
 	// doesn't allow it).
-	String() string
+	AsString() string
 
-	// Returns a value of this type that is no longer needed. The
+	// Recycle returns a value of this type that is no longer needed. The
 	// value shouldn't be used after this call.
 	Recycle()
 
-	// Converts the Value into an Unstructured interface{}.
+	// Unstructured converts the Value into an Unstructured interface{}.
 	Unstructured() interface{}
 }
 
@@ -131,17 +131,17 @@ func Equals(lhs, rhs Value) bool {
 	if lhs.IsFloat() || rhs.IsFloat() {
 		var lf float64
 		if lhs.IsFloat() {
-			lf = lhs.Float()
+			lf = lhs.AsFloat()
 		} else if lhs.IsInt() {
-			lf = float64(lhs.Int())
+			lf = float64(lhs.AsInt())
 		} else {
 			return false
 		}
 		var rf float64
 		if rhs.IsFloat() {
-			rf = rhs.Float()
+			rf = rhs.AsFloat()
 		} else if rhs.IsInt() {
-			rf = float64(rhs.Int())
+			rf = float64(rhs.AsInt())
 		} else {
 			return false
 		}
@@ -149,31 +149,31 @@ func Equals(lhs, rhs Value) bool {
 	}
 	if lhs.IsInt() {
 		if rhs.IsInt() {
-			return lhs.Int() == rhs.Int()
+			return lhs.AsInt() == rhs.AsInt()
 		}
 		return false
 	}
 	if lhs.IsString() {
 		if rhs.IsString() {
-			return lhs.String() == rhs.String()
+			return lhs.AsString() == rhs.AsString()
 		}
 		return false
 	}
 	if lhs.IsBool() {
 		if rhs.IsBool() {
-			return lhs.Bool() == rhs.Bool()
+			return lhs.AsBool() == rhs.AsBool()
 		}
 		return false
 	}
 	if lhs.IsList() {
 		if rhs.IsList() {
-			return ListEquals(lhs.List(), rhs.List())
+			return ListEquals(lhs.AsList(), rhs.AsList())
 		}
 		return false
 	}
 	if lhs.IsMap() {
 		if rhs.IsMap() {
-			return lhs.Map().Equals(rhs.Map())
+			return lhs.AsMap().Equals(rhs.AsMap())
 		}
 		return false
 	}
@@ -187,29 +187,29 @@ func Equals(lhs, rhs Value) bool {
 	return true
 }
 
-// String returns a human-readable representation of the value.
+// ToString returns a human-readable representation of the value.
 func ToString(v Value) string {
 	if v.IsNull() {
 		return "null"
 	}
 	switch {
 	case v.IsFloat():
-		return fmt.Sprintf("%v", v.Float())
+		return fmt.Sprintf("%v", v.AsFloat())
 	case v.IsInt():
-		return fmt.Sprintf("%v", v.Int())
+		return fmt.Sprintf("%v", v.AsInt())
 	case v.IsString():
-		return fmt.Sprintf("%q", v.String())
+		return fmt.Sprintf("%q", v.AsString())
 	case v.IsBool():
-		return fmt.Sprintf("%v", v.Bool())
+		return fmt.Sprintf("%v", v.AsBool())
 	case v.IsList():
 		strs := []string{}
-		for i := 0; i < v.List().Length(); i++ {
-			strs = append(strs, ToString(v.List().At(i)))
+		for i := 0; i < v.AsList().Length(); i++ {
+			strs = append(strs, ToString(v.AsList().At(i)))
 		}
 		return "[" + strings.Join(strs, ",") + "]"
 	case v.IsMap():
 		strs := []string{}
-		v.Map().Iterate(func(k string, v Value) bool {
+		v.AsMap().Iterate(func(k string, v Value) bool {
 			strs = append(strs, fmt.Sprintf("%v=%v", k, ToString(v)))
 			return true
 		})
@@ -233,15 +233,15 @@ func Compare(lhs, rhs Value) int {
 		if !rhs.IsFloat() {
 			// Extra: compare floats and ints numerically.
 			if rhs.IsInt() {
-				return FloatCompare(lhs.Float(), float64(rhs.Int()))
+				return FloatCompare(lhs.AsFloat(), float64(rhs.AsInt()))
 			}
 			return -1
 		}
-		return FloatCompare(lhs.Float(), rhs.Float())
+		return FloatCompare(lhs.AsFloat(), rhs.AsFloat())
 	} else if rhs.IsFloat() {
 		// Extra: compare floats and ints numerically.
 		if lhs.IsInt() {
-			return FloatCompare(float64(lhs.Int()), rhs.Float())
+			return FloatCompare(float64(lhs.AsInt()), rhs.AsFloat())
 		}
 		return 1
 	}
@@ -250,7 +250,7 @@ func Compare(lhs, rhs Value) int {
 		if !rhs.IsInt() {
 			return -1
 		}
-		return IntCompare(lhs.Int(), rhs.Int())
+		return IntCompare(lhs.AsInt(), rhs.AsInt())
 	} else if rhs.IsInt() {
 		return 1
 	}
@@ -259,7 +259,7 @@ func Compare(lhs, rhs Value) int {
 		if !rhs.IsString() {
 			return -1
 		}
-		return strings.Compare(lhs.String(), rhs.String())
+		return strings.Compare(lhs.AsString(), rhs.AsString())
 	} else if rhs.IsString() {
 		return 1
 	}
@@ -268,7 +268,7 @@ func Compare(lhs, rhs Value) int {
 		if !rhs.IsBool() {
 			return -1
 		}
-		return BoolCompare(lhs.Bool(), rhs.Bool())
+		return BoolCompare(lhs.AsBool(), rhs.AsBool())
 	} else if rhs.IsBool() {
 		return 1
 	}
@@ -277,7 +277,7 @@ func Compare(lhs, rhs Value) int {
 		if !rhs.IsList() {
 			return -1
 		}
-		return ListCompare(lhs.List(), rhs.List())
+		return ListCompare(lhs.AsList(), rhs.AsList())
 	} else if rhs.IsList() {
 		return 1
 	}
@@ -285,7 +285,7 @@ func Compare(lhs, rhs Value) int {
 		if !rhs.IsMap() {
 			return -1
 		}
-		return MapCompare(lhs.Map(), rhs.Map())
+		return MapCompare(lhs.AsMap(), rhs.AsMap())
 	} else if rhs.IsMap() {
 		return 1
 	}

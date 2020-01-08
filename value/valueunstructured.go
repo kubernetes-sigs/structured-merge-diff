@@ -49,7 +49,7 @@ func (v valueUnstructured) IsMap() bool {
 	return false
 }
 
-func (v valueUnstructured) Map() Map {
+func (v valueUnstructured) AsMap() Map {
 	if v.Value == nil {
 		panic("invalid nil")
 	}
@@ -70,7 +70,7 @@ func (v valueUnstructured) IsList() bool {
 	return ok
 }
 
-func (v valueUnstructured) List() List {
+func (v valueUnstructured) AsList() List {
 	return listUnstructured(v.Value.([]interface{}))
 }
 
@@ -85,7 +85,7 @@ func (v valueUnstructured) IsFloat() bool {
 	return false
 }
 
-func (v valueUnstructured) Float() float64 {
+func (v valueUnstructured) AsFloat() float64 {
 	if f, ok := v.Value.(float32); ok {
 		return float64(f)
 	}
@@ -117,7 +117,7 @@ func (v valueUnstructured) IsInt() bool {
 	return false
 }
 
-func (v valueUnstructured) Int() int64 {
+func (v valueUnstructured) AsInt() int64 {
 	if i, ok := v.Value.(int); ok {
 		return int64(i)
 	} else if i, ok := v.Value.(int8); ok {
@@ -146,7 +146,7 @@ func (v valueUnstructured) IsString() bool {
 	return ok
 }
 
-func (v valueUnstructured) String() string {
+func (v valueUnstructured) AsString() string {
 	return v.Value.(string)
 }
 
@@ -158,7 +158,7 @@ func (v valueUnstructured) IsBool() bool {
 	return ok
 }
 
-func (v valueUnstructured) Bool() bool {
+func (v valueUnstructured) AsBool() bool {
 	return v.Value.(bool)
 }
 
