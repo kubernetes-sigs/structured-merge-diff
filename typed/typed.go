@@ -214,7 +214,7 @@ func merge(lhs, rhs *TypedValue, rule, postRule mergeRule) (*TypedValue, error) 
 	if lhs.schema != rhs.schema {
 		return nil, errorf("expected objects with types from the same schema")
 	}
-	if !lhs.typeRef.Equals(rhs.typeRef) {
+	if !lhs.typeRef.Equals(&rhs.typeRef) {
 		return nil, errorf("expected objects of the same type, but got %v and %v", lhs.typeRef, rhs.typeRef)
 	}
 
