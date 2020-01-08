@@ -162,7 +162,7 @@ func listValue(val value.Value) (value.List, error) {
 	if !val.IsList() {
 		return nil, fmt.Errorf("expected list, got %v", val)
 	}
-	return val.List(), nil
+	return val.AsList(), nil
 }
 
 // Returns the map, or an error. Reminder: nil is a valid map and might be returned.
@@ -177,7 +177,7 @@ func mapValue(val value.Value) (value.Map, error) {
 	if !val.IsMap() {
 		return nil, fmt.Errorf("expected map, got %v", val)
 	}
-	return val.Map(), nil
+	return val.AsMap(), nil
 }
 
 func keyedAssociativeListItemToPathElement(list *schema.List, index int, child value.Value) (fieldpath.PathElement, error) {
@@ -192,7 +192,7 @@ func keyedAssociativeListItemToPathElement(list *schema.List, index int, child v
 	}
 	keyMap := value.FieldList{}
 	for _, fieldName := range list.Keys {
-		if val, ok := child.Map().Get(fieldName); ok {
+		if val, ok := child.AsMap().Get(fieldName); ok {
 			keyMap = append(keyMap, value.Field{Name: fieldName, Value: val})
 		} else {
 			return pe, fmt.Errorf("associative list with keys has an element that omits key field %q", fieldName)

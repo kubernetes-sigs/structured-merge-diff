@@ -42,7 +42,7 @@ func (w *removingWalker) doScalar(t *schema.Scalar) ValidationErrors {
 }
 
 func (w *removingWalker) doList(t *schema.List) (errs ValidationErrors) {
-	l := w.value.List()
+	l := w.value.AsList()
 
 	// If list is null, empty, or atomic just return
 	if l == nil || l.Length() == 0 || t.ElementRelationship == schema.Atomic {
@@ -70,7 +70,7 @@ func (w *removingWalker) doList(t *schema.List) (errs ValidationErrors) {
 }
 
 func (w *removingWalker) doMap(t *schema.Map) ValidationErrors {
-	m := w.value.Map()
+	m := w.value.AsMap()
 
 	// If map is null, empty, or atomic just return
 	if m == nil || m.Length() == 0 || t.ElementRelationship == schema.Atomic {
