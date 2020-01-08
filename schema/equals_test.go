@@ -61,43 +61,43 @@ func TestEquals(t *testing.T) {
 	// add new fields without fixing the Equals function and this test.
 	funcs := []interface{}{
 		func(x Schema) bool {
-			if !x.Equals(x) {
+			if !x.Equals(&x) {
 				return false
 			}
 			var y Schema
 			y.Types = x.Types
-			return x.Equals(y) == reflect.DeepEqual(x, y)
+			return x.Equals(&y) == reflect.DeepEqual(&x, &y)
 		},
 		func(x TypeDef) bool {
-			if !x.Equals(x) {
+			if !x.Equals(&x) {
 				return false
 			}
 			var y TypeDef
 			y.Name = x.Name
 			y.Atom = x.Atom
-			return x.Equals(y) == reflect.DeepEqual(x, y)
+			return x.Equals(&y) == reflect.DeepEqual(x, y)
 		},
 		func(x TypeRef) bool {
-			if !x.Equals(x) {
+			if !x.Equals(&x) {
 				return false
 			}
 			var y TypeRef
 			y.NamedType = x.NamedType
 			y.Inlined = x.Inlined
-			return x.Equals(y) == reflect.DeepEqual(x, y)
+			return x.Equals(&y) == reflect.DeepEqual(x, y)
 		},
 		func(x Atom) bool {
-			if !x.Equals(x) {
+			if !x.Equals(&x) {
 				return false
 			}
 			var y Atom
 			y.Scalar = x.Scalar
 			y.List = x.List
 			y.Map = x.Map
-			return x.Equals(y) == reflect.DeepEqual(x, y)
+			return x.Equals(&y) == reflect.DeepEqual(x, y)
 		},
 		func(x Map) bool {
-			if !x.Equals(x) {
+			if !x.Equals(&x) {
 				return false
 			}
 			var y Map
@@ -105,45 +105,45 @@ func TestEquals(t *testing.T) {
 			y.ElementRelationship = x.ElementRelationship
 			y.Fields = x.Fields
 			y.Unions = x.Unions
-			return x.Equals(y) == reflect.DeepEqual(x, y)
+			return x.Equals(&y) == reflect.DeepEqual(&x, &y)
 		},
 		func(x Union) bool {
-			if !x.Equals(x) {
+			if !x.Equals(&x) {
 				return false
 			}
 			var y Union
 			y.Discriminator = x.Discriminator
 			y.DeduceInvalidDiscriminator = x.DeduceInvalidDiscriminator
 			y.Fields = x.Fields
-			return x.Equals(y) == reflect.DeepEqual(x, y)
+			return x.Equals(&y) == reflect.DeepEqual(x, y)
 		},
 		func(x UnionField) bool {
-			if !x.Equals(x) {
+			if !x.Equals(&x) {
 				return false
 			}
 			var y UnionField
 			y.DiscriminatorValue = x.DiscriminatorValue
 			y.FieldName = x.FieldName
-			return x.Equals(y) == reflect.DeepEqual(x, y)
+			return x.Equals(&y) == reflect.DeepEqual(x, y)
 		},
 		func(x StructField) bool {
-			if !x.Equals(x) {
+			if !x.Equals(&x) {
 				return false
 			}
 			var y StructField
 			y.Name = x.Name
 			y.Type = x.Type
-			return x.Equals(y) == reflect.DeepEqual(x, y)
+			return x.Equals(&y) == reflect.DeepEqual(x, y)
 		},
 		func(x List) bool {
-			if !x.Equals(x) {
+			if !x.Equals(&x) {
 				return false
 			}
 			var y List
 			y.ElementType = x.ElementType
 			y.ElementRelationship = x.ElementRelationship
 			y.Keys = x.Keys
-			return x.Equals(y) == reflect.DeepEqual(x, y)
+			return x.Equals(&y) == reflect.DeepEqual(x, y)
 		},
 	}
 	for i, f := range funcs {
