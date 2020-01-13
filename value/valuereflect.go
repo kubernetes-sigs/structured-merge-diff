@@ -131,7 +131,7 @@ func safeIsNil(v reflect.Value) bool {
 	return false
 }
 
-func (r valueReflect) Map() Map {
+func (r valueReflect) AsMap() Map {
 	val := r.Value
 	switch val.Kind() {
 	case reflect.Struct:
@@ -147,21 +147,21 @@ func (r *valueReflect) Recycle() {
 	reflectPool.Put(r)
 }
 
-func (r valueReflect) List() List {
+func (r valueReflect) AsList() List {
 	if r.IsList() {
 		return listReflect{r.Value}
 	}
 	panic("value is not a list")
 }
 
-func (r valueReflect) Bool() bool {
+func (r valueReflect) AsBool() bool {
 	if r.IsBool() {
 		return r.Value.Bool()
 	}
 	panic("value is not a bool")
 }
 
-func (r valueReflect) Int() int64 {
+func (r valueReflect) AsInt() int64 {
 	if r.isKind(reflect.Int, reflect.Int64, reflect.Int32, reflect.Int16, reflect.Int8) {
 		return r.Value.Int()
 	}
@@ -172,14 +172,14 @@ func (r valueReflect) Int() int64 {
 	panic("value is not an int")
 }
 
-func (r valueReflect) Float() float64 {
+func (r valueReflect) AsFloat() float64 {
 	if r.IsFloat() {
 		return r.Value.Float()
 	}
 	panic("value is not a float")
 }
 
-func (r valueReflect) String() string {
+func (r valueReflect) AsString() string {
 	kind := r.Value.Kind()
 	if kind == reflect.String {
 		return r.Value.String()
@@ -202,13 +202,13 @@ func (r valueReflect) Unstructured() interface{} {
 	case r.IsList():
 		return listReflect{Value: r.Value}.Unstructured()
 	case r.IsString():
-		return r.String()
+		return r.AsString()
 	case r.IsInt():
-		return r.Int()
+		return r.AsInt()
 	case r.IsBool():
-		return r.Bool()
+		return r.AsBool()
 	case r.IsFloat():
-		return r.Float()
+		return r.AsFloat()
 	default:
 		panic(fmt.Sprintf("value of type %s is not a supported by value reflector", val.Type()))
 	}

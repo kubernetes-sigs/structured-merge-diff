@@ -288,3 +288,98 @@ func TestSchemaSchema(t *testing.T) {
 		t.Fatalf("failed to create schemaschema: %v", err)
 	}
 }
+
+func BenchmarkValidateStructured(b *testing.B) {
+	type Primitives struct {
+		s string
+		i int64
+		f float64
+		b bool
+	}
+
+	primitive1 := Primitives{s: "string1"}
+	primitive2 := Primitives{i: 100}
+	primitive3 := Primitives{f: 3.14}
+	primitive4 := Primitives{b: true}
+
+	type Example struct {
+		listOfPrimitives []Primitives
+		mapOfPrimitives  map[string]Primitives
+		mapOfLists       map[string][]Primitives
+	}
+
+	tests := []struct {
+		name         string
+		rootTypeName string
+		schema       typed.YAMLObject
+		object       interface{}
+	}{
+		{
+			name:         "struct",
+			rootTypeName: "example",
+			schema: `types:
+- name: example
+  map:
+    fields:
+    - name: listOfPrimitives
+      type:
+        list:
+          elementType:
+            namedType: primitives
+    - name: mapOfPrimitives
+      type:
+        map:
+          elementType:
+            namedType: primitives
+    - name: mapOfLists
+      type:
+        map:
+          elementType:
+            list:
+              elementType:
+                namedType: primitives
+- name: primitives
+  map:
+    fields:
+    - name: s
+      type:
+        scalar: string
+    - name: i
+      type:
+        scalar: numeric
+    - name: f
+      type:
+        scalar: numeric
+    - name: b
+      type:
+        scalar: boolean
+`,
+			object: Example{
+				listOfPrimitives: []Primitives{primitive1, primitive2, primitive3, primitive4},
+				mapOfPrimitives:  map[string]Primitives{"1": primitive1, "2": primitive2, "3": primitive3, "4": primitive4},
+				mapOfLists: map[string][]Primitives{
+					"1": {primitive1, primitive2, primitive3, primitive4},
+					"2": {primitive1, primitive2, primitive3, primitive4},
+				},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		b.Run(test.name, func(b *testing.B) {
+			parser, err := typed.NewParser(test.schema)
+			if err != nil {
+				b.Fatalf("failed to create schema: %v", err)
+			}
+			pt := parser.Type(test.rootTypeName)
+
+			b.ReportAllocs()
+			for n := 0; n < b.N; n++ {
+				tv, err := pt.FromStructured(test.object)
+				if err != nil {
+					b.Errorf("failed to parse/validate yaml: %v\n%v", err, tv)
+				}
+			}
+		})
+	}
+}

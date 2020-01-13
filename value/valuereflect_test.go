@@ -37,7 +37,7 @@ func TestReflectPrimitives(t *testing.T) {
 	if !rv.IsString() {
 		t.Error("expected IsString to be true")
 	}
-	if rv.String() != "string" {
+	if rv.AsString() != "string" {
 		t.Errorf("expected rv.String to be 'string' but got %v", rv.Unstructured())
 	}
 
@@ -49,7 +49,7 @@ func TestReflectPrimitives(t *testing.T) {
 		t.Error("expected IsList to be false ([]byte is represented as a base64 encoded string)")
 	}
 	encoded := base64.StdEncoding.EncodeToString([]byte("string"))
-	if rv.String() != encoded {
+	if rv.AsString() != encoded {
 		t.Errorf("expected rv.String to be %v but got %v", []byte(encoded), rv.Unstructured())
 	}
 
@@ -57,7 +57,7 @@ func TestReflectPrimitives(t *testing.T) {
 	if !rv.IsInt() {
 		t.Error("expected IsInt to be true")
 	}
-	if rv.Int() != 1 {
+	if rv.AsInt() != 1 {
 		t.Errorf("expected rv.Int to be 1 but got %v", rv.Unstructured())
 	}
 
@@ -65,7 +65,7 @@ func TestReflectPrimitives(t *testing.T) {
 	if !rv.IsInt() {
 		t.Error("expected IsInt to be true")
 	}
-	if rv.Int() != 3000000000 {
+	if rv.AsInt() != 3000000000 {
 		t.Errorf("expected rv.Int to be 3000000000 but got %v", rv.Unstructured())
 	}
 
@@ -73,7 +73,7 @@ func TestReflectPrimitives(t *testing.T) {
 	if !rv.IsFloat() {
 		t.Error("expected IsFloat to be true")
 	}
-	if rv.Float() != 1.5 {
+	if rv.AsFloat() != 1.5 {
 		t.Errorf("expected rv.Float to be 1.1 but got %v", rv.Unstructured())
 	}
 
@@ -81,7 +81,7 @@ func TestReflectPrimitives(t *testing.T) {
 	if !rv.IsBool() {
 		t.Error("expected IsBool to be true")
 	}
-	if rv.Bool() != true {
+	if rv.AsBool() != true {
 		t.Errorf("expected rv.Bool to be true but got %v", rv.Unstructured())
 	}
 
@@ -152,8 +152,8 @@ func TestReflectCustomStringConversion(t *testing.T) {
 			if !rv.IsString() {
 				t.Fatalf("expected IsString to be true, but kind is: %T", rv.Unstructured())
 			}
-			if rv.String() != tc.expected {
-				t.Errorf("expected rv.String to be %v but got %s", tc.expected, rv.String())
+			if rv.AsString() != tc.expected {
+				t.Errorf("expected rv.String to be %v but got %s", tc.expected, rv.AsString())
 			}
 		})
 	}
@@ -165,8 +165,8 @@ func TestReflectPointers(t *testing.T) {
 	if !rv.IsString() {
 		t.Error("expected IsString to be true")
 	}
-	if rv.String() != "string" {
-		t.Errorf("expected rv.String to be 'string' but got %s", rv.String())
+	if rv.AsString() != "string" {
+		t.Errorf("expected rv.String to be 'string' but got %s", rv.AsString())
 	}
 }
 
@@ -233,7 +233,7 @@ func TestReflectStruct(t *testing.T) {
 			if !rv.IsMap() {
 				t.Error("expected IsMap to be true")
 			}
-			m := rv.Map()
+			m := rv.AsMap()
 			if m.Length() != len(tc.expectedMap) {
 				t.Errorf("expected map to be of length %d but got %d", len(tc.expectedMap), m.Length())
 			}
@@ -266,12 +266,12 @@ func TestReflectStructMutate(t *testing.T) {
 	if !rv.IsMap() {
 		t.Error("expected IsMap to be true")
 	}
-	m := rv.Map()
+	m := rv.AsMap()
 	atKey1, ok := m.Get("key1")
 	if !ok {
 		t.Errorf("expected map.Get(key1) to be 1 but got !ok")
 	}
-	if atKey1.Int() != 1 {
+	if atKey1.AsInt() != 1 {
 		t.Errorf("expected map.Get(key1) to be 1 but got: %v", atKey1)
 	}
 	m.Set("key1", NewValueInterface(int64(2)))
@@ -323,13 +323,13 @@ func TestReflectMap(t *testing.T) {
 			if !rv.IsMap() {
 				t.Error("expected IsMap to be true")
 			}
-			m := rv.Map()
+			m := rv.AsMap()
 			if m.Length() != tc.length {
 				t.Errorf("expected map to be of length %d but got %d", tc.length, m.Length())
 			}
 			iterateResult := map[string]interface{}{}
 			m.Iterate(func(s string, value Value) bool {
-				iterateResult[s] = value.String()
+				iterateResult[s] = value.AsString()
 				return true
 			})
 			if !reflect.DeepEqual(iterateResult, tc.expectedMap) {
@@ -348,12 +348,12 @@ func TestReflectMapMutate(t *testing.T) {
 	if !rv.IsMap() {
 		t.Error("expected IsMap to be true")
 	}
-	m := rv.Map()
+	m := rv.AsMap()
 	atKey1, ok := m.Get("key1")
 	if !ok {
 		t.Errorf("expected map.Get(key1) to be 'value1' but got !ok")
 	}
-	if atKey1.String() != "value1" {
+	if atKey1.AsString() != "value1" {
 		t.Errorf("expected map.Get(key1) to be 'value1' but got: %v", atKey1)
 	}
 	m.Set("key1", NewValueInterface("replacement"))
@@ -405,14 +405,14 @@ func TestReflectList(t *testing.T) {
 			if !rv.IsList() {
 				t.Error("expected IsList to be true")
 			}
-			m := rv.List()
+			m := rv.AsList()
 			if m.Length() != tc.length {
 				t.Errorf("expected list to be of length %d but got %d", tc.length, m.Length())
 			}
 			l := m.Length()
 			iterateResult := make([]interface{}, l)
 			for i := 0; i < l; i++ {
-				iterateResult[i] = m.At(i).String()
+				iterateResult[i] = m.At(i).AsString()
 			}
 			if !reflect.DeepEqual(iterateResult, tc.expectedIterate) {
 				t.Errorf("expected iterate to produce %#v but got %#v", tc.expectedIterate, iterateResult)
@@ -430,9 +430,9 @@ func TestReflectListAt(t *testing.T) {
 	if !rv.IsList() {
 		t.Error("expected IsList to be true")
 	}
-	list := rv.List()
+	list := rv.AsList()
 	atOne := list.At(1)
-	if atOne.String() != "two" {
+	if atOne.AsString() != "two" {
 		t.Errorf("expected list.At(1) to be 'two' but got: %v", atOne)
 	}
 }

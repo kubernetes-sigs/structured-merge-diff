@@ -28,8 +28,7 @@ func (r mapReflect) Length() int {
 }
 
 func (r mapReflect) Get(key string) (Value, bool) {
-	var val reflect.Value
-	val = r.Value.MapIndex(r.toMapKey(key))
+	val := r.Value.MapIndex(r.toMapKey(key))
 	if !val.IsValid() {
 		return nil, false
 	}
@@ -95,6 +94,8 @@ func (r mapReflect) Equals(m Map) bool {
 	if r.Length() != m.Length() {
 		return false
 	}
+
+	// TODO: Optimize to avoid Iterate looping here by using r.Value.MapRange or similar if it improves performance.
 	return m.Iterate(func(key string, value Value) bool {
 		lhsVal, ok := r.Get(key)
 		if !ok {
