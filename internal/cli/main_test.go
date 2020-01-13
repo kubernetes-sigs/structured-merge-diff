@@ -18,6 +18,7 @@ package cli
 
 import (
 	"bytes"
+	"encoding/json"
 	"io/ioutil"
 	"path/filepath"
 	"testing"
@@ -233,6 +234,18 @@ func TestFieldSet(t *testing.T) {
 				t.Errorf("unexpected error: %v", err)
 			}
 			tt.checkOutput(t, b.Bytes())
+
+			// Test that round tripping through unstructured will preserve ordering
+			u := map[string]interface{}{}
+			err = json.Unmarshal(b.Bytes(), &u)
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+			m, err := json.Marshal(&u)
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+			tt.checkOutput(t, m)
 		})
 	}
 }
