@@ -81,11 +81,16 @@ func MapCompare(lhs, rhs Map) int {
 		}
 		litem, _ := lhs.Get(lorder[i])
 		ritem, _ := rhs.Get(rorder[i])
-		if c := Compare(litem, ritem); c != 0 {
+		c := Compare(litem, ritem)
+		if litem != nil {
+			litem.Recycle()
+		}
+		if ritem != nil {
+			ritem.Recycle()
+		}
+		if c != 0 {
 			return c
 		}
-		litem.Recycle()
-		ritem.Recycle()
 		// The items are equal; continue.
 		i++
 	}
@@ -103,11 +108,11 @@ func MapEquals(lhs, rhs Map) bool {
 		if !ok {
 			return false
 		}
-		if !Equals(v, vo) {
-			vo.Recycle()
+		equal := Equals(v, vo)
+		vo.Recycle()
+		if !equal {
 			return false
 		}
-		vo.Recycle()
 		return true
 	})
 }

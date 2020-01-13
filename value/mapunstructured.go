@@ -40,16 +40,19 @@ func (m mapUnstructuredInterface) Delete(key string) {
 }
 
 func (m mapUnstructuredInterface) Iterate(fn func(key string, value Value) bool) bool {
+	if len(m) == 0 {
+		return true
+	}
+	vv := viPool.Get().(*valueUnstructured)
+	defer vv.Recycle()
 	for k, v := range m {
 		if ks, ok := k.(string); !ok {
 			continue
 		} else {
-			vv := NewValueInterface(v)
+			vv.Value = v
 			if !fn(ks, vv) {
-				vv.Recycle()
 				return false
 			}
-			vv.Recycle()
 		}
 	}
 	return true
@@ -63,6 +66,11 @@ func (m mapUnstructuredInterface) Equals(other Map) bool {
 	if m.Length() != other.Length() {
 		return false
 	}
+	if len(m) == 0 {
+		return true
+	}
+	vv := viPool.Get().(*valueUnstructured)
+	defer vv.Recycle()
 	for k, v := range m {
 		ks, ok := k.(string)
 		if !ok {
@@ -72,14 +80,12 @@ func (m mapUnstructuredInterface) Equals(other Map) bool {
 		if !ok {
 			return false
 		}
-		vv := NewValueInterface(v)
+		vv.Value = v
 		if !Equals(vv, vo) {
-			vv.Recycle()
 			vo.Recycle()
 			return false
 		}
 		vo.Recycle()
-		vv.Recycle()
 	}
 	return true
 }
@@ -108,13 +114,16 @@ func (m mapUnstructuredString) Delete(key string) {
 }
 
 func (m mapUnstructuredString) Iterate(fn func(key string, value Value) bool) bool {
+	if len(m) == 0 {
+		return true
+	}
+	vv := viPool.Get().(*valueUnstructured)
+	defer vv.Recycle()
 	for k, v := range m {
-		vv := NewValueInterface(v)
+		vv.Value = v
 		if !fn(k, vv) {
-			vv.Recycle()
 			return false
 		}
-		vv.Recycle()
 	}
 	return true
 }
@@ -127,19 +136,22 @@ func (m mapUnstructuredString) Equals(other Map) bool {
 	if m.Length() != other.Length() {
 		return false
 	}
+	if len(m) == 0 {
+		return true
+	}
+	vv := viPool.Get().(*valueUnstructured)
+	defer vv.Recycle()
 	for k, v := range m {
 		vo, ok := other.Get(k)
 		if !ok {
 			return false
 		}
-		vv := NewValueInterface(v)
+		vv.Value = v
 		if !Equals(vv, vo) {
 			vo.Recycle()
-			vv.Recycle()
 			return false
 		}
 		vo.Recycle()
-		vv.Recycle()
 	}
 	return true
 }

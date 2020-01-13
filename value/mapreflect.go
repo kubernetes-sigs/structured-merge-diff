@@ -16,7 +16,9 @@ limitations under the License.
 
 package value
 
-import "reflect"
+import (
+	"reflect"
+)
 
 type mapReflect struct {
 	valueReflect
@@ -61,10 +63,10 @@ func (r mapReflect) toMapKey(key string) reflect.Value {
 }
 
 func (r mapReflect) Iterate(fn func(string, Value) bool) bool {
+	vp := newTempValuePooler()
+	defer vp.Recycle()
 	return eachMapEntry(r.Value, func(s string, value reflect.Value) bool {
-		mapVal := mustWrapValueReflect(value)
-		defer mapVal.Recycle()
-		return fn(s, mapVal)
+		return fn(s, vp.NewValueReflect(value))
 	})
 }
 

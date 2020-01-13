@@ -198,10 +198,10 @@ func (r structReflect) update(fieldEntry *fieldCacheEntry, key string, oldVal, n
 }
 
 func (r structReflect) Iterate(fn func(string, Value) bool) bool {
+	vp := newTempValuePooler()
+	defer vp.Recycle()
 	return eachStructField(r.Value, func(s string, value reflect.Value) bool {
-		v := mustWrapValueReflect(value)
-		defer v.Recycle()
-		return fn(s, v)
+		return fn(s, vp.NewValueReflect(value))
 	})
 }
 
@@ -239,13 +239,15 @@ func (r structReflect) Equals(m Map) bool {
 	}
 	structCacheEntry := getStructCacheEntry(r.Value.Type())
 
+	vp := newTempValuePooler()
+	defer vp.Recycle()
 	return m.Iterate(func(s string, value Value) bool {
 		fieldCacheEntry, ok := structCacheEntry[s]
 		if !ok {
 			return false
 		}
 		lhsVal := fieldCacheEntry.getFieldFromStruct(r.Value)
-		return Equals(mustWrapValueReflect(lhsVal), value)
+		return Equals(vp.NewValueReflect(lhsVal), value)
 	})
 }
 
