@@ -22,6 +22,7 @@ import (
 	"strings"
 	"testing"
 
+	"sigs.k8s.io/structured-merge-diff/v3/fieldpath"
 	. "sigs.k8s.io/structured-merge-diff/v3/internal/fixture"
 	"sigs.k8s.io/structured-merge-diff/v3/typed"
 )
@@ -42,7 +43,7 @@ func lastPart(s string) string {
 	return s[strings.LastIndex(s, ".")+1:]
 }
 
-var parser = func() *typed.Parser {
+var parser = func() Parser {
 	s := read(testdata("k8s-schema.yaml"))
 	parser, err := typed.NewParser(typed.YAMLObject(s))
 	if err != nil {
@@ -85,7 +86,7 @@ func BenchmarkOperations(b *testing.B) {
 					ops: []Operation{
 						Update{
 							Manager:    "controller",
-							APIVersion: "v1",
+							APIVersion: fieldpath.APIVersion(bench.typename),
 							Object:     bench.obj,
 						},
 					},
@@ -95,7 +96,7 @@ func BenchmarkOperations(b *testing.B) {
 					ops: []Operation{
 						Apply{
 							Manager:    "controller",
-							APIVersion: "v1",
+							APIVersion: fieldpath.APIVersion(bench.typename),
 							Object:     bench.obj,
 						},
 					},
@@ -105,44 +106,44 @@ func BenchmarkOperations(b *testing.B) {
 					ops: []Operation{
 						Update{
 							Manager:    "controller",
-							APIVersion: "v1",
+							APIVersion: fieldpath.APIVersion(bench.typename),
 							Object:     bench.obj,
 						},
 						Update{
 							Manager:    "other-controller",
-							APIVersion: "v1",
+							APIVersion: fieldpath.APIVersion(bench.typename),
 							Object:     bench.obj,
 						},
 					},
 				},
-				{
-					name: "UpdateVersion",
-					ops: []Operation{
-						Update{
-							Manager:    "controller",
-							APIVersion: "v1",
-							Object:     bench.obj,
-						},
-						Update{
-							Manager:    "other-controller",
-							APIVersion: "v2",
-							Object:     bench.obj,
-						},
-					},
-				},
+				// XXX: How do we do that?
+				// {
+				// 	name: "UpdateVersion",
+				// 	ops: []Operation{
+				// 		Update{
+				// 			Manager:    "controller",
+				// 			APIVersion: bench.typename,
+				// 			Object:     bench.obj,
+				// 		},
+				// 		Update{
+				// 			Manager:    "other-controller",
+				// 			APIVersion: "v2",
+				// 			Object:     bench.obj,
+				// 		},
+				// 	},
+				// },
 			}
 			for _, test := range tests {
 				b.Run(test.name, func(b *testing.B) {
-					pt := parser.Type(bench.typename)
 					tc := TestCase{
 						Ops: test.ops,
 					}
-					tc.PreprocessOperations(pt)
+					tc.PreprocessOperations(parser)
 
 					b.ReportAllocs()
 					b.ResetTimer()
 					for n := 0; n < b.N; n++ {
-						if err := tc.Bench(pt); err != nil {
+						if err := tc.Bench(parser); err != nil {
 							b.Fatal(err)
 						}
 					}

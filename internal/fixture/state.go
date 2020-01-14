@@ -26,11 +26,39 @@ import (
 	"sigs.k8s.io/structured-merge-diff/v3/value"
 )
 
+// For the sake of tests, a parser is something that can retrieve a
+// ParseableType.
+type Parser interface {
+	Type(string) typed.ParseableType
+}
+
+// SameVersionParser can be used if all the versions are actually using the same type.
+type SameVersionParser struct {
+	T typed.ParseableType
+}
+
+func (p SameVersionParser) Type(_ string) typed.ParseableType {
+	return p.T
+}
+
+// DeducedParser is a parser that is deduced no matter what the version
+// specified.
+var DeducedParser = SameVersionParser{
+	T: typed.DeducedParseableType,
+}
+
 // State of the current test in terms of live object. One can check at
 // any time that Live and Managers match the expectations.
+//
+// The parser will look for the type by using the APIVersion of the
+// object it's trying to parse. If trying to parse a "v1" object, a
+// corresponding "v1" type should exist in the schema. If all the
+// versions should map to the same type, or to a DeducedParseableType,
+// one can use the SameVersionParser or the DeducedParser types defined
+// in this package.
 type State struct {
 	Live     *typed.TypedValue
-	Parser   typed.ParseableType
+	Parser   Parser
 	Managers fieldpath.ManagedFields
 	Updater  *merge.Updater
 }
@@ -70,9 +98,9 @@ func FixTabsOrDie(in typed.YAMLObject) typed.YAMLObject {
 	return typed.YAMLObject(bytes.Join(lines, []byte{'\n'}))
 }
 
-func (s *State) checkInit() error {
+func (s *State) checkInit(version fieldpath.APIVersion) error {
 	if s.Live == nil {
-		obj, err := s.Parser.FromUnstructured(nil)
+		obj, err := s.Parser.Type(string(version)).FromUnstructured(nil)
 		if err != nil {
 			return fmt.Errorf("failed to create new empty object: %v", err)
 		}
@@ -82,7 +110,7 @@ func (s *State) checkInit() error {
 }
 
 func (s *State) UpdateObject(tv *typed.TypedValue, version fieldpath.APIVersion, manager string) error {
-	err := s.checkInit()
+	err := s.checkInit(version)
 	if err != nil {
 		return err
 	}
@@ -102,7 +130,7 @@ func (s *State) UpdateObject(tv *typed.TypedValue, version fieldpath.APIVersion,
 
 // Update the current state with the passed in object
 func (s *State) Update(obj typed.YAMLObject, version fieldpath.APIVersion, manager string) error {
-	tv, err := s.Parser.FromYAML(FixTabsOrDie(obj))
+	tv, err := s.Parser.Type(string(version)).FromYAML(FixTabsOrDie(obj))
 	if err != nil {
 		return err
 	}
@@ -110,7 +138,7 @@ func (s *State) Update(obj typed.YAMLObject, version fieldpath.APIVersion, manag
 }
 
 func (s *State) ApplyObject(tv *typed.TypedValue, version fieldpath.APIVersion, manager string, force bool) error {
-	err := s.checkInit()
+	err := s.checkInit(version)
 	if err != nil {
 		return err
 	}
@@ -130,7 +158,7 @@ func (s *State) ApplyObject(tv *typed.TypedValue, version fieldpath.APIVersion, 
 
 // Apply the passed in object to the current state
 func (s *State) Apply(obj typed.YAMLObject, version fieldpath.APIVersion, manager string, force bool) error {
-	tv, err := s.Parser.FromYAML(FixTabsOrDie(obj))
+	tv, err := s.Parser.Type(string(version)).FromYAML(FixTabsOrDie(obj))
 	if err != nil {
 		return err
 	}
@@ -139,16 +167,20 @@ func (s *State) Apply(obj typed.YAMLObject, version fieldpath.APIVersion, manage
 
 // CompareLive takes a YAML string and returns the comparison with the
 // current live object or an error.
-func (s *State) CompareLive(obj typed.YAMLObject) (*typed.Comparison, error) {
+func (s *State) CompareLive(obj typed.YAMLObject, version fieldpath.APIVersion) (*typed.Comparison, error) {
 	obj = FixTabsOrDie(obj)
-	if err := s.checkInit(); err != nil {
+	if err := s.checkInit(version); err != nil {
 		return nil, err
 	}
-	tv, err := s.Parser.FromYAML(obj)
+	tv, err := s.Parser.Type(string(version)).FromYAML(obj)
 	if err != nil {
 		return nil, err
 	}
-	return s.Live.Compare(tv)
+	live, err := s.Updater.Converter.Convert(s.Live, version)
+	if err != nil {
+		return nil, err
+	}
+	return live.Compare(tv)
 }
 
 // dummyConverter doesn't convert, it just returns the same exact object, as long as a version is provided.
@@ -171,7 +203,7 @@ func (dummyConverter) IsMissingVersionError(err error) bool {
 // Operation is a step that will run when building a table-driven test.
 type Operation interface {
 	run(*State) error
-	preprocess(typed.ParseableType) (Operation, error)
+	preprocess(Parser) (Operation, error)
 }
 
 func hasConflict(conflicts merge.Conflicts, conflict merge.Conflict) bool {
@@ -214,8 +246,8 @@ func (a Apply) run(state *State) error {
 	return p.run(state)
 }
 
-func (a Apply) preprocess(parser typed.ParseableType) (Operation, error) {
-	tv, err := parser.FromYAML(FixTabsOrDie(a.Object))
+func (a Apply) preprocess(parser Parser) (Operation, error) {
+	tv, err := parser.Type(string(a.APIVersion)).FromYAML(FixTabsOrDie(a.Object))
 	if err != nil {
 		return nil, err
 	}
@@ -260,7 +292,7 @@ func (a ApplyObject) run(state *State) error {
 	return nil
 }
 
-func (a ApplyObject) preprocess(parser typed.ParseableType) (Operation, error) {
+func (a ApplyObject) preprocess(parser Parser) (Operation, error) {
 	return a, nil
 }
 
@@ -278,8 +310,8 @@ func (f ForceApply) run(state *State) error {
 	return state.Apply(f.Object, f.APIVersion, f.Manager, true)
 }
 
-func (f ForceApply) preprocess(parser typed.ParseableType) (Operation, error) {
-	tv, err := parser.FromYAML(FixTabsOrDie(f.Object))
+func (f ForceApply) preprocess(parser Parser) (Operation, error) {
+	tv, err := parser.Type(string(f.APIVersion)).FromYAML(FixTabsOrDie(f.Object))
 	if err != nil {
 		return nil, err
 	}
@@ -304,7 +336,7 @@ func (f ForceApplyObject) run(state *State) error {
 	return state.ApplyObject(f.Object, f.APIVersion, f.Manager, true)
 }
 
-func (f ForceApplyObject) preprocess(parser typed.ParseableType) (Operation, error) {
+func (f ForceApplyObject) preprocess(parser Parser) (Operation, error) {
 	return f, nil
 }
 
@@ -322,8 +354,8 @@ func (u Update) run(state *State) error {
 	return state.Update(u.Object, u.APIVersion, u.Manager)
 }
 
-func (u Update) preprocess(parser typed.ParseableType) (Operation, error) {
-	tv, err := parser.FromYAML(FixTabsOrDie(u.Object))
+func (u Update) preprocess(parser Parser) (Operation, error) {
+	tv, err := parser.Type(string(u.APIVersion)).FromYAML(FixTabsOrDie(u.Object))
 	if err != nil {
 		return nil, err
 	}
@@ -348,7 +380,7 @@ func (u UpdateObject) run(state *State) error {
 	return state.UpdateObject(u.Object, u.APIVersion, u.Manager)
 }
 
-func (f UpdateObject) preprocess(parser typed.ParseableType) (Operation, error) {
+func (f UpdateObject) preprocess(parser Parser) (Operation, error) {
 	return f, nil
 }
 
@@ -364,6 +396,9 @@ type TestCase struct {
 	// Object, if not empty, is the object as it's expected to
 	// be after all the operations are run.
 	Object typed.YAMLObject
+	// APIVersion should be set if the object is non-empty and
+	// describes the version of the object to compare to.
+	APIVersion fieldpath.APIVersion
 	// Managed, if not nil, is the ManagedFields as expected
 	// after all operations are run.
 	Managed fieldpath.ManagedFields
@@ -372,18 +407,18 @@ type TestCase struct {
 }
 
 // Test runs the test-case using the given parser and a dummy converter.
-func (tc TestCase) Test(parser typed.ParseableType) error {
+func (tc TestCase) Test(parser Parser) error {
 	return tc.TestWithConverter(parser, &dummyConverter{})
 }
 
 // Bench runs the test-case using the given parser and a dummy converter, but
 // doesn't check exit conditions--see the comment for BenchWithConverter.
-func (tc TestCase) Bench(parser typed.ParseableType) error {
+func (tc TestCase) Bench(parser Parser) error {
 	return tc.BenchWithConverter(parser, &dummyConverter{})
 }
 
 // Preprocess all the operations by parsing the yaml before-hand.
-func (tc TestCase) PreprocessOperations(parser typed.ParseableType) error {
+func (tc TestCase) PreprocessOperations(parser Parser) error {
 	for i := range tc.Ops {
 		op, err := tc.Ops[i].preprocess(parser)
 		if err != nil {
@@ -398,7 +433,7 @@ func (tc TestCase) PreprocessOperations(parser typed.ParseableType) error {
 // but doesn't do any comparison operations aftewards; you should probably run
 // TestWithConverter once and reset the benchmark, to make sure the test case
 // actually passes..
-func (tc TestCase) BenchWithConverter(parser typed.ParseableType, converter merge.Converter) error {
+func (tc TestCase) BenchWithConverter(parser Parser, converter merge.Converter) error {
 	state := State{
 		Updater: &merge.Updater{Converter: converter},
 		Parser:  parser,
@@ -418,7 +453,7 @@ func (tc TestCase) BenchWithConverter(parser typed.ParseableType, converter merg
 }
 
 // TestWithConverter runs the test-case using the given parser and converter.
-func (tc TestCase) TestWithConverter(parser typed.ParseableType, converter merge.Converter) error {
+func (tc TestCase) TestWithConverter(parser Parser, converter merge.Converter) error {
 	state := State{
 		Updater: &merge.Updater{Converter: converter},
 		Parser:  parser,
@@ -434,8 +469,6 @@ func (tc TestCase) TestWithConverter(parser typed.ParseableType, converter merge
 			return fmt.Errorf("fails if unions are on: %v", err)
 		}
 	}
-	// We currently don't have any test that converts, we can take
-	// care of that later.
 	for i, ops := range tc.Ops {
 		err := ops.run(&state)
 		if err != nil {
@@ -445,7 +478,7 @@ func (tc TestCase) TestWithConverter(parser typed.ParseableType, converter merge
 
 	// If LastObject was specified, compare it with LiveState
 	if tc.Object != typed.YAMLObject("") {
-		comparison, err := state.CompareLive(tc.Object)
+		comparison, err := state.CompareLive(tc.Object, tc.APIVersion)
 		if err != nil {
 			return fmt.Errorf("failed to compare live with config: %v", err)
 		}

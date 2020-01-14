@@ -22,7 +22,6 @@ import (
 	"sigs.k8s.io/structured-merge-diff/v3/fieldpath"
 	. "sigs.k8s.io/structured-merge-diff/v3/internal/fixture"
 	"sigs.k8s.io/structured-merge-diff/v3/merge"
-	"sigs.k8s.io/structured-merge-diff/v3/typed"
 )
 
 func TestDeduced(t *testing.T) {
@@ -52,6 +51,7 @@ func TestDeduced(t *testing.T) {
 				string: "string"
 				bool: false
 			`,
+			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
 					_NS(
@@ -95,6 +95,7 @@ func TestDeduced(t *testing.T) {
 				string: "string"
 				bool: true
 			`,
+			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
 					_NS(
@@ -156,6 +157,7 @@ func TestDeduced(t *testing.T) {
 				string: "user string"
 				bool: true
 			`,
+			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
 					_NS(
@@ -195,6 +197,7 @@ func TestDeduced(t *testing.T) {
 			Object: `
 				string: "new string"
 			`,
+			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
 					_NS(
@@ -225,6 +228,7 @@ func TestDeduced(t *testing.T) {
 			Object: `
 				string: "new string"
 			`,
+			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"controller": fieldpath.NewVersionedSet(
 					_NS(
@@ -265,6 +269,7 @@ func TestDeduced(t *testing.T) {
 				- c
 				- b
 			`,
+			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
 					_NS(_P("list")),
@@ -312,6 +317,7 @@ func TestDeduced(t *testing.T) {
 				- b
 				- c
 			`,
+			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
 					_NS(_P("list")),
@@ -335,8 +341,9 @@ func TestDeduced(t *testing.T) {
 					Object:     ``,
 				},
 			},
-			Object:  ``,
-			Managed: fieldpath.ManagedFields{},
+			Object:     ``,
+			APIVersion: "v1",
+			Managed:    fieldpath.ManagedFields{},
 		},
 		"apply_update_apply_nested": {
 			Ops: []Operation{
@@ -430,6 +437,7 @@ func TestDeduced(t *testing.T) {
 				      value: 1
 				g: 5
 			`,
+			APIVersion: "v1",
 		},
 		"apply_update_apply_nested_different_version": {
 			Ops: []Operation{
@@ -523,12 +531,13 @@ func TestDeduced(t *testing.T) {
 				      value: 1
 				g: 5
 			`,
+			APIVersion: "v1",
 		},
 	}
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			if err := test.Test(typed.DeducedParseableType); err != nil {
+			if err := test.Test(DeducedParser); err != nil {
 				t.Fatal(err)
 			}
 		})
@@ -580,6 +589,7 @@ func BenchmarkDeducedSimple(b *testing.B) {
 				string: "user string"
 				bool: true
 			`,
+		APIVersion: "v1",
 		Managed: fieldpath.ManagedFields{
 			"default": fieldpath.NewVersionedSet(
 				_NS(
@@ -599,16 +609,16 @@ func BenchmarkDeducedSimple(b *testing.B) {
 	}
 
 	// Make sure this passes...
-	if err := test.Test(typed.DeducedParseableType); err != nil {
+	if err := test.Test(DeducedParser); err != nil {
 		b.Fatal(err)
 	}
 
-	test.PreprocessOperations(typed.DeducedParseableType)
+	test.PreprocessOperations(DeducedParser)
 
 	b.ReportAllocs()
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		if err := test.Bench(typed.DeducedParseableType); err != nil {
+		if err := test.Bench(DeducedParser); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -707,19 +717,20 @@ func BenchmarkDeducedNested(b *testing.B) {
 				      value: 1
 				g: 5
 			`,
+		APIVersion: "v1",
 	}
 
 	// Make sure this passes...
-	if err := test.Test(typed.DeducedParseableType); err != nil {
+	if err := test.Test(DeducedParser); err != nil {
 		b.Fatal(err)
 	}
 
-	test.PreprocessOperations(typed.DeducedParseableType)
+	test.PreprocessOperations(DeducedParser)
 
 	b.ReportAllocs()
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		if err := test.Bench(typed.DeducedParseableType); err != nil {
+		if err := test.Bench(DeducedParser); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -818,19 +829,20 @@ func BenchmarkDeducedNestedAcrossVersion(b *testing.B) {
 			      value: 1
 			g: 5
 		`,
+		APIVersion: "v1",
 	}
 
 	// Make sure this passes...
-	if err := test.Test(typed.DeducedParseableType); err != nil {
+	if err := test.Test(DeducedParser); err != nil {
 		b.Fatal(err)
 	}
 
-	test.PreprocessOperations(typed.DeducedParseableType)
+	test.PreprocessOperations(DeducedParser)
 
 	b.ReportAllocs()
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		if err := test.Bench(typed.DeducedParseableType); err != nil {
+		if err := test.Bench(DeducedParser); err != nil {
 			b.Fatal(err)
 		}
 	}

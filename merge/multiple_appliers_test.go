@@ -64,6 +64,7 @@ func TestMultipleAppliersSet(t *testing.T) {
 				- name: a
 				- name: c
 			`,
+			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"apply-one": fieldpath.NewVersionedSet(
 					_NS(
@@ -109,6 +110,7 @@ func TestMultipleAppliersSet(t *testing.T) {
 				- name: a
 				  value: 0
 			`,
+			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"apply-one": fieldpath.NewVersionedSet(
 					_NS(
@@ -159,6 +161,7 @@ func TestMultipleAppliersSet(t *testing.T) {
 				- name: a
 				  value: 0
 			`,
+			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"apply-one": fieldpath.NewVersionedSet(
 					_NS(
@@ -207,6 +210,7 @@ func TestMultipleAppliersSet(t *testing.T) {
 				- name: c
 				- name: d
 			`,
+			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"apply-one": fieldpath.NewVersionedSet(
 					_NS(
@@ -280,6 +284,7 @@ func TestMultipleAppliersNestedType(t *testing.T) {
 				  value:
 				  - d
 			`,
+			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"apply-one": fieldpath.NewVersionedSet(
 					_NS(
@@ -353,6 +358,7 @@ func TestMultipleAppliersNestedType(t *testing.T) {
 				  - d
 				  - e
 			`,
+			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"apply-one": fieldpath.NewVersionedSet(
 					_NS(
@@ -432,6 +438,7 @@ func TestMultipleAppliersNestedType(t *testing.T) {
 				  value:
 				  - b
 			`,
+			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"apply-one": fieldpath.NewVersionedSet(
 					_NS(
@@ -504,6 +511,7 @@ func TestMultipleAppliersNestedType(t *testing.T) {
 				  value:
 				  - b
 			`,
+			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"apply-one": fieldpath.NewVersionedSet(
 					_NS(
@@ -563,6 +571,7 @@ func TestMultipleAppliersNestedType(t *testing.T) {
 				  value:
 				  - d
 			`,
+			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"apply-one": fieldpath.NewVersionedSet(
 					_NS(
@@ -668,6 +677,7 @@ func TestMultipleAppliersNestedType(t *testing.T) {
 				        f:
 				          g:
 			`,
+			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"apply-two": fieldpath.NewVersionedSet(
 					_NS(
@@ -785,6 +795,7 @@ func TestMultipleAppliersDeducedType(t *testing.T) {
 				      f:
 				        g:
 			`,
+			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"apply-two": fieldpath.NewVersionedSet(
 					_NS(
@@ -816,7 +827,7 @@ func TestMultipleAppliersDeducedType(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			if err := test.Test(typed.DeducedParseableType); err != nil {
+			if err := test.Test(DeducedParser); err != nil {
 				t.Fatal(err)
 			}
 		})
@@ -879,6 +890,7 @@ func TestMultipleAppliersRealConversion(t *testing.T) {
 				      eeee:
 				        ffff:
 			`,
+			APIVersion: "v4",
 			Managed: fieldpath.ManagedFields{
 				"apply-two": fieldpath.NewVersionedSet(
 					_NS(
@@ -937,6 +949,7 @@ func TestMultipleAppliersRealConversion(t *testing.T) {
 				  aaa:
 				  ccc:
 			`,
+			APIVersion: "v3",
 			Managed: fieldpath.ManagedFields{
 				"controller": fieldpath.NewVersionedSet(
 					_NS(
@@ -969,7 +982,7 @@ func TestMultipleAppliersRealConversion(t *testing.T) {
 
 // repeatingConverter repeats a single letterkey v times, where v is the version.
 type repeatingConverter struct {
-	typed.ParseableType
+	parser Parser
 }
 
 var _ merge.Converter = repeatingConverter{}
@@ -1004,7 +1017,7 @@ func (r repeatingConverter) Convert(v *typed.TypedValue, version fieldpath.APIVe
 			str2 = fmt.Sprintf("%v\n%v%v:", str2, spaces, c)
 		}
 	}
-	v2, err := r.ParseableType.FromYAML(typed.YAMLObject(str2))
+	v2, err := r.parser.Type(string(version)).FromYAML(typed.YAMLObject(str2))
 	if err != nil {
 		return nil, err
 	}
@@ -1083,6 +1096,7 @@ func BenchmarkMultipleApplierRecursiveRealConversion(b *testing.B) {
 			      eeee:
 			        ffff:
 		`,
+		APIVersion: "v4",
 		Managed: fieldpath.ManagedFields{
 			"apply-two": fieldpath.NewVersionedSet(
 				_NS(

@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/structured-merge-diff/v3/typed"
 )
 
-var associativeListParser = func() typed.ParseableType {
+var associativeListParser = func() Parser {
 	parser, err := typed.NewParser(`types:
 - name: type
   map:
@@ -52,7 +52,7 @@ var associativeListParser = func() typed.ParseableType {
 	if err != nil {
 		panic(err)
 	}
-	return parser.Type("type")
+	return SameVersionParser{T: parser.Type("type")}
 }()
 
 func TestUpdateAssociativeLists(t *testing.T) {
@@ -83,6 +83,7 @@ func TestUpdateAssociativeLists(t *testing.T) {
 				- name: b
 				  value: 2
 			`,
+			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
 					_NS(
