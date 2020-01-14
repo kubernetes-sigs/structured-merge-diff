@@ -25,7 +25,7 @@ import (
 	"sigs.k8s.io/structured-merge-diff/v3/typed"
 )
 
-var leafFieldsParser = func() typed.ParseableType {
+var leafFieldsParser = func() Parser {
 	parser, err := typed.NewParser(`types:
 - name: leafFields
   map:
@@ -42,7 +42,7 @@ var leafFieldsParser = func() typed.ParseableType {
 	if err != nil {
 		panic(err)
 	}
-	return parser.Type("leafFields")
+	return SameVersionParser{T: parser.Type("leafFields")}
 }()
 
 func TestUpdateLeaf(t *testing.T) {
@@ -72,6 +72,7 @@ func TestUpdateLeaf(t *testing.T) {
 				string: "string"
 				bool: false
 			`,
+			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
 					_NS(
@@ -107,6 +108,7 @@ func TestUpdateLeaf(t *testing.T) {
 				string: "string"
 				bool: false
 			`,
+			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
 					_NS(
@@ -150,6 +152,7 @@ func TestUpdateLeaf(t *testing.T) {
 				string: "string"
 				bool: true
 			`,
+			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
 					_NS(
@@ -200,6 +203,7 @@ func TestUpdateLeaf(t *testing.T) {
 				string: "string"
 				bool: true
 			`,
+			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
 					_NS(
@@ -261,6 +265,7 @@ func TestUpdateLeaf(t *testing.T) {
 				string: "user string"
 				bool: true
 			`,
+			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
 					_NS(
@@ -322,6 +327,7 @@ func TestUpdateLeaf(t *testing.T) {
 				string: "user string"
 				bool: true
 			`,
+			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
 					_NS(
@@ -363,6 +369,7 @@ func TestUpdateLeaf(t *testing.T) {
 				string: "new string"
 				bool: false
 			`,
+			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
 					_NS(
@@ -397,6 +404,7 @@ func TestUpdateLeaf(t *testing.T) {
 				string: "new string"
 				bool: false
 			`,
+			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
 					_NS(
@@ -427,6 +435,7 @@ func TestUpdateLeaf(t *testing.T) {
 			Object: `
 				string: "new string"
 			`,
+			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"controller": fieldpath.NewVersionedSet(
 					_NS(
@@ -455,7 +464,8 @@ func TestUpdateLeaf(t *testing.T) {
 			Object: `
 				string: "string"
 			`,
-			Managed: fieldpath.ManagedFields{},
+			APIVersion: "v1",
+			Managed:    fieldpath.ManagedFields{},
 		},
 	}
 
@@ -513,6 +523,7 @@ func BenchmarkLeafConflictAcrossVersion(b *testing.B) {
 			string: "user string"
 			bool: true
 		`,
+		APIVersion: "v1",
 		Managed: fieldpath.ManagedFields{
 			"default": fieldpath.NewVersionedSet(
 				_NS(

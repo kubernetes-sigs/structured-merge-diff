@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/structured-merge-diff/v3/typed"
 )
 
-var preserveUnknownParser = func() typed.ParseableType {
+var preserveUnknownParser = func() Parser {
 	parser, err := typed.NewParser(`types:
 - name: type
   map:
@@ -38,7 +38,7 @@ var preserveUnknownParser = func() typed.ParseableType {
 	if err != nil {
 		panic(err)
 	}
-	return parser.Type("type")
+	return SameVersionParser{T: parser.Type("type")}
 }()
 
 func TestPreserveUnknownFields(t *testing.T) {
@@ -66,6 +66,7 @@ func TestPreserveUnknownFields(t *testing.T) {
 				num: 6
 				unknown: new
 			`,
+			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
 					_NS(

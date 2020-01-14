@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/structured-merge-diff/v3/typed"
 )
 
-var nestedTypeParser = func() typed.ParseableType {
+var nestedTypeParser = func() Parser {
 	parser, err := typed.NewParser(`types:
 - name: type
   map:
@@ -101,7 +101,7 @@ var nestedTypeParser = func() typed.ParseableType {
 	if err != nil {
 		panic(err)
 	}
-	return parser.Type("type")
+	return SameVersionParser{T: parser.Type("type")}
 }()
 
 func TestUpdateNestedType(t *testing.T) {
@@ -138,6 +138,7 @@ func TestUpdateNestedType(t *testing.T) {
 				  - a
 				  - c
 			`,
+			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
 					_NS(
@@ -183,6 +184,7 @@ func TestUpdateNestedType(t *testing.T) {
 				  - a
 				  - c
 			`,
+			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
 					_NS(
@@ -228,6 +230,7 @@ func TestUpdateNestedType(t *testing.T) {
 				    a: "x"
 				    c: "z"
 			`,
+			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
 					_NS(
@@ -273,6 +276,7 @@ func TestUpdateNestedType(t *testing.T) {
 				    a: "x"
 				    c: "z"
 			`,
+			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
 					_NS(
@@ -315,6 +319,7 @@ func TestUpdateNestedType(t *testing.T) {
 				  - a
 				  - c
 			`,
+			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
 					_NS(
@@ -356,6 +361,7 @@ func TestUpdateNestedType(t *testing.T) {
 				  - a
 				  - c
 			`,
+			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
 					_NS(
@@ -397,6 +403,7 @@ func TestUpdateNestedType(t *testing.T) {
 				    a: "x"
 				    c: "z"
 			`,
+			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
 					_NS(
@@ -438,6 +445,7 @@ func TestUpdateNestedType(t *testing.T) {
 				    a: "x"
 				    c: "z"
 			`,
+			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
 					_NS(
@@ -479,6 +487,7 @@ func TestUpdateNestedType(t *testing.T) {
 				    d:
 				      c:
 			`,
+			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
 					_NS(
