@@ -17,9 +17,7 @@ limitations under the License.
 package value
 
 import (
-	"bytes"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"sync"
@@ -45,53 +43,59 @@ func NewValueReflect(value interface{}) (Value, error) {
 		// The root value to reflect on must be a pointer so that map.Set() and map.Delete() operations are possible.
 		return nil, fmt.Errorf("value provided to NewValueReflect must be a pointer")
 	}
-	return wrapValueReflect(nil, nil, v)
+	return wrapValueReflect(v, nil, nil)
 }
 
-func wrapValueReflect(parentMap, parentMapKey *reflect.Value, value reflect.Value) (Value, error) {
-	// TODO: conversion of json.Marshaller interface types is expensive. This can be mostly optimized away by
-	// introducing conversion functions that do not require going through JSON and using those here.
-	if marshaler, ok := getMarshaler(value); ok {
-		vv := reflectPool.Get().(*valueReflect)
-		return toUnstructured(vv, marshaler, value)
-	}
-	value = dereference(value)
+// wrapValueReflect wraps the provide reflect.Value as a value. If parent in the data tree is a map, parentMap
+// and parentMapKey must be provided so that the returned value may be set and deleted.
+func wrapValueReflect(value reflect.Value, parentMap, parentMapKey *reflect.Value) (Value, error) {
 	val := reflectPool.Get().(*valueReflect)
-	val.Value = value
-	val.ParentMap = parentMap
-	val.ParentMapKey = parentMapKey
-	return Value(val), nil
+	return val.reuse(value, parentMap, parentMapKey)
 }
 
-func mustWrapValueReflect(value reflect.Value) Value {
-	v, err := wrapValueReflect(nil, nil, value)
+// wrapValueReflect wraps the provide reflect.Value as a value, and panics if there is an error. If parent in the data
+// tree is a map, parentMap and parentMapKey must be provided so that the returned value may be set and deleted.
+func mustWrapValueReflect(value reflect.Value, parentMap, parentMapKey *reflect.Value) Value {
+	v, err := wrapValueReflect(value, parentMap, parentMapKey)
 	if err != nil {
 		panic(err)
 	}
 	return v
 }
 
-func mustWrapValueReflectMapItem(parentMap, parentMapKey *reflect.Value, value reflect.Value) Value {
-	v, err := wrapValueReflect(parentMap, parentMapKey, value)
-	if err != nil {
-		panic(err)
-	}
-	return v
-}
+// the value interface doesn't care about the type for value.IsNull, so we can use a constant
+var nilType = reflect.TypeOf(&struct{}{})
 
-// reuse replaces the value of the valueReflect.
-func (vi *valueReflect) reuse(value reflect.Value) Value {
-	if marshaler, ok := getMarshaler(value); ok {
-		marshaled, err := toUnstructured(vi, marshaler, value)
+// reuse replaces the value of the valueReflect. If parent in the data tree is a map, parentMap and parentMapKey
+// must be provided so that the returned value may be set and deleted.
+func (r *valueReflect) reuse(value reflect.Value, parentMap, parentMapKey *reflect.Value) (Value, error) {
+	entry := TypeReflectEntryOf(value.Type())
+	if entry.CanConvertToUnstructured() {
+		u, err := entry.ToUnstructured(value)
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
-		return marshaled
+		if u == nil {
+			value = reflect.Zero(nilType)
+		} else {
+			value = reflect.ValueOf(u)
+		}
 	}
-	vi.Value = dereference(value)
-	vi.ParentMap = nil
-	vi.ParentMapKey = nil
-	return vi
+	r.Value = dereference(value)
+	r.Value.Type()
+	r.ParentMap = parentMap
+	r.ParentMapKey = parentMapKey
+	return r, nil
+}
+
+// mustReuse replaces the value of the valueReflect and panics if there is an error. If parent in the data tree is a
+// map, parentMap and parentMapKey must be provided so that the returned value may be set and deleted.
+func (r *valueReflect) mustReuse(value reflect.Value, parentMap, parentMapKey *reflect.Value) Value {
+	v, err := r.reuse(value, parentMap, parentMapKey)
+	if err != nil {
+		panic(err)
+	}
+	return v
 }
 
 func dereference(val reflect.Value) reflect.Value {
@@ -183,7 +187,7 @@ func (r *valueReflect) Recycle() {
 
 func (r valueReflect) AsList() List {
 	if r.IsList() {
-		return listReflect{r.Value}
+		return listReflect{Value: r.Value}
 	}
 	panic("value is not a list")
 }
@@ -234,7 +238,7 @@ func (r valueReflect) Unstructured() interface{} {
 	case val.Kind() == reflect.Map:
 		return mapReflect{r}.Unstructured()
 	case r.IsList():
-		return listReflect{Value: r.Value}.Unstructured()
+		return listReflect{r.Value}.Unstructured()
 	case r.IsString():
 		return r.AsString()
 	case r.IsInt():
@@ -246,94 +250,4 @@ func (r valueReflect) Unstructured() interface{} {
 	default:
 		panic(fmt.Sprintf("value of type %s is not a supported by value reflector", val.Type()))
 	}
-}
-
-// The below getMarshaler and toUnstructured functions are based on
-// https://github.com/kubernetes/kubernetes/blob/40df9f82d0572a123f5ad13f48312978a2ff5877/staging/src/k8s.io/apimachinery/pkg/runtime/converter.go#L509
-// and should somehow be consolidated with it
-
-var marshalerType = reflect.TypeOf(new(json.Marshaler)).Elem()
-
-func getMarshaler(v reflect.Value) (json.Marshaler, bool) {
-	// Check value receivers if v is not a pointer and pointer receivers if v is a pointer
-	if v.Type().Implements(marshalerType) {
-		return v.Interface().(json.Marshaler), true
-	}
-	// Check pointer receivers if v is not a pointer
-	if v.Kind() != reflect.Ptr && v.CanAddr() {
-		v = v.Addr()
-		if v.Type().Implements(marshalerType) {
-			return v.Interface().(json.Marshaler), true
-		}
-	}
-	return nil, false
-}
-
-var (
-	nullBytes  = []byte("null")
-	trueBytes  = []byte("true")
-	falseBytes = []byte("false")
-)
-
-var nilType = reflect.TypeOf(&struct{}{})
-
-func toUnstructured(into *valueReflect, marshaler json.Marshaler, sv reflect.Value) (Value, error) {
-	data, err := marshaler.MarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	switch {
-	case len(data) == 0:
-		return nil, fmt.Errorf("error decoding from json: empty value")
-
-	case bytes.Equal(data, nullBytes):
-		into.Value = reflect.Zero(nilType)
-
-	case bytes.Equal(data, trueBytes):
-		into.Value = reflect.ValueOf(true)
-
-	case bytes.Equal(data, falseBytes):
-		into.Value = reflect.ValueOf(false)
-
-	case data[0] == '"':
-		var result string
-		err := json.Unmarshal(data, &result)
-		if err != nil {
-			return nil, fmt.Errorf("error decoding string from json: %v", err)
-		}
-		into.Value = reflect.ValueOf(result)
-
-	case data[0] == '{':
-		result := make(map[string]interface{})
-		err := json.Unmarshal(data, &result)
-		if err != nil {
-			return nil, fmt.Errorf("error decoding object from json: %v", err)
-		}
-		into.Value = reflect.ValueOf(result)
-
-	case data[0] == '[':
-		result := make([]interface{}, 0)
-		err := json.Unmarshal(data, &result)
-		if err != nil {
-			return nil, fmt.Errorf("error decoding array from json: %v", err)
-		}
-		into.Value = reflect.ValueOf(result)
-
-	default:
-		var (
-			resultInt   int64
-			resultFloat float64
-			err         error
-		)
-		if err = json.Unmarshal(data, &resultInt); err == nil {
-			into.Value = reflect.ValueOf(resultInt)
-			return into, nil
-		}
-		if err = json.Unmarshal(data, &resultFloat); err == nil {
-			into.Value = reflect.ValueOf(resultFloat)
-			return into, nil
-		}
-		return nil, fmt.Errorf("error decoding number from json: %v", err)
-	}
-	return into, nil
 }

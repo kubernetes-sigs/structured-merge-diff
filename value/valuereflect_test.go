@@ -28,7 +28,7 @@ func MustReflect(i interface{}) Value {
 	if i == nil {
 		return NewValueInterface(nil)
 	}
-	v, err := wrapValueReflect(nil, nil, reflect.ValueOf(i))
+	v, err := wrapValueReflect(reflect.ValueOf(i), nil, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -118,6 +118,30 @@ func (t *PtrConvertable) UnmarshalJSON(data []byte) error {
 	return json.Unmarshal(data, &t.Value)
 }
 
+type StringConvertable struct {
+	Value string
+}
+
+func (t StringConvertable) MarshalJSON() ([]byte, error) {
+	return json.Marshal(t.Value)
+}
+
+func (t StringConvertable) ToUnstructured() (string, bool) {
+	return t.Value, true
+}
+
+type PtrStringConvertable struct {
+	Value string
+}
+
+func (t PtrStringConvertable) MarshalJSON() ([]byte, error) {
+	return json.Marshal(t.Value)
+}
+
+func (t *PtrStringConvertable) ToUnstructured() (string, bool) {
+	return t.Value, true
+}
+
 func TestReflectCustomStringConversion(t *testing.T) {
 	dateTime, err := time.Parse(time.RFC3339, "2006-01-02T15:04:05+07:00")
 	if err != nil {
@@ -141,6 +165,21 @@ func TestReflectCustomStringConversion(t *testing.T) {
 		{
 			name:        "pointer-to-marshalable-struct",
 			convertable: &Convertable{Value: "pointer-test"},
+			expected:    "pointer-test",
+		},
+		{
+			name:        "string-convertable-struct",
+			convertable: StringConvertable{Value: "struct-test"},
+			expected:    "struct-test",
+		},
+		{
+			name:        "string-convertable-pointer",
+			convertable: &PtrStringConvertable{Value: "struct-test"},
+			expected:    "struct-test",
+		},
+		{
+			name:        "pointer-to-string-convertable-struct",
+			convertable: &StringConvertable{Value: "pointer-test"},
 			expected:    "pointer-test",
 		},
 		{
@@ -349,6 +388,35 @@ func TestReflectMutateNestedStruct(t *testing.T) {
 			},
 			expectDeleted: map[string]interface{}{
 				"map": map[string]interface{}{"mapKey": map[string]interface{}{}},
+			},
+		},
+		{
+			fieldName: "mapiter",
+			root: MustReflect(&struct {
+				Mapiter map[string]field `json:"mapiter,omitempty"`
+			}{
+				Mapiter: map[string]field{"mapKey": {S: "mapItem"}},
+			}),
+			lookupField: func(rv Value) Value {
+				mapItem := &valueReflect{}
+				m, _ := rv.AsMap().Get("mapiter")
+				m.AsMap().Iterate(func(key string, value Value) bool {
+					if key == "mapKey" {
+						*mapItem = *value.(*valueReflect)
+						return false
+					}
+					return true
+				})
+				if !mapItem.Value.IsValid() {
+					t.Fatal("map item not found")
+				}
+				return mapItem
+			},
+			expectUpdated: map[string]interface{}{
+				"mapiter": map[string]interface{}{"mapKey": map[string]interface{}{"s": "updatedValue"}},
+			},
+			expectDeleted: map[string]interface{}{
+				"mapiter": map[string]interface{}{"mapKey": map[string]interface{}{}},
 			},
 		},
 		{

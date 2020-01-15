@@ -32,7 +32,7 @@ func (r listReflect) Length() int {
 
 func (r listReflect) At(i int) Value {
 	val := r.Value
-	return mustWrapValueReflect(val.Index(i))
+	return mustWrapValueReflect(val.Index(i), nil, nil)
 }
 
 func (r listReflect) Unstructured() interface{} {
@@ -79,7 +79,7 @@ func (r *listReflectRange) Item() (index int, value Value) {
 	if r.i >= r.list.Len() {
 		panic("Item() called on ListRange with no more items")
 	}
-	return r.i, r.vr.reuse(r.list.Index(r.i))
+	return r.i, r.vr.mustReuse(r.list.Index(r.i), nil, nil)
 }
 
 func (r *listReflectRange) Recycle() {
