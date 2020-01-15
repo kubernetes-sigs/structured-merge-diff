@@ -152,11 +152,15 @@ func Equals(lhs, rhs Value) bool {
 			return lhs.AsInt() == rhs.AsInt()
 		}
 		return false
+	} else if rhs.IsInt() {
+		return false
 	}
 	if lhs.IsString() {
 		if rhs.IsString() {
 			return lhs.AsString() == rhs.AsString()
 		}
+		return false
+	} else if rhs.IsString() {
 		return false
 	}
 	if lhs.IsBool() {
@@ -164,11 +168,15 @@ func Equals(lhs, rhs Value) bool {
 			return lhs.AsBool() == rhs.AsBool()
 		}
 		return false
+	} else if rhs.IsBool() {
+		return false
 	}
 	if lhs.IsList() {
 		if rhs.IsList() {
 			return ListEquals(lhs.AsList(), rhs.AsList())
 		}
+		return false
+	} else if rhs.IsList() {
 		return false
 	}
 	if lhs.IsMap() {
@@ -176,11 +184,15 @@ func Equals(lhs, rhs Value) bool {
 			return lhs.AsMap().Equals(rhs.AsMap())
 		}
 		return false
+	} else if rhs.IsMap() {
+		return false
 	}
 	if lhs.IsNull() {
 		if rhs.IsNull() {
 			return true
 		}
+		return false
+	} else if rhs.IsNull() {
 		return false
 	}
 	// No field is set, on either objects.
