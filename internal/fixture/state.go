@@ -425,14 +425,6 @@ func (tc TestCase) TestWithConverter(parser typed.ParseableType, converter merge
 	}
 	if tc.RequiresUnions {
 		state.Updater.EnableUnionFeature()
-	} else {
-		// Also test it with unions on.
-		tc2 := tc
-		tc2.RequiresUnions = true
-		err := tc2.TestWithConverter(parser, converter)
-		if err != nil {
-			return fmt.Errorf("fails if unions are on: %v", err)
-		}
 	}
 	// We currently don't have any test that converts, we can take
 	// care of that later.
@@ -464,6 +456,16 @@ func (tc TestCase) TestWithConverter(parser typed.ParseableType, converter merge
 	for manager, set := range state.Managers {
 		if set.Set().Empty() {
 			return fmt.Errorf("expected Managers to have no empty sets, but found one managed by %v", manager)
+		}
+	}
+
+	if !tc.RequiresUnions {
+		// Re-run the test with unions on.
+		tc2 := tc
+		tc2.RequiresUnions = true
+		err := tc2.TestWithConverter(parser, converter)
+		if err != nil {
+			return fmt.Errorf("fails if unions are on: %v", err)
 		}
 	}
 
