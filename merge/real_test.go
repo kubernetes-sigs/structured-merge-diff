@@ -22,7 +22,6 @@ import (
 	"strings"
 	"testing"
 
-	"sigs.k8s.io/structured-merge-diff/v3/fieldpath"
 	. "sigs.k8s.io/structured-merge-diff/v3/internal/fixture"
 	"sigs.k8s.io/structured-merge-diff/v3/typed"
 )
@@ -86,7 +85,7 @@ func BenchmarkOperations(b *testing.B) {
 					ops: []Operation{
 						Update{
 							Manager:    "controller",
-							APIVersion: fieldpath.APIVersion(bench.typename),
+							APIVersion: "v1",
 							Object:     bench.obj,
 						},
 					},
@@ -96,7 +95,7 @@ func BenchmarkOperations(b *testing.B) {
 					ops: []Operation{
 						Apply{
 							Manager:    "controller",
-							APIVersion: fieldpath.APIVersion(bench.typename),
+							APIVersion: "v1",
 							Object:     bench.obj,
 						},
 					},
@@ -106,44 +105,44 @@ func BenchmarkOperations(b *testing.B) {
 					ops: []Operation{
 						Update{
 							Manager:    "controller",
-							APIVersion: fieldpath.APIVersion(bench.typename),
+							APIVersion: "v1",
 							Object:     bench.obj,
 						},
 						Update{
 							Manager:    "other-controller",
-							APIVersion: fieldpath.APIVersion(bench.typename),
+							APIVersion: "v1",
 							Object:     bench.obj,
 						},
 					},
 				},
-				// XXX: How do we do that?
-				// {
-				// 	name: "UpdateVersion",
-				// 	ops: []Operation{
-				// 		Update{
-				// 			Manager:    "controller",
-				// 			APIVersion: bench.typename,
-				// 			Object:     bench.obj,
-				// 		},
-				// 		Update{
-				// 			Manager:    "other-controller",
-				// 			APIVersion: "v2",
-				// 			Object:     bench.obj,
-				// 		},
-				// 	},
-				// },
+				{
+					name: "UpdateVersion",
+					ops: []Operation{
+						Update{
+							Manager:    "controller",
+							APIVersion: "v1",
+							Object:     bench.obj,
+						},
+						Update{
+							Manager:    "other-controller",
+							APIVersion: "v2",
+							Object:     bench.obj,
+						},
+					},
+				},
 			}
 			for _, test := range tests {
 				b.Run(test.name, func(b *testing.B) {
 					tc := TestCase{
 						Ops: test.ops,
 					}
-					tc.PreprocessOperations(parser)
+					p := SameVersionParser{T: parser.Type(bench.typename)}
+					tc.PreprocessOperations(p)
 
 					b.ReportAllocs()
 					b.ResetTimer()
 					for n := 0; n < b.N; n++ {
-						if err := tc.Bench(parser); err != nil {
+						if err := tc.Bench(p); err != nil {
 							b.Fatal(err)
 						}
 					}
