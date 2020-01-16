@@ -128,7 +128,7 @@ func buildStructCacheEntry(t reflect.Type, infos map[string]*fieldCacheEntry, fi
 }
 
 type structReflect struct {
-	Value reflect.Value
+	valueReflect
 }
 
 func (r structReflect) Length() int {
@@ -153,30 +153,48 @@ func (r structReflect) Has(key string) bool {
 }
 
 func (r structReflect) Set(key string, val Value) {
-	fieldVal, ok, _ := r.findJsonNameField(key)
+	fieldEntry, ok := getStructCacheEntry(r.Value.Type())[key]
 	if !ok {
 		panic(fmt.Sprintf("key %s may not be set on struct %T: field does not exist", key, r.Value.Interface()))
 	}
-	if !fieldVal.CanSet() {
-		// See https://blog.golang.org/laws-of-reflection for details on why a struct may not be settable
-		panic(fmt.Sprintf("key %s may not be set on struct: %T: struct is not settable", key, r.Value.Interface()))
-	}
-	fieldVal.Set(reflect.ValueOf(val.Unstructured()))
+	oldVal := fieldEntry.getFieldFromStruct(r.Value)
+	newVal := reflect.ValueOf(val.Unstructured())
+	r.update(fieldEntry, key, oldVal, newVal)
 }
 
 func (r structReflect) Delete(key string) {
-	fieldVal, ok, omitempty := r.findJsonNameField(key)
+	fieldEntry, ok := getStructCacheEntry(r.Value.Type())[key]
 	if !ok {
 		panic(fmt.Sprintf("key %s may not be deleted on struct %T: field does not exist", key, r.Value.Interface()))
 	}
-	if !fieldVal.CanSet() {
-		// See https://blog.golang.org/laws-of-reflection for details on why a struct may not be settable
-		panic(fmt.Sprintf("key %s may not be deleted on struct: %T: struct is not settable", key, r.Value.Interface()))
-	}
-	if fieldVal.Kind() != reflect.Ptr && !omitempty {
+	oldVal := fieldEntry.getFieldFromStruct(r.Value)
+	if oldVal.Kind() != reflect.Ptr && !fieldEntry.isOmitEmpty {
 		panic(fmt.Sprintf("key %s may not be deleted on struct: %T: value is neither a pointer nor an omitempty field", key, r.Value.Interface()))
 	}
-	fieldVal.Set(reflect.Zero(fieldVal.Type()))
+	r.update(fieldEntry, key, oldVal, reflect.Zero(oldVal.Type()))
+}
+
+func (r structReflect) update(fieldEntry *fieldCacheEntry, key string, oldVal, newVal reflect.Value) {
+	if oldVal.CanSet() {
+		oldVal.Set(newVal)
+		return
+	}
+
+	// map items are not addressable, so if a struct is contained in a map, the only way to modify it is
+	// to write a replacement fieldEntry into the map.
+	if r.ParentMap != nil {
+		if r.ParentMapKey == nil {
+			panic("ParentMapKey must not be nil if ParentMap is not nil")
+		}
+		replacement := reflect.New(r.Value.Type()).Elem()
+		fieldEntry.getFieldFromStruct(replacement).Set(newVal)
+		r.ParentMap.SetMapIndex(*r.ParentMapKey, replacement)
+		return
+	}
+
+	// This should never happen since NewValueReflect ensures that the root object reflected on is a pointer and map
+	// item replacement is handled above.
+	panic(fmt.Sprintf("key %s may not be modified on struct: %T: struct is not settable", key, r.Value.Interface()))
 }
 
 func (r structReflect) Iterate(fn func(string, Value) bool) bool {

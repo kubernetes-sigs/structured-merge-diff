@@ -25,7 +25,10 @@ import (
 )
 
 func MustReflect(i interface{}) Value {
-	v, err := NewValueReflect(i)
+	if i == nil {
+		return NewValueInterface(nil)
+	}
+	v, err := wrapValueReflect(nil, nil, reflect.ValueOf(i))
 	if err != nil {
 		panic(err)
 	}
@@ -279,10 +282,10 @@ func TestReflectStructMutate(t *testing.T) {
 	m := rv.AsMap()
 	atKey1, ok := m.Get("key1")
 	if !ok {
-		t.Errorf("expected map.Get(key1) to be 1 but got !ok")
+		t.Fatalf("expected map.Get(key1) to be 1 but got !ok")
 	}
 	if atKey1.AsInt() != 1 {
-		t.Errorf("expected map.Get(key1) to be 1 but got: %v", atKey1)
+		t.Fatalf("expected map.Get(key1) to be 1 but got: %v", atKey1)
 	}
 	m.Set("key1", NewValueInterface(int64(2)))
 	m.Delete("key2")
@@ -291,6 +294,75 @@ func TestReflectStructMutate(t *testing.T) {
 
 	expectedMap := map[string]interface{}{"key1": int64(2), "key4": "string4"}
 	unstructured := rv.Unstructured()
+	if !reflect.DeepEqual(unstructured, expectedMap) {
+		t.Errorf("expected %v but got: %v", expectedMap, unstructured)
+	}
+}
+
+// TestReflectMutateNestedStruct ensures a structs nested within various typed can be modified.
+func TestReflectMutateNestedStruct(t *testing.T) {
+	type nested struct {
+		S string `json:"s,omitempty"`
+	}
+	type root struct {
+		Field      nested                       `json:"field"`
+		List       []nested                     `json:"list"`
+		Map        map[string]nested            `json:"map"`
+		MapOfMaps  map[string]map[string]nested `json:"mapOfMaps"`
+		MapOfLists map[string][]nested          `json:"mapOfLists"`
+	}
+	rv := MustReflect(&root{
+		Field:      nested{S: "field"},
+		List:       []nested{{S: "listItem"}},
+		Map:        map[string]nested{"mapKey": {S: "mapItem"}},
+		MapOfMaps:  map[string]map[string]nested{"outer": {"inner": {S: "mapOfMapItem"}}},
+		MapOfLists: map[string][]nested{"outer": {{S: "mapOfListsItem"}}},
+	})
+	rootMap := rv.AsMap()
+	field, _ := rootMap.Get("field")
+	list, _ := rootMap.Get("list")
+	listItem := list.AsList().At(0)
+	m, _ := rootMap.Get("map")
+	mapItem, _ := m.AsMap().Get("mapKey")
+	mapOfMaps, _ := rootMap.Get("mapOfMaps")
+	innerMap, _ := mapOfMaps.AsMap().Get("outer")
+	mapOfMapsItem, _ := innerMap.AsMap().Get("inner")
+	mapOfLists, _ := rootMap.Get("mapOfLists")
+	innerList, _ := mapOfLists.AsMap().Get("outer")
+	mapOfListsItem := innerList.AsList().At(0)
+
+	field.AsMap().Set("s", NewValueInterface("field2"))
+	listItem.AsMap().Set("s", NewValueInterface("listItem2"))
+	mapItem.AsMap().Set("s", NewValueInterface("mapItem2"))
+	mapOfMapsItem.AsMap().Set("s", NewValueInterface("mapOfMapItem2"))
+	mapOfListsItem.AsMap().Set("s", NewValueInterface("mapOfListsItem2"))
+
+	unstructured := rv.Unstructured()
+	expectedMap := map[string]interface{}{
+		"field":      map[string]interface{}{"s": "field2"},
+		"list":       []interface{}{map[string]interface{}{"s": "listItem2"}},
+		"map":        map[string]interface{}{"mapKey": map[string]interface{}{"s": "mapItem2"}},
+		"mapOfMaps":  map[string]interface{}{"outer": map[string]interface{}{"inner": map[string]interface{}{"s": "mapOfMapItem2"}}},
+		"mapOfLists": map[string]interface{}{"outer": []interface{}{map[string]interface{}{"s": "mapOfListsItem2"}}},
+	}
+	if !reflect.DeepEqual(unstructured, expectedMap) {
+		t.Errorf("expected %v but got: %v", expectedMap, unstructured)
+	}
+
+	field.AsMap().Delete("s")
+	listItem.AsMap().Delete("s")
+	mapItem.AsMap().Delete("s")
+	mapOfMapsItem.AsMap().Delete("s")
+	mapOfListsItem.AsMap().Delete("s")
+
+	unstructured = rv.Unstructured()
+	expectedMap = map[string]interface{}{
+		"field":      map[string]interface{}{},
+		"list":       []interface{}{map[string]interface{}{}},
+		"map":        map[string]interface{}{"mapKey": map[string]interface{}{}},
+		"mapOfMaps":  map[string]interface{}{"outer": map[string]interface{}{"inner": map[string]interface{}{}}},
+		"mapOfLists": map[string]interface{}{"outer": []interface{}{map[string]interface{}{}}},
+	}
 	if !reflect.DeepEqual(unstructured, expectedMap) {
 		t.Errorf("expected %v but got: %v", expectedMap, unstructured)
 	}

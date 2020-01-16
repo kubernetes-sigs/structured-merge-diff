@@ -19,7 +19,7 @@ package value
 import "reflect"
 
 type mapReflect struct {
-	Value reflect.Value
+	valueReflect
 }
 
 func (r mapReflect) Length() int {
@@ -28,11 +28,12 @@ func (r mapReflect) Length() int {
 }
 
 func (r mapReflect) Get(key string) (Value, bool) {
-	val := r.Value.MapIndex(r.toMapKey(key))
+	mapKey := r.toMapKey(key)
+	val := r.Value.MapIndex(mapKey)
 	if !val.IsValid() {
 		return nil, false
 	}
-	return mustWrapValueReflect(val), val != reflect.Value{}
+	return mustWrapValueReflectMapItem(&r.Value, &mapKey, val), val != reflect.Value{}
 }
 
 func (r mapReflect) Has(key string) bool {

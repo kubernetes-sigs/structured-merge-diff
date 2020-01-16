@@ -354,7 +354,7 @@ func BenchmarkValidateStructured(b *testing.B) {
       type:
         scalar: boolean
 `,
-			object: Example{
+			object: &Example{
 				listOfPrimitives: []Primitives{primitive1, primitive2, primitive3, primitive4},
 				mapOfPrimitives:  map[string]Primitives{"1": primitive1, "2": primitive2, "3": primitive3, "4": primitive4},
 				mapOfLists: map[string][]Primitives{

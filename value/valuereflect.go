@@ -33,16 +33,22 @@ var reflectPool = sync.Pool{
 
 // NewValueReflect creates a Value backed by an "interface{}" type,
 // typically an structured object in Kubernetes world that is uses reflection to expose.
+// The provided "interface{}" value must be a pointer so that the value can be modified via reflection.
 // The provided "interface{}" may contain structs and types that are converted to Values
 // by the jsonMarshaler interface.
 func NewValueReflect(value interface{}) (Value, error) {
 	if value == nil {
 		return NewValueInterface(nil), nil
 	}
-	return wrapValueReflect(reflect.ValueOf(value))
+	v := reflect.ValueOf(value)
+	if v.Kind() != reflect.Ptr {
+		// The root value to reflect on must be a pointer so that map.Set() and map.Delete() operations are possible.
+		return nil, fmt.Errorf("value provided to NewValueReflect must be a pointer")
+	}
+	return wrapValueReflect(nil, nil, v)
 }
 
-func wrapValueReflect(value reflect.Value) (Value, error) {
+func wrapValueReflect(parentMap, parentMapKey *reflect.Value, value reflect.Value) (Value, error) {
 	// TODO: conversion of json.Marshaller interface types is expensive. This can be mostly optimized away by
 	// introducing conversion functions that do not require going through JSON and using those here.
 	if marshaler, ok := getMarshaler(value); ok {
@@ -51,11 +57,21 @@ func wrapValueReflect(value reflect.Value) (Value, error) {
 	value = dereference(value)
 	val := reflectPool.Get().(*valueReflect)
 	val.Value = value
+	val.ParentMap = parentMap
+	val.ParentMapKey = parentMapKey
 	return Value(val), nil
 }
 
 func mustWrapValueReflect(value reflect.Value) Value {
-	v, err := wrapValueReflect(value)
+	v, err := wrapValueReflect(nil, nil, value)
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
+
+func mustWrapValueReflectMapItem(parentMap, parentMapKey *reflect.Value, value reflect.Value) Value {
+	v, err := wrapValueReflect(parentMap, parentMapKey, value)
 	if err != nil {
 		panic(err)
 	}
@@ -71,7 +87,9 @@ func dereference(val reflect.Value) reflect.Value {
 }
 
 type valueReflect struct {
-	Value reflect.Value
+	ParentMap    *reflect.Value
+	ParentMapKey *reflect.Value
+	Value        reflect.Value
 }
 
 func (r valueReflect) IsMap() bool {
@@ -135,9 +153,9 @@ func (r valueReflect) AsMap() Map {
 	val := r.Value
 	switch val.Kind() {
 	case reflect.Struct:
-		return structReflect{Value: r.Value}
+		return structReflect{r}
 	case reflect.Map:
-		return mapReflect{Value: r.Value}
+		return mapReflect{r}
 	default:
 		panic("value is not a map or struct")
 	}
@@ -196,9 +214,9 @@ func (r valueReflect) Unstructured() interface{} {
 	case r.IsNull():
 		return nil
 	case val.Kind() == reflect.Struct:
-		return structReflect{Value: r.Value}.Unstructured()
+		return structReflect{r}.Unstructured()
 	case val.Kind() == reflect.Map:
-		return mapReflect{Value: r.Value}.Unstructured()
+		return mapReflect{r}.Unstructured()
 	case r.IsList():
 		return listReflect{Value: r.Value}.Unstructured()
 	case r.IsString():
