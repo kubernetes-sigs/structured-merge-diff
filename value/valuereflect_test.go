@@ -179,6 +179,10 @@ type testBasicStruct struct {
 	I int64 `json:"int"`
 	S string
 }
+type testOmitStruct struct {
+	I int64 `json:"-"`
+	S string
+}
 type testInlineStruct struct {
 	Inline T `json:",inline"`
 	S      string
@@ -212,6 +216,12 @@ func TestReflectStruct(t *testing.T) {
 			val:                  &testBasicStruct{I: 10, S: "string"},
 			expectedMap:          map[string]interface{}{"int": int64(10), "S": "string"},
 			expectedUnstructured: map[string]interface{}{"int": int64(10), "S": "string"},
+		},
+		{
+			name:                 "omit",
+			val:                  testOmitStruct{I: 10, S: "string"},
+			expectedMap:          map[string]interface{}{"S": "string"},
+			expectedUnstructured: map[string]interface{}{"S": "string"},
 		},
 		{
 			name:                 "inline",

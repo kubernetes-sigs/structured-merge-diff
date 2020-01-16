@@ -17,6 +17,7 @@ limitations under the License.
 package value
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 )
@@ -24,17 +25,16 @@ import (
 // TODO: This implements the same functionality as https://github.com/kubernetes/kubernetes/blob/master/staging/src/k8s.io/apimachinery/pkg/runtime/converter.go#L236
 // but is based on the highly efficient approach from https://golang.org/src/encoding/json/encode.go
 
-func lookupJsonTags(f reflect.StructField) (string, bool, bool) {
-	var name string
+func lookupJsonTags(f reflect.StructField) (name string, omit bool, inline bool, omitempty bool) {
 	tag := f.Tag.Get("json")
 	if tag == "-" {
-		return f.Name, false, false
+		return "", true, false, false
 	}
 	name, opts := parseTag(tag)
 	if name == "" {
 		name = f.Name
 	}
-	return name, opts.Contains("inline"), opts.Contains("omitempty")
+	return name, false, opts.Contains("inline"), opts.Contains("omitempty")
 }
 
 func isZero(v reflect.Value) bool {
@@ -51,6 +51,8 @@ func isZero(v reflect.Value) bool {
 		return v.Float() == 0
 	case reflect.Interface, reflect.Ptr:
 		return v.IsNil()
+	case reflect.Chan, reflect.Func:
+		panic(fmt.Sprintf("unsupported type: %v", v.Type()))
 	}
 	return false
 }

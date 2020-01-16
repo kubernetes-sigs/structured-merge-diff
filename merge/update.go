@@ -114,7 +114,7 @@ func (s *Updater) update(oldObject, newObject *typed.TypedValue, version fieldpa
 	return managers, compare, nil
 }
 
-// Update is the method you should call once you've merged your final
+// Set is the method you should call once you've merged your final
 // object on CREATE/UPDATE/PATCH verbs. newObject must be the object
 // that you intend to persist (after applying the patch if this is for a
 // PATCH call), and liveObject must be the original object (empty if

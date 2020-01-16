@@ -53,14 +53,21 @@ func (c *structCache) Get(t reflect.Type) (map[string]*fieldCacheEntry, bool) {
 	return entry, ok
 }
 
-// Update sets the fieldCacheEntry for the given type via a copy-on-write update to the struct cache.
-func (c *structCache) Update(t reflect.Type, m map[string]*fieldCacheEntry) {
+// Set sets the fieldCacheEntry for the given type via a copy-on-write update to the struct cache.
+func (c *structCache) Set(t reflect.Type, m map[string]*fieldCacheEntry) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	oldCacheMap := c.value.Load().(structCacheMap)
-	newCacheMap := make(structCacheMap, len(oldCacheMap)+1)
-	for k, v := range oldCacheMap {
+	currentCacheMap := c.value.Load().(structCacheMap)
+
+	if _, ok := currentCacheMap[t]; ok {
+		// Bail if the entry has been set while waiting for lock acquisition.
+		// This is safe since setting entries is idempotent.
+		return
+	}
+
+	newCacheMap := make(structCacheMap, len(currentCacheMap)+1)
+	for k, v := range currentCacheMap {
 		newCacheMap[k] = v
 	}
 	newCacheMap[t] = m
@@ -99,14 +106,17 @@ func getStructCacheEntry(t reflect.Type) structCacheEntry {
 	hints := map[string]*fieldCacheEntry{}
 	buildStructCacheEntry(t, hints, nil)
 
-	reflectStructCache.Update(t, hints)
+	reflectStructCache.Set(t, hints)
 	return hints
 }
 
 func buildStructCacheEntry(t reflect.Type, infos map[string]*fieldCacheEntry, fieldPath [][]int) {
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
-		jsonName, isInline, isOmitempty := lookupJsonTags(field)
+		jsonName, omit, isInline, isOmitempty := lookupJsonTags(field)
+		if omit {
+			continue
+		}
 		if isInline {
 			buildStructCacheEntry(field.Type, infos, append(fieldPath, field.Index))
 			continue
@@ -131,19 +141,19 @@ func (r structReflect) Length() int {
 }
 
 func (r structReflect) Get(key string) (Value, bool) {
-	if val, ok := r.findJsonNameField(key); ok {
+	if val, ok, _ := r.findJsonNameField(key); ok {
 		return mustWrapValueReflect(val), true
 	}
 	return nil, false
 }
 
 func (r structReflect) Has(key string) bool {
-	_, ok := r.findJsonNameField(key)
+	_, ok, _ := r.findJsonNameField(key)
 	return ok
 }
 
 func (r structReflect) Set(key string, val Value) {
-	fieldVal, ok := r.findJsonNameField(key)
+	fieldVal, ok, _ := r.findJsonNameField(key)
 	if !ok {
 		panic(fmt.Sprintf("key %s may not be set on struct %T: field does not exist", key, r.Value.Interface()))
 	}
@@ -155,13 +165,16 @@ func (r structReflect) Set(key string, val Value) {
 }
 
 func (r structReflect) Delete(key string) {
-	fieldVal, ok := r.findJsonNameField(key)
+	fieldVal, ok, omitempty := r.findJsonNameField(key)
 	if !ok {
 		panic(fmt.Sprintf("key %s may not be deleted on struct %T: field does not exist", key, r.Value.Interface()))
 	}
 	if !fieldVal.CanSet() {
 		// See https://blog.golang.org/laws-of-reflection for details on why a struct may not be settable
 		panic(fmt.Sprintf("key %s may not be deleted on struct: %T: struct is not settable", key, r.Value.Interface()))
+	}
+	if fieldVal.Kind() != reflect.Ptr && !omitempty {
+		panic(fmt.Sprintf("key %s may not be deleted on struct: %T: value is neither a pointer nor an omitempty field", key, r.Value.Interface()))
 	}
 	fieldVal.Set(reflect.Zero(fieldVal.Type()))
 }
@@ -228,11 +241,11 @@ func (r structReflect) findJsonNameFieldAndNotEmpty(jsonName string) (reflect.Va
 	return fieldVal, !omit
 }
 
-func (r structReflect) findJsonNameField(jsonName string) (reflect.Value, bool) {
+func (r structReflect) findJsonNameField(jsonName string) (val reflect.Value, ok bool, omitEmpty bool) {
 	structCacheEntry, ok := getStructCacheEntry(r.Value.Type())[jsonName]
 	if !ok {
-		return reflect.Value{}, false
+		return reflect.Value{}, false, false
 	}
 	fieldVal := structCacheEntry.getFieldFromStruct(r.Value)
-	return fieldVal, true
+	return fieldVal, true, structCacheEntry.isOmitEmpty
 }
