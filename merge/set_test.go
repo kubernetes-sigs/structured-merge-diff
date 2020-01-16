@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/structured-merge-diff/v3/typed"
 )
 
-var setFieldsParser = func() typed.ParseableType {
+var setFieldsParser = func() Parser {
 	parser, err := typed.NewParser(`types:
 - name: sets
   map:
@@ -38,7 +38,7 @@ var setFieldsParser = func() typed.ParseableType {
 	if err != nil {
 		panic(err)
 	}
-	return parser.Type("sets")
+	return SameVersionParser{T: parser.Type("sets")}
 }()
 
 func TestUpdateSet(t *testing.T) {
@@ -73,6 +73,7 @@ func TestUpdateSet(t *testing.T) {
 				- c
 				- d
 			`,
+			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
 					_NS(
@@ -129,6 +130,7 @@ func TestUpdateSet(t *testing.T) {
 				- cprime
 				- d
 			`,
+			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
 					_NS(
@@ -193,6 +195,7 @@ func TestUpdateSet(t *testing.T) {
 				- cprime
 				- d
 			`,
+			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
 					_NS(
@@ -254,6 +257,7 @@ func TestUpdateSet(t *testing.T) {
 				- c
 				- d
 			`,
+			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
 					_NS(
@@ -314,6 +318,7 @@ func TestUpdateSet(t *testing.T) {
 				- c
 				- d
 			`,
+			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
 					_NS(
@@ -366,6 +371,7 @@ func TestUpdateSet(t *testing.T) {
 				- c
 				- b
 			`,
+			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
 					_NS(
@@ -422,6 +428,7 @@ func TestUpdateSet(t *testing.T) {
 				- c
 				- d
 			`,
+			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
 					_NS(
@@ -478,6 +485,7 @@ func TestUpdateSet(t *testing.T) {
 				- c
 				- d
 			`,
+			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
 					_NS(
@@ -519,6 +527,7 @@ func TestUpdateSet(t *testing.T) {
 				- a
 				- c
 			`,
+			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
 					_NS(
@@ -560,6 +569,7 @@ func TestUpdateSet(t *testing.T) {
 				- c
 				- e
 			`,
+			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
 					_NS(

@@ -25,7 +25,7 @@ import (
 	"sigs.k8s.io/structured-merge-diff/v3/typed"
 )
 
-var unionFieldsParser = func() typed.ParseableType {
+var unionFieldsParser = func() Parser {
 	parser, err := typed.NewParser(`types:
 - name: unionFields
   map:
@@ -61,7 +61,7 @@ var unionFieldsParser = func() typed.ParseableType {
 	if err != nil {
 		panic(err)
 	}
-	return parser.Type("unionFields")
+	return SameVersionParser{T: parser.Type("unionFields")}
 }()
 
 func TestUnion(t *testing.T) {
@@ -81,6 +81,7 @@ func TestUnion(t *testing.T) {
 				numeric: 1
 				type: Numeric
 			`,
+			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
 					_NS(
@@ -116,6 +117,7 @@ func TestUnion(t *testing.T) {
 				string: "some string"
 				type: String
 			`,
+			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"controller": fieldpath.NewVersionedSet(
 					_NS(
@@ -165,6 +167,7 @@ func TestUnion(t *testing.T) {
 				numeric: 0
 				fieldB: "fieldB string"
 			`,
+			APIVersion: "v1",
 		},
 	}
 
