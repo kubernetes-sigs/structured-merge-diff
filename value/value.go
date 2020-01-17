@@ -203,8 +203,9 @@ func ToString(v Value) string {
 		return fmt.Sprintf("%v", v.AsBool())
 	case v.IsList():
 		strs := []string{}
-		for i := 0; i < v.AsList().Length(); i++ {
-			strs = append(strs, ToString(v.AsList().At(i)))
+		list := v.AsList()
+		for i := 0; i < list.Length(); i++ {
+			strs = append(strs, ToString(list.At(i)))
 		}
 		return "[" + strings.Join(strs, ",") + "]"
 	case v.IsMap():

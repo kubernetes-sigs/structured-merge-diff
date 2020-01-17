@@ -23,6 +23,22 @@ type List interface {
 	// At returns the item at the given position in the map. It will
 	// panic if the index is out of range.
 	At(int) Value
+	// Range returns a ListRange for iterating over the items in the list.
+	Range() ListRange
+}
+
+// ListRange represents a single iteration across the items of a list.
+type ListRange interface {
+	// Next increments to the next item in the range, if there is one, and returns true, or returns false if there are no more items.
+	Next() bool
+	// Item returns the index and value of the current item in the range. or panics if there is no current item.
+	// For efficiency, Item may reuse the values returned by previous Item calls. Callers should be careful avoid holding
+	// pointers to the value returned by Item() that escape the iteration loop since they become invalid once either
+	// Item() or Recycle() is called.
+	Item() (index int, value Value)
+	// Recycle returns a ListRange that is no longer needed. The value returned by Item() becomes invalid once this is
+	// called.
+	Recycle()
 }
 
 // ListEquals compares two lists lexically.
@@ -31,16 +47,17 @@ func ListEquals(lhs, rhs List) bool {
 		return false
 	}
 
-	for i := 0; i < lhs.Length(); i++ {
-		lv := lhs.At(i)
-		rv := rhs.At(i)
+	lhsRange := lhs.Range()
+	defer lhsRange.Recycle()
+	rhsRange := rhs.Range()
+	defer rhsRange.Recycle()
+
+	for lhsRange.Next() && rhsRange.Next() {
+		_, lv := lhsRange.Item()
+		_, rv := rhsRange.Item()
 		if !Equals(lv, rv) {
-			lv.Recycle()
-			rv.Recycle()
 			return false
 		}
-		lv.Recycle()
-		rv.Recycle()
 	}
 	return true
 }
@@ -53,28 +70,31 @@ func ListLess(lhs, rhs List) bool {
 // ListCompare compares two lists lexically. The result will be 0 if l==rhs, -1
 // if l < rhs, and +1 if l > rhs.
 func ListCompare(lhs, rhs List) int {
-	i := 0
+	lhsRange := lhs.Range()
+	defer lhsRange.Recycle()
+	rhsRange := rhs.Range()
+	defer rhsRange.Recycle()
+
 	for {
-		if i >= lhs.Length() && i >= rhs.Length() {
+		lhsOk := lhsRange.Next()
+		rhsOk := rhsRange.Next()
+		if !lhsOk && !rhsOk {
 			// Lists are the same length and all items are equal.
 			return 0
 		}
-		if i >= lhs.Length() {
+		if !lhsOk {
 			// LHS is shorter.
 			return -1
 		}
-		if i >= rhs.Length() {
+		if !rhsOk {
 			// RHS is shorter.
 			return 1
 		}
-		lv := lhs.At(i)
-		rv := rhs.At(i)
+		_, lv := lhsRange.Item()
+		_, rv := rhsRange.Item()
 		if c := Compare(lv, rv); c != 0 {
 			return c
 		}
-		lv.Recycle()
-		rv.Recycle()
 		// The items are equal; continue.
-		i++
 	}
 }

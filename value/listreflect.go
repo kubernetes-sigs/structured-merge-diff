@@ -40,3 +40,33 @@ func (r listReflect) Unstructured() interface{} {
 	}
 	return result
 }
+
+func (r listReflect) Range() ListRange {
+	return &listReflectRange{r.Value, newTempValuePooler(), -1, r.Value.Len()}
+}
+
+type listReflectRange struct {
+	val    reflect.Value
+	pooler *tempValuePooler
+	i      int
+	length int
+}
+
+func (r *listReflectRange) Next() bool {
+	r.i += 1
+	return r.i < r.length
+}
+
+func (r *listReflectRange) Item() (index int, value Value) {
+	if r.i < 0 {
+		panic("Item() called before first calling Next()")
+	}
+	if r.i >= r.length {
+		panic("Item() called on ListRange with no more items")
+	}
+	return r.i, r.pooler.NewValueReflect(r.val.Index(r.i))
+}
+
+func (r *listReflectRange) Recycle() {
+	r.pooler.Recycle()
+}

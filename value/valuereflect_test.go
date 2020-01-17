@@ -552,6 +552,7 @@ func TestReflectList(t *testing.T) {
 			if m.Length() != tc.length {
 				t.Errorf("expected list to be of length %d but got %d", tc.length, m.Length())
 			}
+
 			l := m.Length()
 			iterateResult := make([]interface{}, l)
 			for i := 0; i < l; i++ {
@@ -560,6 +561,18 @@ func TestReflectList(t *testing.T) {
 			if !reflect.DeepEqual(iterateResult, tc.expectedIterate) {
 				t.Errorf("expected iterate to produce %#v but got %#v", tc.expectedIterate, iterateResult)
 			}
+
+			iter := m.Range()
+			iter.Recycle()
+			iterateResult = make([]interface{}, l)
+			for iter.Next() {
+				i, val := iter.Item()
+				iterateResult[i] = val.AsString()
+			}
+			if !reflect.DeepEqual(iterateResult, tc.expectedIterate) {
+				t.Errorf("expected iterate to produce %#v but got %#v", tc.expectedIterate, iterateResult)
+			}
+
 			unstructured := rv.Unstructured()
 			if !reflect.DeepEqual(unstructured, tc.expectedUnstructured) {
 				t.Errorf("expected iterate to produce %#v but got %#v", tc.expectedUnstructured, unstructured)

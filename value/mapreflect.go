@@ -30,12 +30,17 @@ func (r mapReflect) Length() int {
 }
 
 func (r mapReflect) Get(key string) (Value, bool) {
-	mapKey := r.toMapKey(key)
-	val := r.Value.MapIndex(mapKey)
-	if !val.IsValid() {
+	k, v, ok := r.get(key)
+	if !ok {
 		return nil, false
 	}
-	return mustWrapValueReflectMapItem(&r.Value, &mapKey, val), val != reflect.Value{}
+	return mustWrapValueReflectMapItem(&r.Value, &k, v), true
+}
+
+func (r mapReflect) get(k string) (key, value reflect.Value, ok bool) {
+	mapKey := r.toMapKey(k)
+	val := r.Value.MapIndex(mapKey)
+	return mapKey, val, val.IsValid() && val != reflect.Value{}
 }
 
 func (r mapReflect) Has(key string) bool {
@@ -94,16 +99,21 @@ func (r mapReflect) Unstructured() interface{} {
 }
 
 func (r mapReflect) Equals(m Map) bool {
-	if r.Length() != m.Length() {
+	lhsLength := r.Length()
+	rhsLength := m.Length()
+	if lhsLength != rhsLength {
 		return false
 	}
-
-	// TODO: Optimize to avoid Iterate looping here by using r.Value.MapRange or similar if it improves performance.
+	if lhsLength == 0 && rhsLength == 0 {
+		return true
+	}
+	vp := newTempValuePooler()
+	defer vp.Recycle()
 	return m.Iterate(func(key string, value Value) bool {
-		lhsVal, ok := r.Get(key)
+		_, lhsVal, ok := r.get(key)
 		if !ok {
 			return false
 		}
-		return Equals(lhsVal, value)
+		return Equals(vp.NewValueReflect(lhsVal), value)
 	})
 }

@@ -99,6 +99,7 @@ func MapCompare(lhs, rhs Map) int {
 // MapEquals returns true if lhs == rhs, false otherwise. This function
 // acts on generic types and should not be used by callers, but can help
 // implement Map.Equals.
+// WARN: This is a naive implementation, calling lhs.Equals(rhs) is typically far more efficient.
 func MapEquals(lhs, rhs Map) bool {
 	if lhs.Length() != rhs.Length() {
 		return false
