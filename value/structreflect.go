@@ -85,13 +85,13 @@ type fieldCacheEntry struct {
 	isOmitEmpty bool
 	// fieldPath is the field indices (see FieldByIndex) to lookup the value of
 	// a field in a reflect.Value struct. A path of field indices is used
-	// to support traversing to a field nested in struct fields that have the 'inline'
+	// to support traversing to a field field in struct fields that have the 'inline'
 	// json tag.
 	fieldPath [][]int
 }
 
 func (f *fieldCacheEntry) getFieldFromStruct(structVal reflect.Value) reflect.Value {
-	// field might be nested within 'inline' structs
+	// field might be field within 'inline' structs
 	for _, elem := range f.fieldPath {
 		structVal = structVal.FieldByIndex(elem)
 	}

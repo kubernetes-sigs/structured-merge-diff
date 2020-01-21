@@ -101,7 +101,7 @@ func BenchmarkOperations(b *testing.B) {
 					},
 				},
 				{
-					name: "Set",
+					name: "Update",
 					ops: []Operation{
 						Update{
 							Manager:    "controller",

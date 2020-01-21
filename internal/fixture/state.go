@@ -100,7 +100,7 @@ func (s *State) UpdateObject(tv *typed.TypedValue, version fieldpath.APIVersion,
 	return nil
 }
 
-// Set the current state with the passed in object
+// Update the current state with the passed in object
 func (s *State) Update(obj typed.YAMLObject, version fieldpath.APIVersion, manager string) error {
 	tv, err := s.Parser.FromYAML(FixTabsOrDie(obj))
 	if err != nil {
@@ -308,7 +308,7 @@ func (f ForceApplyObject) preprocess(parser typed.ParseableType) (Operation, err
 	return f, nil
 }
 
-// Set is a type of operation. It is a controller type of
+// Update is a type of operation. It is a controller type of
 // update. Errors are passed along.
 type Update struct {
 	Manager    string

@@ -265,7 +265,7 @@ func (u *union) NormalizeApply(applied, merged, out value.Map) error {
 		return fmt.Errorf("applied discriminator (%v) doesn't match applied field (%v)", u.d.Get(applied), *as.One())
 	}
 
-	// Set discriminiator if needed
+	// Update discriminiator if needed
 	if u.deduceInvalidDiscriminator {
 		u.d.Set(out, u.dn.toDiscriminated(*as.One()))
 	}
