@@ -87,6 +87,12 @@ func (s *Set) emitContents_v1(includeSelf bool, stream *jsoniter.Stream, r *reus
 		stream.WriteMore()
 	}
 
+	if includeSelf && !(len(s.Members.members) == 0 && len(s.Children.members) == 0) {
+		preWrite()
+		stream.WriteObjectField(".")
+		stream.WriteEmptyObject()
+	}
+
 	for mi < len(s.Members.members) && ci < len(s.Children.members) {
 		mpe := s.Members.members[mi]
 		cpe := s.Children.members[ci].pathElement
@@ -155,11 +161,6 @@ func (s *Set) emitContents_v1(includeSelf bool, stream *jsoniter.Stream, r *reus
 		ci++
 	}
 
-	if includeSelf && !first {
-		preWrite()
-		stream.WriteObjectField(".")
-		stream.WriteEmptyObject()
-	}
 	return manageMemory(stream)
 }
 
