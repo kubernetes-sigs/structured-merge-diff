@@ -243,7 +243,7 @@ func (u *union) Normalize(old, new, out value.Map) error {
 		return fmt.Errorf("multiple fields set without discriminator change: %v", ns)
 	}
 
-	// Update discriminiator if it needs to be deduced.
+	// Set discriminiator if it needs to be deduced.
 	if u.deduceInvalidDiscriminator && len(ns) == 1 {
 		u.d.Set(out, u.dn.toDiscriminated(*ns.One()))
 	}
