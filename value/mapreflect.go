@@ -68,10 +68,10 @@ func (r mapReflect) toMapKey(key string) reflect.Value {
 }
 
 func (r mapReflect) Iterate(fn func(string, Value) bool) bool {
-	vp := newTempValuePooler()
-	defer vp.Recycle()
+	vr := reflectPool.Get().(*valueReflect)
+	defer vr.Recycle()
 	return eachMapEntry(r.Value, func(s string, value reflect.Value) bool {
-		return fn(s, vp.NewValueReflect(value))
+		return fn(s, vr.reuse(value))
 	})
 }
 
@@ -104,16 +104,16 @@ func (r mapReflect) Equals(m Map) bool {
 	if lhsLength != rhsLength {
 		return false
 	}
-	if lhsLength == 0 && rhsLength == 0 {
+	if lhsLength == 0 {
 		return true
 	}
-	vp := newTempValuePooler()
-	defer vp.Recycle()
+	vr := reflectPool.Get().(*valueReflect)
+	defer vr.Recycle()
 	return m.Iterate(func(key string, value Value) bool {
 		_, lhsVal, ok := r.get(key)
 		if !ok {
 			return false
 		}
-		return Equals(vp.NewValueReflect(lhsVal), value)
+		return Equals(vr.reuse(lhsVal), value)
 	})
 }

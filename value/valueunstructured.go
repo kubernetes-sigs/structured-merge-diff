@@ -33,12 +33,17 @@ var viPool = sync.Pool{
 // string or boolean. Nested interface{} must also be one of these types.
 func NewValueInterface(v interface{}) Value {
 	vi := viPool.Get().(*valueUnstructured)
-	vi.Value = v
-	return Value(vi)
+	return Value(vi.reuse(v))
 }
 
 type valueUnstructured struct {
 	Value interface{}
+}
+
+// reuse replaces the value of the valueUnstructured.
+func (vi *valueUnstructured) reuse(value interface{}) Value {
+	vi.Value = value
+	return vi
 }
 
 func (v valueUnstructured) IsMap() bool {

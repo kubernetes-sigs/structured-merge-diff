@@ -111,9 +111,6 @@ func MapEquals(lhs, rhs Map) bool {
 		}
 		equal := Equals(v, vo)
 		vo.Recycle()
-		if !equal {
-			return false
-		}
-		return true
+		return equal
 	})
 }

@@ -95,7 +95,7 @@ func TestReflectPrimitives(t *testing.T) {
 }
 
 type Convertable struct {
-	Value string
+	Value interface{}
 }
 
 func (t Convertable) MarshalJSON() ([]byte, error) {
@@ -107,7 +107,7 @@ func (t Convertable) UnmarshalJSON(data []byte) error {
 }
 
 type PtrConvertable struct {
-	Value string
+	Value interface{}
 }
 
 func (t *PtrConvertable) MarshalJSON() ([]byte, error) {
@@ -126,7 +126,7 @@ func TestReflectCustomStringConversion(t *testing.T) {
 	cases := []struct {
 		name        string
 		convertable interface{}
-		expected    string
+		expected    interface{}
 	}{
 		{
 			name:        "marshalable-struct",
@@ -148,14 +148,16 @@ func TestReflectCustomStringConversion(t *testing.T) {
 			convertable: dateTime,
 			expected:    "2006-01-02T15:04:05+07:00",
 		},
+		{
+			name:        "nil-marshalable-struct",
+			convertable: Convertable{Value: nil},
+			expected:    nil,
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			rv := MustReflect(tc.convertable)
-			if !rv.IsString() {
-				t.Fatalf("expected IsString to be true, but kind is: %T", rv.Unstructured())
-			}
-			if rv.AsString() != tc.expected {
+			if rv.Unstructured() != tc.expected {
 				t.Errorf("expected rv.String to be %v but got %s", tc.expected, rv.AsString())
 			}
 		})
@@ -563,7 +565,7 @@ func TestReflectList(t *testing.T) {
 			}
 
 			iter := m.Range()
-			iter.Recycle()
+			defer iter.Recycle()
 			iterateResult = make([]interface{}, l)
 			for iter.Next() {
 				i, val := iter.Item()

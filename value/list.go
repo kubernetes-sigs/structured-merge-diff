@@ -41,6 +41,20 @@ type ListRange interface {
 	Recycle()
 }
 
+var EmptyRange = &emptyRange{}
+
+type emptyRange struct{}
+
+func (_ *emptyRange) Next() bool {
+	return false
+}
+
+func (_ *emptyRange) Item() (index int, value Value) {
+	panic("Item called on empty ListRange")
+}
+
+func (_ *emptyRange) Recycle() {}
+
 // ListEquals compares two lists lexically.
 func ListEquals(lhs, rhs List) bool {
 	if lhs.Length() != rhs.Length() {

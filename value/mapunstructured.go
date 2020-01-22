@@ -49,8 +49,7 @@ func (m mapUnstructuredInterface) Iterate(fn func(key string, value Value) bool)
 		if ks, ok := k.(string); !ok {
 			continue
 		} else {
-			vv.Value = v
-			if !fn(ks, vv) {
+			if !fn(ks, vv.reuse(v)) {
 				return false
 			}
 		}
@@ -63,31 +62,23 @@ func (m mapUnstructuredInterface) Length() int {
 }
 
 func (m mapUnstructuredInterface) Equals(other Map) bool {
-	if m.Length() != other.Length() {
+	lhsLength := m.Length()
+	rhsLength := other.Length()
+	if lhsLength != rhsLength {
 		return false
 	}
-	if len(m) == 0 {
+	if lhsLength == 0 {
 		return true
 	}
 	vv := viPool.Get().(*valueUnstructured)
 	defer vv.Recycle()
-	for k, v := range m {
-		ks, ok := k.(string)
+	return other.Iterate(func(key string, value Value) bool {
+		lhsVal, ok := m[key]
 		if !ok {
 			return false
 		}
-		vo, ok := other.Get(ks)
-		if !ok {
-			return false
-		}
-		vv.Value = v
-		if !Equals(vv, vo) {
-			vo.Recycle()
-			return false
-		}
-		vo.Recycle()
-	}
-	return true
+		return Equals(vv.reuse(lhsVal), value)
+	})
 }
 
 type mapUnstructuredString map[string]interface{}
@@ -120,8 +111,7 @@ func (m mapUnstructuredString) Iterate(fn func(key string, value Value) bool) bo
 	vv := viPool.Get().(*valueUnstructured)
 	defer vv.Recycle()
 	for k, v := range m {
-		vv.Value = v
-		if !fn(k, vv) {
+		if !fn(k, vv.reuse(v)) {
 			return false
 		}
 	}
@@ -133,25 +123,21 @@ func (m mapUnstructuredString) Length() int {
 }
 
 func (m mapUnstructuredString) Equals(other Map) bool {
-	if m.Length() != other.Length() {
+	lhsLength := m.Length()
+	rhsLength := other.Length()
+	if lhsLength != rhsLength {
 		return false
 	}
-	if len(m) == 0 {
+	if lhsLength == 0 {
 		return true
 	}
 	vv := viPool.Get().(*valueUnstructured)
 	defer vv.Recycle()
-	for k, v := range m {
-		vo, ok := other.Get(k)
+	return other.Iterate(func(key string, value Value) bool {
+		lhsVal, ok := m[key]
 		if !ok {
 			return false
 		}
-		vv.Value = v
-		if !Equals(vv, vo) {
-			vo.Recycle()
-			return false
-		}
-		vo.Recycle()
-	}
-	return true
+		return Equals(vv.reuse(lhsVal), value)
+	})
 }

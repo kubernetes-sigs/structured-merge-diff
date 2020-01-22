@@ -52,7 +52,7 @@ func wrapValueReflect(parentMap, parentMapKey *reflect.Value, value reflect.Valu
 	// TODO: conversion of json.Marshaller interface types is expensive. This can be mostly optimized away by
 	// introducing conversion functions that do not require going through JSON and using those here.
 	if marshaler, ok := getMarshaler(value); ok {
-		vv := viPool.Get().(*valueUnstructured)
+		vv := reflectPool.Get().(*valueReflect)
 		return toUnstructured(vv, marshaler, value)
 	}
 	value = dereference(value)
@@ -77,6 +77,21 @@ func mustWrapValueReflectMapItem(parentMap, parentMapKey *reflect.Value, value r
 		panic(err)
 	}
 	return v
+}
+
+// reuse replaces the value of the valueReflect.
+func (vi *valueReflect) reuse(value reflect.Value) Value {
+	if marshaler, ok := getMarshaler(value); ok {
+		marshaled, err := toUnstructured(vi, marshaler, value)
+		if err != nil {
+			panic(err)
+		}
+		return marshaled
+	}
+	vi.Value = dereference(value)
+	vi.ParentMap = nil
+	vi.ParentMapKey = nil
+	return vi
 }
 
 func dereference(val reflect.Value) reflect.Value {
@@ -260,7 +275,9 @@ var (
 	falseBytes = []byte("false")
 )
 
-func toUnstructured(into *valueUnstructured, marshaler json.Marshaler, sv reflect.Value) (Value, error) {
+var nilType = reflect.TypeOf(&struct{}{})
+
+func toUnstructured(into *valueReflect, marshaler json.Marshaler, sv reflect.Value) (Value, error) {
 	data, err := marshaler.MarshalJSON()
 	if err != nil {
 		return nil, err
@@ -270,14 +287,13 @@ func toUnstructured(into *valueUnstructured, marshaler json.Marshaler, sv reflec
 		return nil, fmt.Errorf("error decoding from json: empty value")
 
 	case bytes.Equal(data, nullBytes):
-		// We're done - we don't need to store anything.
-		into.Value = nil
+		into.Value = reflect.Zero(nilType)
 
 	case bytes.Equal(data, trueBytes):
-		into.Value = true
+		into.Value = reflect.ValueOf(true)
 
 	case bytes.Equal(data, falseBytes):
-		into.Value = false
+		into.Value = reflect.ValueOf(false)
 
 	case data[0] == '"':
 		var result string
@@ -285,7 +301,7 @@ func toUnstructured(into *valueUnstructured, marshaler json.Marshaler, sv reflec
 		if err != nil {
 			return nil, fmt.Errorf("error decoding string from json: %v", err)
 		}
-		into.Value = result
+		into.Value = reflect.ValueOf(result)
 
 	case data[0] == '{':
 		result := make(map[string]interface{})
@@ -293,7 +309,7 @@ func toUnstructured(into *valueUnstructured, marshaler json.Marshaler, sv reflec
 		if err != nil {
 			return nil, fmt.Errorf("error decoding object from json: %v", err)
 		}
-		into.Value = result
+		into.Value = reflect.ValueOf(result)
 
 	case data[0] == '[':
 		result := make([]interface{}, 0)
@@ -301,7 +317,7 @@ func toUnstructured(into *valueUnstructured, marshaler json.Marshaler, sv reflec
 		if err != nil {
 			return nil, fmt.Errorf("error decoding array from json: %v", err)
 		}
-		into.Value = result
+		into.Value = reflect.ValueOf(result)
 
 	default:
 		var (
@@ -310,74 +326,14 @@ func toUnstructured(into *valueUnstructured, marshaler json.Marshaler, sv reflec
 			err         error
 		)
 		if err = json.Unmarshal(data, &resultInt); err == nil {
-			into.Value = resultInt
+			into.Value = reflect.ValueOf(resultInt)
 			return into, nil
 		}
 		if err = json.Unmarshal(data, &resultFloat); err == nil {
-			into.Value = resultFloat
+			into.Value = reflect.ValueOf(resultFloat)
 			return into, nil
 		}
 		return nil, fmt.Errorf("error decoding number from json: %v", err)
 	}
 	return into, nil
-}
-
-// tempValuePooler manages sync.Pool usage for reflect iterators that need either a temporary valueReflect or a
-// valueUnstructured for each iterator callback invocation. Directly reusing value objects for each iterator callback
-// invocation is much more efficient than using getting and putting objects to a sync.Pool.
-type tempValuePooler struct {
-	vr *valueReflect
-	vu *valueUnstructured
-}
-
-func newTempValuePooler() *tempValuePooler {
-	return &tempValuePooler{}
-}
-
-func (ir *tempValuePooler) pooledValueReflect() *valueReflect {
-	if ir.vr == nil {
-		ir.vr = reflectPool.Get().(*valueReflect)
-	}
-	return ir.vr
-}
-
-func (ir *tempValuePooler) pooledValueInterface() *valueUnstructured {
-	if ir.vu == nil {
-		ir.vu = viPool.Get().(*valueUnstructured)
-	}
-	return ir.vu
-}
-
-// Recycle calls Recycle on all underlying pooled value objects.
-func (ir *tempValuePooler) Recycle() {
-	if ir.vr != nil {
-		ir.vr.Recycle()
-	}
-	if ir.vu != nil {
-		ir.vu.Recycle()
-	}
-}
-
-// NewValueReflect returns a Value wrapping the given reflect.Value. The returned Value is valid only temporarily.
-// The returned Value becomes invalid on the next NewValueReflect call.
-func (ir *tempValuePooler) NewValueReflect(value reflect.Value) Value {
-	if marshaler, ok := getMarshaler(value); ok {
-		vi := ir.pooledValueInterface()
-		marshaled, err := toUnstructured(vi, marshaler, value)
-		if err != nil {
-			panic(err)
-		}
-		return marshaled
-	}
-	vr := ir.pooledValueReflect()
-	vr.Value = dereference(value)
-	return vr
-}
-
-// NewValueInterface returns a Value wrapping the given interface{}.  The returned Value is valid only temporarily.
-// // The returned Value becomes invalid on the next NewValueInterface call.
-func (ir *tempValuePooler) NewValueInterface(value interface{}) Value {
-	vi := ir.pooledValueInterface()
-	vi.Value = value
-	return vi
 }

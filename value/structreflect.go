@@ -198,10 +198,10 @@ func (r structReflect) update(fieldEntry *fieldCacheEntry, key string, oldVal, n
 }
 
 func (r structReflect) Iterate(fn func(string, Value) bool) bool {
-	vp := newTempValuePooler()
-	defer vp.Recycle()
+	vr := reflectPool.Get().(*valueReflect)
+	defer vr.Recycle()
 	return eachStructField(r.Value, func(s string, value reflect.Value) bool {
-		return fn(s, vp.NewValueReflect(value))
+		return fn(s, vr.reuse(value))
 	})
 }
 
@@ -234,20 +234,25 @@ func (r structReflect) Equals(m Map) bool {
 	if rhsStruct, ok := m.(structReflect); ok {
 		return reflect.DeepEqual(r.Value.Interface(), rhsStruct.Value.Interface())
 	}
-	if r.Length() != m.Length() {
+	length := r.Length()
+	if length != m.Length() {
 		return false
 	}
-	structCacheEntry := getStructCacheEntry(r.Value.Type())
 
-	vp := newTempValuePooler()
-	defer vp.Recycle()
+	if length == 0 {
+		return true
+	}
+
+	structCacheEntry := getStructCacheEntry(r.Value.Type())
+	vr := reflectPool.Get().(*valueReflect)
+	defer vr.Recycle()
 	return m.Iterate(func(s string, value Value) bool {
 		fieldCacheEntry, ok := structCacheEntry[s]
 		if !ok {
 			return false
 		}
 		lhsVal := fieldCacheEntry.getFieldFromStruct(r.Value)
-		return Equals(vp.NewValueReflect(lhsVal), value)
+		return Equals(vr.reuse(lhsVal), value)
 	})
 }
 
