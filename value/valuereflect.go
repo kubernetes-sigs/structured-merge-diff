@@ -52,7 +52,8 @@ func wrapValueReflect(parentMap, parentMapKey *reflect.Value, value reflect.Valu
 	// TODO: conversion of json.Marshaller interface types is expensive. This can be mostly optimized away by
 	// introducing conversion functions that do not require going through JSON and using those here.
 	if marshaler, ok := getMarshaler(value); ok {
-		return toUnstructured(marshaler, value)
+		vv := reflectPool.Get().(*valueReflect)
+		return toUnstructured(vv, marshaler, value)
 	}
 	value = dereference(value)
 	val := reflectPool.Get().(*valueReflect)
@@ -76,6 +77,21 @@ func mustWrapValueReflectMapItem(parentMap, parentMapKey *reflect.Value, value r
 		panic(err)
 	}
 	return v
+}
+
+// reuse replaces the value of the valueReflect.
+func (vi *valueReflect) reuse(value reflect.Value) Value {
+	if marshaler, ok := getMarshaler(value); ok {
+		marshaled, err := toUnstructured(vi, marshaler, value)
+		if err != nil {
+			panic(err)
+		}
+		return marshaled
+	}
+	vi.Value = dereference(value)
+	vi.ParentMap = nil
+	vi.ParentMapKey = nil
+	return vi
 }
 
 func dereference(val reflect.Value) reflect.Value {
@@ -259,7 +275,9 @@ var (
 	falseBytes = []byte("false")
 )
 
-func toUnstructured(marshaler json.Marshaler, sv reflect.Value) (Value, error) {
+var nilType = reflect.TypeOf(&struct{}{})
+
+func toUnstructured(into *valueReflect, marshaler json.Marshaler, sv reflect.Value) (Value, error) {
 	data, err := marshaler.MarshalJSON()
 	if err != nil {
 		return nil, err
@@ -269,14 +287,13 @@ func toUnstructured(marshaler json.Marshaler, sv reflect.Value) (Value, error) {
 		return nil, fmt.Errorf("error decoding from json: empty value")
 
 	case bytes.Equal(data, nullBytes):
-		// We're done - we don't need to store anything.
-		return NewValueInterface(nil), nil
+		into.Value = reflect.Zero(nilType)
 
 	case bytes.Equal(data, trueBytes):
-		return NewValueInterface(true), nil
+		into.Value = reflect.ValueOf(true)
 
 	case bytes.Equal(data, falseBytes):
-		return NewValueInterface(false), nil
+		into.Value = reflect.ValueOf(false)
 
 	case data[0] == '"':
 		var result string
@@ -284,7 +301,7 @@ func toUnstructured(marshaler json.Marshaler, sv reflect.Value) (Value, error) {
 		if err != nil {
 			return nil, fmt.Errorf("error decoding string from json: %v", err)
 		}
-		return NewValueInterface(result), nil
+		into.Value = reflect.ValueOf(result)
 
 	case data[0] == '{':
 		result := make(map[string]interface{})
@@ -292,7 +309,7 @@ func toUnstructured(marshaler json.Marshaler, sv reflect.Value) (Value, error) {
 		if err != nil {
 			return nil, fmt.Errorf("error decoding object from json: %v", err)
 		}
-		return NewValueInterface(result), nil
+		into.Value = reflect.ValueOf(result)
 
 	case data[0] == '[':
 		result := make([]interface{}, 0)
@@ -300,7 +317,7 @@ func toUnstructured(marshaler json.Marshaler, sv reflect.Value) (Value, error) {
 		if err != nil {
 			return nil, fmt.Errorf("error decoding array from json: %v", err)
 		}
-		return NewValueInterface(result), nil
+		into.Value = reflect.ValueOf(result)
 
 	default:
 		var (
@@ -309,11 +326,14 @@ func toUnstructured(marshaler json.Marshaler, sv reflect.Value) (Value, error) {
 			err         error
 		)
 		if err = json.Unmarshal(data, &resultInt); err == nil {
-			return NewValueInterface(resultInt), nil
+			into.Value = reflect.ValueOf(resultInt)
+			return into, nil
 		}
 		if err = json.Unmarshal(data, &resultFloat); err == nil {
-			return NewValueInterface(resultFloat), nil
+			into.Value = reflect.ValueOf(resultFloat)
+			return into, nil
 		}
 		return nil, fmt.Errorf("error decoding number from json: %v", err)
 	}
+	return into, nil
 }

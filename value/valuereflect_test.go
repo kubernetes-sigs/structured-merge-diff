@@ -95,7 +95,7 @@ func TestReflectPrimitives(t *testing.T) {
 }
 
 type Convertable struct {
-	Value string
+	Value interface{}
 }
 
 func (t Convertable) MarshalJSON() ([]byte, error) {
@@ -107,7 +107,7 @@ func (t Convertable) UnmarshalJSON(data []byte) error {
 }
 
 type PtrConvertable struct {
-	Value string
+	Value interface{}
 }
 
 func (t *PtrConvertable) MarshalJSON() ([]byte, error) {
@@ -126,7 +126,7 @@ func TestReflectCustomStringConversion(t *testing.T) {
 	cases := []struct {
 		name        string
 		convertable interface{}
-		expected    string
+		expected    interface{}
 	}{
 		{
 			name:        "marshalable-struct",
@@ -148,14 +148,16 @@ func TestReflectCustomStringConversion(t *testing.T) {
 			convertable: dateTime,
 			expected:    "2006-01-02T15:04:05+07:00",
 		},
+		{
+			name:        "nil-marshalable-struct",
+			convertable: Convertable{Value: nil},
+			expected:    nil,
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			rv := MustReflect(tc.convertable)
-			if !rv.IsString() {
-				t.Fatalf("expected IsString to be true, but kind is: %T", rv.Unstructured())
-			}
-			if rv.AsString() != tc.expected {
+			if rv.Unstructured() != tc.expected {
 				t.Errorf("expected rv.String to be %v but got %s", tc.expected, rv.AsString())
 			}
 		})
@@ -552,6 +554,7 @@ func TestReflectList(t *testing.T) {
 			if m.Length() != tc.length {
 				t.Errorf("expected list to be of length %d but got %d", tc.length, m.Length())
 			}
+
 			l := m.Length()
 			iterateResult := make([]interface{}, l)
 			for i := 0; i < l; i++ {
@@ -560,6 +563,18 @@ func TestReflectList(t *testing.T) {
 			if !reflect.DeepEqual(iterateResult, tc.expectedIterate) {
 				t.Errorf("expected iterate to produce %#v but got %#v", tc.expectedIterate, iterateResult)
 			}
+
+			iter := m.Range()
+			defer iter.Recycle()
+			iterateResult = make([]interface{}, l)
+			for iter.Next() {
+				i, val := iter.Item()
+				iterateResult[i] = val.AsString()
+			}
+			if !reflect.DeepEqual(iterateResult, tc.expectedIterate) {
+				t.Errorf("expected iterate to produce %#v but got %#v", tc.expectedIterate, iterateResult)
+			}
+
 			unstructured := rv.Unstructured()
 			if !reflect.DeepEqual(unstructured, tc.expectedUnstructured) {
 				t.Errorf("expected iterate to produce %#v but got %#v", tc.expectedUnstructured, unstructured)

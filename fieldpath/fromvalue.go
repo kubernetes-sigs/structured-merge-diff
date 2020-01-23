@@ -55,11 +55,13 @@ func (w *objectWalker) walk() {
 	case w.value.IsList():
 		// If the list were atomic, we'd break here, but we don't have
 		// a schema, so we can't tell.
-		list := w.value.AsList()
-		for i := 0; i < list.Length(); i++ {
+		iter := w.value.AsList().Range()
+		defer iter.Recycle()
+		for iter.Next() {
+			i, value := iter.Item()
 			w2 := *w
-			w2.path = append(w.path, GuessBestListPathElement(i, list.At(i)))
-			w2.value = list.At(i)
+			w2.path = append(w.path, GuessBestListPathElement(i, value))
+			w2.value = value
 			w2.walk()
 		}
 		return

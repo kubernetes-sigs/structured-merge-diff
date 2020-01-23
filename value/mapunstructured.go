@@ -40,16 +40,18 @@ func (m mapUnstructuredInterface) Delete(key string) {
 }
 
 func (m mapUnstructuredInterface) Iterate(fn func(key string, value Value) bool) bool {
+	if len(m) == 0 {
+		return true
+	}
+	vv := viPool.Get().(*valueUnstructured)
+	defer vv.Recycle()
 	for k, v := range m {
 		if ks, ok := k.(string); !ok {
 			continue
 		} else {
-			vv := NewValueInterface(v)
-			if !fn(ks, vv) {
-				vv.Recycle()
+			if !fn(ks, vv.reuse(v)) {
 				return false
 			}
-			vv.Recycle()
 		}
 	}
 	return true
@@ -60,28 +62,23 @@ func (m mapUnstructuredInterface) Length() int {
 }
 
 func (m mapUnstructuredInterface) Equals(other Map) bool {
-	if m.Length() != other.Length() {
+	lhsLength := m.Length()
+	rhsLength := other.Length()
+	if lhsLength != rhsLength {
 		return false
 	}
-	for k, v := range m {
-		ks, ok := k.(string)
-		if !ok {
-			return false
-		}
-		vo, ok := other.Get(ks)
-		if !ok {
-			return false
-		}
-		vv := NewValueInterface(v)
-		if !Equals(vv, vo) {
-			vv.Recycle()
-			vo.Recycle()
-			return false
-		}
-		vo.Recycle()
-		vv.Recycle()
+	if lhsLength == 0 {
+		return true
 	}
-	return true
+	vv := viPool.Get().(*valueUnstructured)
+	defer vv.Recycle()
+	return other.Iterate(func(key string, value Value) bool {
+		lhsVal, ok := m[key]
+		if !ok {
+			return false
+		}
+		return Equals(vv.reuse(lhsVal), value)
+	})
 }
 
 type mapUnstructuredString map[string]interface{}
@@ -108,13 +105,15 @@ func (m mapUnstructuredString) Delete(key string) {
 }
 
 func (m mapUnstructuredString) Iterate(fn func(key string, value Value) bool) bool {
+	if len(m) == 0 {
+		return true
+	}
+	vv := viPool.Get().(*valueUnstructured)
+	defer vv.Recycle()
 	for k, v := range m {
-		vv := NewValueInterface(v)
-		if !fn(k, vv) {
-			vv.Recycle()
+		if !fn(k, vv.reuse(v)) {
 			return false
 		}
-		vv.Recycle()
 	}
 	return true
 }
@@ -124,22 +123,21 @@ func (m mapUnstructuredString) Length() int {
 }
 
 func (m mapUnstructuredString) Equals(other Map) bool {
-	if m.Length() != other.Length() {
+	lhsLength := m.Length()
+	rhsLength := other.Length()
+	if lhsLength != rhsLength {
 		return false
 	}
-	for k, v := range m {
-		vo, ok := other.Get(k)
+	if lhsLength == 0 {
+		return true
+	}
+	vv := viPool.Get().(*valueUnstructured)
+	defer vv.Recycle()
+	return other.Iterate(func(key string, value Value) bool {
+		lhsVal, ok := m[key]
 		if !ok {
 			return false
 		}
-		vv := NewValueInterface(v)
-		if !Equals(vv, vo) {
-			vo.Recycle()
-			vv.Recycle()
-			return false
-		}
-		vo.Recycle()
-		vv.Recycle()
-	}
-	return true
+		return Equals(vv.reuse(lhsVal), value)
+	})
 }

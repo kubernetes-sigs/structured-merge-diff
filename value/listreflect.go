@@ -16,7 +16,10 @@ limitations under the License.
 
 package value
 
-import "reflect"
+import (
+	"reflect"
+	"sync"
+)
 
 type listReflect struct {
 	Value reflect.Value
@@ -39,4 +42,46 @@ func (r listReflect) Unstructured() interface{} {
 		result[i] = r.At(i).Unstructured()
 	}
 	return result
+}
+
+var lrrPool = sync.Pool{
+	New: func() interface{} {
+		return &listReflectRange{vr: &valueReflect{}}
+	},
+}
+
+func (r listReflect) Range() ListRange {
+	length := r.Value.Len()
+	if length == 0 {
+		return EmptyRange
+	}
+	rr := lrrPool.Get().(*listReflectRange)
+	rr.list = r.Value
+	rr.i = -1
+	return rr
+}
+
+type listReflectRange struct {
+	list reflect.Value
+	vr   *valueReflect
+	i    int
+}
+
+func (r *listReflectRange) Next() bool {
+	r.i += 1
+	return r.i < r.list.Len()
+}
+
+func (r *listReflectRange) Item() (index int, value Value) {
+	if r.i < 0 {
+		panic("Item() called before first calling Next()")
+	}
+	if r.i >= r.list.Len() {
+		panic("Item() called on ListRange with no more items")
+	}
+	return r.i, r.vr.reuse(r.list.Index(r.i))
+}
+
+func (r *listReflectRange) Recycle() {
+	lrrPool.Put(r)
 }

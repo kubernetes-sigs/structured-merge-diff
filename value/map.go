@@ -81,11 +81,16 @@ func MapCompare(lhs, rhs Map) int {
 		}
 		litem, _ := lhs.Get(lorder[i])
 		ritem, _ := rhs.Get(rorder[i])
-		if c := Compare(litem, ritem); c != 0 {
+		c := Compare(litem, ritem)
+		if litem != nil {
+			litem.Recycle()
+		}
+		if ritem != nil {
+			ritem.Recycle()
+		}
+		if c != 0 {
 			return c
 		}
-		litem.Recycle()
-		ritem.Recycle()
 		// The items are equal; continue.
 		i++
 	}
@@ -94,6 +99,7 @@ func MapCompare(lhs, rhs Map) int {
 // MapEquals returns true if lhs == rhs, false otherwise. This function
 // acts on generic types and should not be used by callers, but can help
 // implement Map.Equals.
+// WARN: This is a naive implementation, calling lhs.Equals(rhs) is typically far more efficient.
 func MapEquals(lhs, rhs Map) bool {
 	if lhs.Length() != rhs.Length() {
 		return false
@@ -103,11 +109,8 @@ func MapEquals(lhs, rhs Map) bool {
 		if !ok {
 			return false
 		}
-		if !Equals(v, vo) {
-			vo.Recycle()
-			return false
-		}
+		equal := Equals(v, vo)
 		vo.Recycle()
-		return true
+		return equal
 	})
 }

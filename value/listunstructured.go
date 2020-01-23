@@ -16,6 +16,8 @@ limitations under the License.
 
 package value
 
+import "sync"
+
 type listUnstructured []interface{}
 
 func (l listUnstructured) Length() int {
@@ -24,4 +26,45 @@ func (l listUnstructured) Length() int {
 
 func (l listUnstructured) At(i int) Value {
 	return NewValueInterface(l[i])
+}
+
+var lurPool = sync.Pool{
+	New: func() interface{} {
+		return &listUnstructuredRange{vv: &valueUnstructured{}}
+	},
+}
+
+func (l listUnstructured) Range() ListRange {
+	if len(l) == 0 {
+		return EmptyRange
+	}
+	r := lurPool.Get().(*listUnstructuredRange)
+	r.list = l
+	r.i = -1
+	return r
+}
+
+type listUnstructuredRange struct {
+	list listUnstructured
+	vv   *valueUnstructured
+	i    int
+}
+
+func (r *listUnstructuredRange) Next() bool {
+	r.i += 1
+	return r.i < len(r.list)
+}
+
+func (r *listUnstructuredRange) Item() (index int, value Value) {
+	if r.i < 0 {
+		panic("Item() called before first calling Next()")
+	}
+	if r.i >= len(r.list) {
+		panic("Item() called on ListRange with no more items")
+	}
+	return r.i, r.vv.reuse(r.list[r.i])
+}
+
+func (r *listUnstructuredRange) Recycle() {
+	lurPool.Put(r)
 }

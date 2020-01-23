@@ -50,8 +50,10 @@ func (w *removingWalker) doList(t *schema.List) (errs ValidationErrors) {
 	}
 
 	var newItems []interface{}
-	for i := 0; i < l.Length(); i++ {
-		item := l.At(i)
+	iter := l.Range()
+	defer iter.Recycle()
+	for iter.Next() {
+		i, item := iter.Item()
 		// Ignore error because we have already validated this list
 		pe, _ := listItemToPathElement(t, i, item)
 		path, _ := fieldpath.MakePath(pe)
