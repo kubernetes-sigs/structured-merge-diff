@@ -27,7 +27,7 @@ type structReflect struct {
 
 func (r structReflect) Length() int {
 	i := 0
-	eachStructField(r.Value, func(s string, value reflect.Value) bool {
+	eachStructField(r.Value, func(_ *TypeReflectCacheEntry, s string, value reflect.Value) bool {
 		i++
 		return true
 	})
@@ -94,19 +94,19 @@ func (r structReflect) update(fieldEntry *FieldCacheEntry, key string, oldVal, n
 func (r structReflect) Iterate(fn func(string, Value) bool) bool {
 	vr := reflectPool.Get().(*valueReflect)
 	defer vr.Recycle()
-	return eachStructField(r.Value, func(s string, value reflect.Value) bool {
-		return fn(s, vr.mustReuse(value, nil, nil))
+	return eachStructField(r.Value, func(e *TypeReflectCacheEntry, s string, value reflect.Value) bool {
+		return fn(s, vr.mustReuse(value, e, nil, nil))
 	})
 }
 
-func eachStructField(structVal reflect.Value, fn func(string, reflect.Value) bool) bool {
+func eachStructField(structVal reflect.Value, fn func(*TypeReflectCacheEntry, string, reflect.Value) bool) bool {
 	for jsonName, fieldCacheEntry := range TypeReflectEntryOf(structVal.Type()).Fields() {
 		fieldVal := fieldCacheEntry.GetFrom(structVal)
 		if fieldCacheEntry.isOmitEmpty && (safeIsNil(fieldVal) || isZero(fieldVal)) {
 			// omit it
 			continue
 		}
-		ok := fn(jsonName, fieldVal)
+		ok := fn(fieldCacheEntry.TypeEntry, jsonName, fieldVal)
 		if !ok {
 			return false
 		}
@@ -146,7 +146,7 @@ func (r structReflect) Equals(m Map) bool {
 			return false
 		}
 		lhsVal := fieldCacheEntry.GetFrom(r.Value)
-		return Equals(vr.mustReuse(lhsVal, nil, nil), value)
+		return Equals(vr.mustReuse(lhsVal, nil, nil, nil), value)
 	})
 }
 

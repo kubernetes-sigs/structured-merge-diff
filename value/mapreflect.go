@@ -68,21 +68,29 @@ func (r mapReflect) toMapKey(key string) reflect.Value {
 }
 
 func (r mapReflect) Iterate(fn func(string, Value) bool) bool {
+	if r.Value.Len() == 0 {
+		return true
+	}
 	vr := reflectPool.Get().(*valueReflect)
 	defer vr.Recycle()
-	return eachMapEntry(r.Value, func(key reflect.Value, value reflect.Value) bool {
-		return fn(key.String(), vr.mustReuse(value, &r.Value, &key))
+	return eachMapEntry(r.Value, func(e *TypeReflectCacheEntry, key reflect.Value, value reflect.Value) bool {
+		// TODO: Track cache entry
+		return fn(key.String(), vr.mustReuse(value, nil, &r.Value, &key))
 	})
 }
 
-func eachMapEntry(val reflect.Value, fn func(reflect.Value, reflect.Value) bool) bool {
+func eachMapEntry(val reflect.Value, fn func(*TypeReflectCacheEntry, reflect.Value, reflect.Value) bool) bool {
 	iter := val.MapRange()
+	var entry *TypeReflectCacheEntry
 	for iter.Next() {
 		next := iter.Value()
 		if !next.IsValid() {
 			continue
 		}
-		if !fn(iter.Key(), next) {
+		if entry == nil {
+			entry = TypeReflectEntryOf(next.Type())
+		}
+		if !fn(entry, iter.Key(), next) {
 			return false
 		}
 	}
@@ -114,6 +122,7 @@ func (r mapReflect) Equals(m Map) bool {
 		if !ok {
 			return false
 		}
-		return Equals(vr.mustReuse(lhsVal, nil, nil), value)
+		// TODO: Track cache entry
+		return Equals(vr.mustReuse(lhsVal, nil, nil, nil), value)
 	})
 }

@@ -58,13 +58,15 @@ func (r listReflect) Range() ListRange {
 	rr := lrrPool.Get().(*listReflectRange)
 	rr.list = r.Value
 	rr.i = -1
+	rr.entry = nil
 	return rr
 }
 
 type listReflectRange struct {
-	list reflect.Value
-	vr   *valueReflect
-	i    int
+	list  reflect.Value
+	vr    *valueReflect
+	i     int
+	entry *TypeReflectCacheEntry
 }
 
 func (r *listReflectRange) Next() bool {
@@ -79,7 +81,11 @@ func (r *listReflectRange) Item() (index int, value Value) {
 	if r.i >= r.list.Len() {
 		panic("Item() called on ListRange with no more items")
 	}
-	return r.i, r.vr.mustReuse(r.list.Index(r.i), nil, nil)
+	v := r.list.Index(r.i)
+	if r.entry == nil {
+		r.entry = TypeReflectEntryOf(v.Type())
+	}
+	return r.i, r.vr.mustReuse(v, r.entry, nil, nil)
 }
 
 func (r *listReflectRange) Recycle() {

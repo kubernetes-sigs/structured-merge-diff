@@ -57,6 +57,9 @@ type FieldCacheEntry struct {
 	// a field in a reflect.Value struct. The field indices in the list form a path used
 	// to traverse through intermediary 'inline' fields.
 	fieldPath [][]int
+
+	fieldType reflect.Type
+	TypeEntry *TypeReflectCacheEntry
 }
 
 // GetFrom returns the field identified by this FieldCacheEntry from the provided struct.
@@ -74,11 +77,29 @@ var unstructuredConvertableType = reflect.TypeOf(new(UnstructuredConverter)).Ele
 var defaultReflectCache = newReflectCache()
 
 // TypeReflectEntryOf returns the TypeReflectCacheEntry of the provided reflect.Type.
-func TypeReflectEntryOf(t reflect.Type) TypeReflectCacheEntry {
-	if record, ok := defaultReflectCache.get(t); ok {
+func TypeReflectEntryOf(t reflect.Type) *TypeReflectCacheEntry {
+	cm := defaultReflectCache.get()
+	if record, ok := cm[t]; ok {
 		return record
 	}
-	record := TypeReflectCacheEntry{
+	updates := reflectCacheMap{}
+	result := typeReflectEntryOf(cm, t, updates)
+	if len(updates) > 0 {
+		defaultReflectCache.update(updates)
+	}
+	return result
+}
+
+// TypeReflectEntryOf returns all updates needed to add provided reflect.Type, and the types its fields transitively
+// depend on, to the cache.
+func typeReflectEntryOf(cm reflectCacheMap, t reflect.Type, updates reflectCacheMap) *TypeReflectCacheEntry {
+	if record, ok := cm[t]; ok {
+		return record
+	}
+	if record, ok := updates[t]; ok {
+		return record
+	}
+	typeEntry := &TypeReflectCacheEntry{
 		isJsonMarshaler:        t.Implements(marshalerType),
 		ptrIsJsonMarshaler:     reflect.PtrTo(t).Implements(marshalerType),
 		isJsonUnmarshaler:      reflect.PtrTo(t).Implements(unmarshalerType),
@@ -86,13 +107,21 @@ func TypeReflectEntryOf(t reflect.Type) TypeReflectCacheEntry {
 		ptrIsStringConvertable: reflect.PtrTo(t).Implements(unstructuredConvertableType),
 	}
 	if t.Kind() == reflect.Struct {
-		hints := map[string]*FieldCacheEntry{}
-		buildStructCacheEntry(t, hints, nil)
-		record.structFields = hints
+		fieldEntries := map[string]*FieldCacheEntry{}
+		buildStructCacheEntry(t, fieldEntries, nil)
+		typeEntry.structFields = fieldEntries
 	}
 
-	defaultReflectCache.update(t, record)
-	return record
+	// cyclic type references are allowed, so we must add the typeEntry to the updates map before resolving
+	// the field.typeEntry references, or creating them if they are not already in the cache
+	updates[t] = typeEntry
+
+	for _, field := range typeEntry.structFields {
+		if field.TypeEntry == nil {
+			field.TypeEntry = typeReflectEntryOf(cm, field.fieldType, updates)
+		}
+	}
+	return typeEntry
 }
 
 func buildStructCacheEntry(t reflect.Type, infos map[string]*FieldCacheEntry, fieldPath [][]int) {
@@ -106,7 +135,7 @@ func buildStructCacheEntry(t reflect.Type, infos map[string]*FieldCacheEntry, fi
 			buildStructCacheEntry(field.Type, infos, append(fieldPath, field.Index))
 			continue
 		}
-		info := &FieldCacheEntry{isOmitEmpty: isOmitempty, fieldPath: append(fieldPath, field.Index)}
+		info := &FieldCacheEntry{isOmitEmpty: isOmitempty, fieldPath: append(fieldPath, field.Index), fieldType: t}
 		infos[jsonName] = info
 	}
 }
@@ -275,22 +304,29 @@ func newReflectCache() *typeReflectCache {
 	return cache
 }
 
-type reflectCacheMap map[reflect.Type]TypeReflectCacheEntry
+type reflectCacheMap map[reflect.Type]*TypeReflectCacheEntry
 
-// get returns true and TypeReflectCacheEntry for the given type if the type is in the cache. Otherwise get returns false.
-func (c *typeReflectCache) get(t reflect.Type) (TypeReflectCacheEntry, bool) {
-	entry, ok := c.value.Load().(reflectCacheMap)[t]
-	return entry, ok
+// get returns the reflectCacheMap.
+func (c *typeReflectCache) get() reflectCacheMap {
+	return c.value.Load().(reflectCacheMap)
 }
 
-// update sets the TypeReflectCacheEntry for the given type via a copy-on-write update to the struct cache.
-func (c *typeReflectCache) update(t reflect.Type, m TypeReflectCacheEntry) {
+// update merges the provided updates into the cache.
+func (c *typeReflectCache) update(updates reflectCacheMap) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	currentCacheMap := c.value.Load().(reflectCacheMap)
-	if _, ok := currentCacheMap[t]; ok {
-		// Bail if the entry has been set while waiting for lock acquisition.
+
+	hasNewEntries := false
+	for t := range updates {
+		if _, ok := currentCacheMap[t]; !ok {
+			hasNewEntries = true
+			break
+		}
+	}
+	if !hasNewEntries {
+		// Bail if the updates have been set while waiting for lock acquisition.
 		// This is safe since setting entries is idempotent.
 		return
 	}
@@ -299,6 +335,8 @@ func (c *typeReflectCache) update(t reflect.Type, m TypeReflectCacheEntry) {
 	for k, v := range currentCacheMap {
 		newCacheMap[k] = v
 	}
-	newCacheMap[t] = m
+	for t, update := range updates {
+		newCacheMap[t] = update
+	}
 	c.value.Store(newCacheMap)
 }

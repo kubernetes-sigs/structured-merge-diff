@@ -50,7 +50,7 @@ func NewValueReflect(value interface{}) (Value, error) {
 // and parentMapKey must be provided so that the returned value may be set and deleted.
 func wrapValueReflect(value reflect.Value, parentMap, parentMapKey *reflect.Value) (Value, error) {
 	val := reflectPool.Get().(*valueReflect)
-	return val.reuse(value, parentMap, parentMapKey)
+	return val.reuse(value, nil, parentMap, parentMapKey)
 }
 
 // wrapValueReflect wraps the provide reflect.Value as a value, and panics if there is an error. If parent in the data
@@ -68,10 +68,12 @@ var nilType = reflect.TypeOf(&struct{}{})
 
 // reuse replaces the value of the valueReflect. If parent in the data tree is a map, parentMap and parentMapKey
 // must be provided so that the returned value may be set and deleted.
-func (r *valueReflect) reuse(value reflect.Value, parentMap, parentMapKey *reflect.Value) (Value, error) {
-	entry := TypeReflectEntryOf(value.Type())
-	if entry.CanConvertToUnstructured() {
-		u, err := entry.ToUnstructured(value)
+func (r *valueReflect) reuse(value reflect.Value, cacheEntry *TypeReflectCacheEntry, parentMap, parentMapKey *reflect.Value) (Value, error) {
+	if cacheEntry == nil {
+		cacheEntry = TypeReflectEntryOf(value.Type())
+	}
+	if cacheEntry.CanConvertToUnstructured() {
+		u, err := cacheEntry.ToUnstructured(value)
 		if err != nil {
 			return nil, err
 		}
@@ -85,13 +87,14 @@ func (r *valueReflect) reuse(value reflect.Value, parentMap, parentMapKey *refle
 	r.Value.Type()
 	r.ParentMap = parentMap
 	r.ParentMapKey = parentMapKey
+	r.kind = kind(r.Value)
 	return r, nil
 }
 
 // mustReuse replaces the value of the valueReflect and panics if there is an error. If parent in the data tree is a
 // map, parentMap and parentMapKey must be provided so that the returned value may be set and deleted.
-func (r *valueReflect) mustReuse(value reflect.Value, parentMap, parentMapKey *reflect.Value) Value {
-	v, err := r.reuse(value, parentMap, parentMapKey)
+func (r *valueReflect) mustReuse(value reflect.Value, cacheEntry *TypeReflectCacheEntry, parentMap, parentMapKey *reflect.Value) Value {
+	v, err := r.reuse(value, cacheEntry, parentMap, parentMapKey)
 	if err != nil {
 		panic(err)
 	}
@@ -110,53 +113,90 @@ type valueReflect struct {
 	ParentMap    *reflect.Value
 	ParentMapKey *reflect.Value
 	Value        reflect.Value
+	kind         reflectType
 }
 
 func (r valueReflect) IsMap() bool {
-	return r.isKind(reflect.Map, reflect.Struct)
+	return r.kind == mapType || r.kind == structMapType
 }
 
 func (r valueReflect) IsList() bool {
-	typ := r.Value.Type()
-	return typ.Kind() == reflect.Slice && !(typ.Elem().Kind() == reflect.Uint8)
+	return r.kind == listType
 }
 
 func (r valueReflect) IsBool() bool {
-	return r.isKind(reflect.Bool)
+	return r.kind == boolType
 }
 
 func (r valueReflect) IsInt() bool {
-	// Uint64 deliberately excluded, see valueUnstructured.Int.
-	return r.isKind(reflect.Int, reflect.Int64, reflect.Int32, reflect.Int16, reflect.Int8, reflect.Uint, reflect.Uint32, reflect.Uint16, reflect.Uint8)
+	return r.kind == intType || r.kind == uintType
 }
 
 func (r valueReflect) IsFloat() bool {
-	return r.isKind(reflect.Float64, reflect.Float32)
+	return r.kind == floatType
 }
 
 func (r valueReflect) IsString() bool {
-	kind := r.Value.Kind()
-	if kind == reflect.String {
-		return true
-	}
-	if kind == reflect.Slice && r.Value.Type().Elem().Kind() == reflect.Uint8 {
-		return true
-	}
-	return false
+	return r.kind == stringType
 }
 
 func (r valueReflect) IsNull() bool {
-	return safeIsNil(r.Value)
+	return r.kind == nullType
 }
 
-func (r valueReflect) isKind(kinds ...reflect.Kind) bool {
-	kind := r.Value.Kind()
-	for _, k := range kinds {
-		if kind == k {
-			return true
+type reflectType = int
+
+const (
+	mapType = iota
+	structMapType
+	listType
+	intType
+	uintType
+	floatType
+	stringType
+	boolType
+	nullType
+)
+
+func kind(v reflect.Value) reflectType {
+	typ := v.Type()
+	rk := typ.Kind()
+	switch rk {
+	case reflect.Map:
+		if v.IsNil() {
+			return nullType
 		}
+		return mapType
+	case reflect.Struct:
+		return structMapType
+	case reflect.Int, reflect.Int64, reflect.Int32, reflect.Int16, reflect.Int8:
+		return intType
+	case reflect.Uint, reflect.Uint32, reflect.Uint16, reflect.Uint8:
+		// Uint64 deliberately excluded, see valueUnstructured.Int.
+		return uintType
+	case reflect.Float64, reflect.Float32:
+		return floatType
+	case reflect.String:
+		return stringType
+	case reflect.Bool:
+		return boolType
+	case reflect.Slice:
+		if v.IsNil() {
+			return nullType
+		}
+		elemKind := typ.Elem().Kind()
+		if elemKind == reflect.Uint8 {
+			return stringType
+		}
+		return listType
+	case reflect.Chan, reflect.Func, reflect.Ptr, reflect.UnsafePointer, reflect.Interface:
+		if v.IsNil() {
+			return nullType
+		}
+		panic(fmt.Sprintf("unsupported type: %v", v))
+	default:
+		panic(fmt.Sprintf("unsupported type: %v", v))
 	}
-	return false
 }
 
 // TODO find a cleaner way to avoid panics from reflect.IsNil()
@@ -200,10 +240,10 @@ func (r valueReflect) AsBool() bool {
 }
 
 func (r valueReflect) AsInt() int64 {
-	if r.isKind(reflect.Int, reflect.Int64, reflect.Int32, reflect.Int16, reflect.Int8) {
+	if r.kind == intType {
 		return r.Value.Int()
 	}
-	if r.isKind(reflect.Uint, reflect.Uint32, reflect.Uint16, reflect.Uint8) {
+	if r.kind == uintType {
 		return int64(r.Value.Uint())
 	}
 
