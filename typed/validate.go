@@ -179,11 +179,10 @@ func (v *validatingObjectWalker) doMap(t *schema.Map) (errs ValidationErrors) {
 	if err != nil {
 		return errorf(err.Error())
 	}
-
 	if m == nil {
 		return nil
 	}
-
+	defer m.Recycle()
 	errs = v.visitMapItems(t, m)
 
 	return errs

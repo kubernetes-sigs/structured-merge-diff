@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"sort"
 	"sync"
 	"sync/atomic"
 )
@@ -45,12 +46,15 @@ type TypeReflectCacheEntry struct {
 	isStringConvertable    bool
 	ptrIsStringConvertable bool
 
-	structFields map[string]*FieldCacheEntry
+	structFields        map[string]*FieldCacheEntry
+	orderedStructFields []*FieldCacheEntry
 }
 
 // FieldCacheEntry keeps data gathered using reflection about how the field of a struct is converted to/from
 // unstructured.
 type FieldCacheEntry struct {
+	// JsonName returns the name of the field according to the json tags on the struct field.
+	JsonName string
 	// isOmitEmpty is true if the field has the json 'omitempty' tag.
 	isOmitEmpty bool
 	// fieldPath is a list of field indices (see FieldByIndex) to lookup the value of
@@ -60,6 +64,10 @@ type FieldCacheEntry struct {
 
 	fieldType reflect.Type
 	TypeEntry *TypeReflectCacheEntry
+}
+
+func (f *FieldCacheEntry) CanOmit(fieldVal reflect.Value) bool {
+	return f.isOmitEmpty && (safeIsNil(fieldVal) || isZero(fieldVal))
 }
 
 // GetFrom returns the field identified by this FieldCacheEntry from the provided struct.
@@ -110,6 +118,16 @@ func typeReflectEntryOf(cm reflectCacheMap, t reflect.Type, updates reflectCache
 		fieldEntries := map[string]*FieldCacheEntry{}
 		buildStructCacheEntry(t, fieldEntries, nil)
 		typeEntry.structFields = fieldEntries
+		sortedByJsonName := make([]*FieldCacheEntry, len(fieldEntries))
+		i := 0
+		for _, entry := range fieldEntries {
+			sortedByJsonName[i] = entry
+			i++
+		}
+		sort.Slice(sortedByJsonName, func(i, j int) bool {
+			return sortedByJsonName[i].JsonName < sortedByJsonName[j].JsonName
+		})
+		typeEntry.orderedStructFields = sortedByJsonName
 	}
 
 	// cyclic type references are allowed, so we must add the typeEntry to the updates map before resolving
@@ -135,7 +153,7 @@ func buildStructCacheEntry(t reflect.Type, infos map[string]*FieldCacheEntry, fi
 			buildStructCacheEntry(field.Type, infos, append(fieldPath, field.Index))
 			continue
 		}
-		info := &FieldCacheEntry{isOmitEmpty: isOmitempty, fieldPath: append(fieldPath, field.Index), fieldType: t}
+		info := &FieldCacheEntry{JsonName: jsonName, isOmitEmpty: isOmitempty, fieldPath: append(fieldPath, field.Index), fieldType: field.Type}
 		infos[jsonName] = info
 	}
 }
@@ -143,6 +161,11 @@ func buildStructCacheEntry(t reflect.Type, infos map[string]*FieldCacheEntry, fi
 // Fields returns a map of JSON field name to FieldCacheEntry for structs, or nil for non-structs.
 func (e TypeReflectCacheEntry) Fields() map[string]*FieldCacheEntry {
 	return e.structFields
+}
+
+// Fields returns a map of JSON field name to FieldCacheEntry for structs, or nil for non-structs.
+func (e TypeReflectCacheEntry) OrderedFields() []*FieldCacheEntry {
+	return e.orderedStructFields
 }
 
 // CanConvertToUnstructured returns true if this TypeReflectCacheEntry can convert values of its type to unstructured.
@@ -331,7 +354,7 @@ func (c *typeReflectCache) update(updates reflectCacheMap) {
 		return
 	}
 
-	newCacheMap := make(reflectCacheMap, len(currentCacheMap)+1)
+	newCacheMap := make(reflectCacheMap, len(currentCacheMap)+len(updates))
 	for k, v := range currentCacheMap {
 		newCacheMap[k] = v
 	}

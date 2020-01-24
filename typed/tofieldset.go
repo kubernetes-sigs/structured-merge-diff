@@ -144,7 +144,9 @@ func (v *toFieldSetWalker) visitMapItems(t *schema.Map, m value.Map) (errs Valid
 
 func (v *toFieldSetWalker) doMap(t *schema.Map) (errs ValidationErrors) {
 	m, _ := mapValue(v.value)
-
+	if m != nil {
+		defer m.Recycle()
+	}
 	if t.ElementRelationship == schema.Atomic {
 		v.set.Insert(v.path)
 		return nil

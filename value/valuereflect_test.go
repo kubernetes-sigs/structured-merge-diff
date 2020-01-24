@@ -19,7 +19,9 @@ package value
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"reflect"
+	"sort"
 	"testing"
 	"time"
 )
@@ -660,5 +662,93 @@ func TestReflectListAt(t *testing.T) {
 	atOne := list.At(1)
 	if atOne.AsString() != "two" {
 		t.Errorf("expected list.At(1) to be 'two' but got: %v", atOne)
+	}
+}
+
+func TestMapZip(t *testing.T) {
+	type entry struct {
+		key      string
+		lhs, rhs interface{}
+	}
+
+	type s struct {
+		// deliberately unordered
+		C string `json:"c,omitempty"`
+		B string `json:"b,omitempty"`
+		D string `json:"d,omitempty"`
+		A string `json:"a,omitempty"`
+	}
+	cases := []struct {
+		name           string
+		lhs            interface{}
+		rhs            interface{}
+		expectedZipped []entry
+	}{
+		{
+			name: "structZip",
+			lhs:  &s{A: "1", B: "3", C: "5"},
+			rhs:  &s{A: "2", B: "4", D: "6"},
+			expectedZipped: []entry{
+				{"a", "1", "2"},
+				{"b", "3", "4"},
+				{"c", "5", interface{}(nil)},
+				{"d", interface{}(nil), "6"},
+			},
+		},
+		{
+			name: "mapZip",
+			lhs:  &map[string]interface{}{"a": "1", "b": "3", "c": "5"},
+			rhs:  &map[string]interface{}{"a": "2", "b": "4", "d": "6"},
+			expectedZipped: []entry{
+				{"a", "1", "2"},
+				{"b", "3", "4"},
+				{"c", "5", interface{}(nil)},
+				{"d", interface{}(nil), "6"},
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			lhs := MustReflect(tc.lhs)
+			rhs := MustReflect(tc.rhs)
+			for _, lhs := range []Value{lhs, NewValueInterface(lhs.Unstructured())} {
+				for _, rhs := range []Value{rhs, NewValueInterface(rhs.Unstructured())} {
+					t.Run(fmt.Sprintf("%s-%s", reflect.TypeOf(lhs).Elem().Name(), reflect.TypeOf(rhs).Elem().Name()), func(t *testing.T) {
+						for _, order := range []MapTraverseOrder{Unordered, LexicalKeyOrder} {
+							var zipped []entry
+							var name string
+							switch order {
+							case Unordered:
+								name = "Unordered"
+							case LexicalKeyOrder:
+								name = "LexicalKeyOrder"
+							}
+							t.Run(name, func(t *testing.T) {
+								MapZip(lhs.AsMap(), rhs.AsMap(), order, func(key string, lhs, rhs Value) bool {
+									var li, ri interface{}
+									if lhs != nil {
+										li = lhs.Unstructured()
+									}
+									if rhs != nil {
+										ri = rhs.Unstructured()
+									}
+									zipped = append(zipped, entry{key, li, ri})
+									return true
+								})
+								if order == Unordered {
+									sort.Slice(zipped, func(i, j int) bool {
+										return zipped[i].key < zipped[j].key
+									})
+								}
+								if !reflect.DeepEqual(zipped, tc.expectedZipped) {
+									t.Errorf("expected zip to produce:\n%#v\nbut got\n%#v", tc.expectedZipped, zipped)
+								}
+							})
+						}
+					})
+				}
+			}
+		})
 	}
 }
