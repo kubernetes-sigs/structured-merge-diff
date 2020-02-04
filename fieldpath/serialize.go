@@ -97,7 +97,7 @@ func (s *Set) emitContentsV1(includeSelf bool, stream *jsoniter.Stream, r *reusa
 		mpe := s.Members.members[mi]
 		cpe := s.Children.members[ci].pathElement
 
-		if mpe.Less(cpe) {
+		if c := mpe.Compare(cpe); c < 0 {
 			preWrite()
 			if err := serializePathElementToWriter(r.reset(), mpe); err != nil {
 				return err
@@ -105,7 +105,7 @@ func (s *Set) emitContentsV1(includeSelf bool, stream *jsoniter.Stream, r *reusa
 			stream.WriteObjectField(r.unsafeString())
 			stream.WriteEmptyObject()
 			mi++
-		} else if cpe.Less(mpe) {
+		} else if c > 0 {
 			preWrite()
 			if err := serializePathElementToWriter(r.reset(), cpe); err != nil {
 				return err
