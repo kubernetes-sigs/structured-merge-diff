@@ -674,11 +674,9 @@ var symdiffCases = []symdiffTestCase{{
 		removed:  _NS(),
 		modified: _NS(),
 		added: _NS(
-			_P("list"),
 			_P("list", _KBF("key", "a", "id", 1)),
 			_P("list", _KBF("key", "a", "id", 1), "key"),
 			_P("list", _KBF("key", "a", "id", 1), "id"),
-			_P("list", _KBF("key", "a", "id", 1), "value"),
 			_P("list", _KBF("key", "a", "id", 1), "value", "a"),
 		),
 	}, {
@@ -700,7 +698,6 @@ var symdiffCases = []symdiffTestCase{{
 			_P("list", _KBF("key", "a", "id", 1)),
 			_P("list", _KBF("key", "a", "id", 1), "key"),
 			_P("list", _KBF("key", "a", "id", 1), "id"),
-			_P("list", _KBF("key", "a", "id", 1), "value"),
 			_P("list", _KBF("key", "a", "id", 1), "value", "a"),
 		),
 		modified: _NS(),
@@ -708,7 +705,6 @@ var symdiffCases = []symdiffTestCase{{
 			_P("list", _KBF("key", "a", "id", 2)),
 			_P("list", _KBF("key", "a", "id", 2), "key"),
 			_P("list", _KBF("key", "a", "id", 2), "id"),
-			_P("list", _KBF("key", "a", "id", 2), "value"),
 			_P("list", _KBF("key", "a", "id", 2), "value", "a"),
 		),
 	}, {

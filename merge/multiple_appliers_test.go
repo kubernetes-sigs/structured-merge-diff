@@ -953,7 +953,6 @@ func TestMultipleAppliersRealConversion(t *testing.T) {
 			Managed: fieldpath.ManagedFields{
 				"controller": fieldpath.NewVersionedSet(
 					_NS(
-						_P("mapOfMapsRecursive"),
 						_P("mapOfMapsRecursive", "a"),
 					),
 					"v1",

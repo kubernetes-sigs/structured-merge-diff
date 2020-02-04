@@ -99,7 +99,7 @@ func (tv TypedValue) ToFieldSet() (*fieldpath.Set, error) {
 // match), or an error will be returned. Validation errors will be returned if
 // the objects don't conform to the schema.
 func (tv TypedValue) Merge(pso *TypedValue) (*TypedValue, error) {
-	return merge(&tv, pso, ruleKeepRHS, nil)
+	return merge(&tv, pso, ruleKeepRHS, nil, nil)
 }
 
 // Compare compares the two objects. See the comments on the `Comparison`
@@ -130,7 +130,7 @@ func (tv TypedValue) Compare(rhs *TypedValue) (c *Comparison, err error) {
 		} else if w.rhs == nil {
 			c.Removed.Insert(w.path)
 		}
-	})
+	}, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -165,7 +165,7 @@ func (tv TypedValue) NormalizeUnions(new *TypedValue) (*TypedValue, error) {
 			errs = append(errs, errorf(err.Error())...)
 		}
 	}
-	out, mergeErrs := merge(&tv, new, func(w *mergingWalker) {}, normalizeFn)
+	out, mergeErrs := merge(&tv, new, func(w *mergingWalker) {}, nil, normalizeFn)
 	if mergeErrs != nil {
 		errs = append(errs, mergeErrs.(ValidationErrors)...)
 	}
@@ -191,7 +191,7 @@ func (tv TypedValue) NormalizeUnionsApply(new *TypedValue) (*TypedValue, error) 
 			errs = append(errs, errorf(err.Error())...)
 		}
 	}
-	out, mergeErrs := merge(&tv, new, func(w *mergingWalker) {}, normalizeFn)
+	out, mergeErrs := merge(&tv, new, func(w *mergingWalker) {}, nil, normalizeFn)
 	if mergeErrs != nil {
 		errs = append(errs, mergeErrs.(ValidationErrors)...)
 	}
@@ -210,7 +210,7 @@ var mwPool = sync.Pool{
 	New: func() interface{} { return &mergingWalker{} },
 }
 
-func merge(lhs, rhs *TypedValue, rule, postRule mergeRule) (*TypedValue, error) {
+func merge(lhs, rhs *TypedValue, rule, postItemRule, postRule mergeRule) (*TypedValue, error) {
 	if lhs.schema != rhs.schema {
 		return nil, errorf("expected objects with types from the same schema")
 	}
@@ -238,6 +238,8 @@ func merge(lhs, rhs *TypedValue, rule, postRule mergeRule) (*TypedValue, error) 
 	mw.typeRef = lhs.typeRef
 	mw.rule = rule
 	mw.postItemHook = postRule
+	mw.postHook = postRule
+	mw.postItemHook = postItemRule
 	if mw.allocator == nil {
 		mw.allocator = value.NewFreelistAllocator()
 	}

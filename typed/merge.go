@@ -36,7 +36,11 @@ type mergingWalker struct {
 	// How to merge. Called after schema validation for all leaf fields.
 	rule mergeRule
 
-	// If set, called after non-leaf items have been merged. (`out` is
+	// If set, called after non-leafs have been merged. (`out` is
+	// probably already set.)
+	postHook mergeRule
+
+	// If set, called after items have been merged. (`out` is
 	// probably already set.)
 	postItemHook mergeRule
 
@@ -90,8 +94,8 @@ func (w *mergingWalker) merge(prefixFn func() string) (errs ValidationErrors) {
 		errs = append(errs, handleAtom(arhs, w.typeRef, w)...)
 	}
 
-	if !w.inLeaf && w.postItemHook != nil {
-		w.postItemHook(w)
+	if !w.inLeaf && w.postHook != nil {
+		w.postHook(w)
 	}
 	return errs.WithLazyPrefix(prefixFn)
 }
@@ -226,6 +230,9 @@ func (w *mergingWalker) visitListItems(t *schema.List, lhs, rhs value.List) (err
 			if w2.out != nil {
 				out = append(out, *w2.out)
 			}
+			if !w2.inLeaf && w2.postItemHook != nil {
+				w2.postItemHook(w2)
+			}
 			w.finishDescent(w2)
 		}
 	}
@@ -240,6 +247,9 @@ func (w *mergingWalker) visitListItems(t *schema.List, lhs, rhs value.List) (err
 		errs = append(errs, w2.merge(pe.String)...)
 		if w2.out != nil {
 			out = append(out, *w2.out)
+		}
+		if !w2.inLeaf && w2.postItemHook != nil {
+			w2.postItemHook(w2)
 		}
 		w.finishDescent(w2)
 	}
@@ -294,7 +304,8 @@ func (w *mergingWalker) doList(t *schema.List) (errs ValidationErrors) {
 
 func (w *mergingWalker) visitMapItem(t *schema.Map, out map[string]interface{}, key string, lhs, rhs value.Value) (errs ValidationErrors) {
 	fieldType := t.ElementType
-	if sf, ok := t.FindField(key); ok {
+	sf, isField := t.FindField(key)
+	if isField {
 		fieldType = sf.Type
 	}
 	pe := fieldpath.PathElement{FieldName: &key}
@@ -304,6 +315,9 @@ func (w *mergingWalker) visitMapItem(t *schema.Map, out map[string]interface{}, 
 	errs = append(errs, w2.merge(pe.String)...)
 	if w2.out != nil {
 		out[key] = *w2.out
+	}
+	if !isField && !w2.inLeaf && w2.postItemHook != nil {
+		w2.postItemHook(w2)
 	}
 	w.finishDescent(w2)
 	return errs
