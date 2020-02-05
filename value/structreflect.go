@@ -41,8 +41,12 @@ func (r structReflect) Empty() bool {
 }
 
 func (r structReflect) Get(key string) (Value, bool) {
+	return r.GetUsing(HeapAllocator, key)
+}
+
+func (r structReflect) GetUsing(a Allocator, key string) (Value, bool) {
 	if val, ok := r.findJsonNameField(key); ok {
-		return mustWrapValueReflect(val, nil, nil), true
+		return a.allocValueReflect().mustReuse(val, nil, nil, nil), true
 	}
 	return nil, false
 }
@@ -98,8 +102,12 @@ func (r structReflect) update(fieldEntry *FieldCacheEntry, key string, oldVal, n
 }
 
 func (r structReflect) Iterate(fn func(string, Value) bool) bool {
-	vr := reflectPool.Get().(*valueReflect)
-	defer vr.Recycle()
+	return r.IterateUsing(HeapAllocator, fn)
+}
+
+func (r structReflect) IterateUsing(a Allocator, fn func(string, Value) bool) bool {
+	vr := a.allocValueReflect()
+	defer a.Free(vr)
 	return eachStructField(r.Value, func(e *TypeReflectCacheEntry, s string, value reflect.Value) bool {
 		return fn(s, vr.mustReuse(value, e, nil, nil))
 	})
@@ -131,8 +139,12 @@ func (r structReflect) Unstructured() interface{} {
 }
 
 func (r structReflect) Equals(m Map) bool {
+	return r.EqualsUsing(HeapAllocator, m)
+}
+
+func (r structReflect) EqualsUsing(a Allocator, m Map) bool {
 	// MapEquals uses zip and is fairly efficient for structReflect
-	return MapEquals(&r, m)
+	return MapEqualsUsing(a, &r, m)
 }
 
 func (r structReflect) findJsonNameFieldAndNotEmpty(jsonName string) (reflect.Value, bool) {
@@ -153,27 +165,25 @@ func (r structReflect) findJsonNameField(jsonName string) (val reflect.Value, ok
 	return fieldVal, !structCacheEntry.CanOmit(fieldVal)
 }
 
-func (r *structReflect) Recycle() {
-	structReflectPool.Put(r)
+func (r structReflect) Zip(other Map, order MapTraverseOrder, fn func(key string, lhs, rhs Value) bool) bool {
+	return r.ZipUsing(HeapAllocator, other, order, fn)
 }
 
-func (r structReflect) Zip(other Map, order MapTraverseOrder, fn func(key string, lhs, rhs Value) bool) bool {
+func (r structReflect) ZipUsing(a Allocator, other Map, order MapTraverseOrder, fn func(key string, lhs, rhs Value) bool) bool {
 	if otherStruct, ok := other.(*structReflect); ok && r.Value.Type() == otherStruct.Value.Type() {
-		return r.structZip(otherStruct, fn)
+		lhsvr, rhsvr := a.allocValueReflect(), a.allocValueReflect()
+		defer a.Free(lhsvr)
+		defer a.Free(rhsvr)
+		return r.structZip(otherStruct, lhsvr, rhsvr, fn)
 	}
-	return defaultMapZip(&r, other, order, fn)
+	return defaultMapZip(a, &r, other, order, fn)
 }
 
 // structZip provides an optimized zip for structReflect types. The zip is always lexical key ordered since there is
 // no additional cost to ordering the zip for structured types.
-func (r structReflect) structZip(other *structReflect, fn func(key string, lhs, rhs Value) bool) bool {
+func (r structReflect) structZip(other *structReflect, lhsvr, rhsvr *valueReflect, fn func(key string, lhs, rhs Value) bool) bool {
 	lhsVal := r.Value
 	rhsVal := other.Value
-
-	lhsvr := reflectPool.Get().(*valueReflect)
-	defer lhsvr.Recycle()
-	rhsvr := reflectPool.Get().(*valueReflect)
-	defer rhsvr.Recycle()
 
 	for _, fieldCacheEntry := range TypeReflectEntryOf(lhsVal.Type()).OrderedFields() {
 		lhsFieldVal := fieldCacheEntry.GetFrom(lhsVal)

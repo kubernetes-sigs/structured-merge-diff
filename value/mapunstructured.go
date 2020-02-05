@@ -23,10 +23,14 @@ func (m mapUnstructuredInterface) Set(key string, val Value) {
 }
 
 func (m mapUnstructuredInterface) Get(key string) (Value, bool) {
+	return m.GetUsing(HeapAllocator, key)
+}
+
+func (m mapUnstructuredInterface) GetUsing(a Allocator, key string) (Value, bool) {
 	if v, ok := m[key]; !ok {
 		return nil, false
 	} else {
-		return NewValueInterface(v), true
+		return a.allocValueUnstructured().reuse(v), true
 	}
 }
 
@@ -40,11 +44,15 @@ func (m mapUnstructuredInterface) Delete(key string) {
 }
 
 func (m mapUnstructuredInterface) Iterate(fn func(key string, value Value) bool) bool {
+	return m.IterateUsing(HeapAllocator, fn)
+}
+
+func (m mapUnstructuredInterface) IterateUsing(a Allocator, fn func(key string, value Value) bool) bool {
 	if len(m) == 0 {
 		return true
 	}
-	vv := viPool.Get().(*valueUnstructured)
-	defer vv.Recycle()
+	vv := a.allocValueUnstructured()
+	defer a.Free(vv)
 	for k, v := range m {
 		if ks, ok := k.(string); !ok {
 			continue
@@ -66,6 +74,10 @@ func (m mapUnstructuredInterface) Empty() bool {
 }
 
 func (m mapUnstructuredInterface) Equals(other Map) bool {
+	return m.EqualsUsing(HeapAllocator, other)
+}
+
+func (m mapUnstructuredInterface) EqualsUsing(a Allocator, other Map) bool {
 	lhsLength := m.Length()
 	rhsLength := other.Length()
 	if lhsLength != rhsLength {
@@ -74,8 +86,8 @@ func (m mapUnstructuredInterface) Equals(other Map) bool {
 	if lhsLength == 0 {
 		return true
 	}
-	vv := viPool.Get().(*valueUnstructured)
-	defer vv.Recycle()
+	vv := a.allocValueUnstructured()
+	defer a.Free(vv)
 	return other.Iterate(func(key string, value Value) bool {
 		lhsVal, ok := m[key]
 		if !ok {
@@ -86,11 +98,11 @@ func (m mapUnstructuredInterface) Equals(other Map) bool {
 }
 
 func (m mapUnstructuredInterface) Zip(other Map, order MapTraverseOrder, fn func(key string, lhs, rhs Value) bool) bool {
-	return defaultMapZip(m, other, order, fn)
+	return m.ZipUsing(HeapAllocator, other, order, fn)
 }
 
-func (m mapUnstructuredInterface) Recycle() {
-
+func (m mapUnstructuredInterface) ZipUsing(a Allocator, other Map, order MapTraverseOrder, fn func(key string, lhs, rhs Value) bool) bool {
+	return defaultMapZip(a, m, other, order, fn)
 }
 
 type mapUnstructuredString map[string]interface{}
@@ -100,10 +112,13 @@ func (m mapUnstructuredString) Set(key string, val Value) {
 }
 
 func (m mapUnstructuredString) Get(key string) (Value, bool) {
+	return m.GetUsing(HeapAllocator, key)
+}
+func (m mapUnstructuredString) GetUsing(a Allocator, key string) (Value, bool) {
 	if v, ok := m[key]; !ok {
 		return nil, false
 	} else {
-		return NewValueInterface(v), true
+		return a.allocValueUnstructured().reuse(v), true
 	}
 }
 
@@ -117,11 +132,15 @@ func (m mapUnstructuredString) Delete(key string) {
 }
 
 func (m mapUnstructuredString) Iterate(fn func(key string, value Value) bool) bool {
+	return m.IterateUsing(HeapAllocator, fn)
+}
+
+func (m mapUnstructuredString) IterateUsing(a Allocator, fn func(key string, value Value) bool) bool {
 	if len(m) == 0 {
 		return true
 	}
-	vv := viPool.Get().(*valueUnstructured)
-	defer vv.Recycle()
+	vv := a.allocValueUnstructured()
+	defer a.Free(vv)
 	for k, v := range m {
 		if !fn(k, vv.reuse(v)) {
 			return false
@@ -135,6 +154,10 @@ func (m mapUnstructuredString) Length() int {
 }
 
 func (m mapUnstructuredString) Equals(other Map) bool {
+	return m.EqualsUsing(HeapAllocator, other)
+}
+
+func (m mapUnstructuredString) EqualsUsing(a Allocator, other Map) bool {
 	lhsLength := m.Length()
 	rhsLength := other.Length()
 	if lhsLength != rhsLength {
@@ -143,8 +166,8 @@ func (m mapUnstructuredString) Equals(other Map) bool {
 	if lhsLength == 0 {
 		return true
 	}
-	vv := viPool.Get().(*valueUnstructured)
-	defer vv.Recycle()
+	vv := a.allocValueUnstructured()
+	defer a.Free(vv)
 	return other.Iterate(func(key string, value Value) bool {
 		lhsVal, ok := m[key]
 		if !ok {
@@ -155,11 +178,11 @@ func (m mapUnstructuredString) Equals(other Map) bool {
 }
 
 func (m mapUnstructuredString) Zip(other Map, order MapTraverseOrder, fn func(key string, lhs, rhs Value) bool) bool {
-	return defaultMapZip(m, other, order, fn)
+	return m.ZipUsing(HeapAllocator, other, order, fn)
 }
 
-func (m mapUnstructuredString) Recycle() {
-
+func (m mapUnstructuredString) ZipUsing(a Allocator, other Map, order MapTraverseOrder, fn func(key string, lhs, rhs Value) bool) bool {
+	return defaultMapZip(a, m, other, order, fn)
 }
 
 func (m mapUnstructuredString) Empty() bool {

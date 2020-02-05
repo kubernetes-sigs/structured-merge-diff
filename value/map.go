@@ -26,6 +26,11 @@ type Map interface {
 	Set(key string, val Value)
 	// Get returns the value for the given key, if present, or (nil, false) otherwise.
 	Get(key string) (Value, bool)
+	// GetUsing uses the provided allocator and returns the value for the given key,
+	// if present, or (nil, false) otherwise.
+	// The returned Value should be given back to the Allocator when no longer needed
+	// by calling Allocator.Free(Value).
+	GetUsing(a Allocator, key string) (Value, bool)
 	// Has returns true if the key is present, or false otherwise.
 	Has(key string) bool
 	// Delete removes the key from the map.
@@ -33,10 +38,17 @@ type Map interface {
 	// Equals compares the two maps, and return true if they are the same, false otherwise.
 	// Implementations can use MapEquals as a general implementation for this methods.
 	Equals(other Map) bool
+	// EqualsUsing uses the provided allocator and compares the two maps, and return true if
+	// they are the same, false otherwise. Implementations can use MapEqualsUsing as a general
+	// implementation for this methods.
+	EqualsUsing(a Allocator, other Map) bool
 	// Iterate runs the given function for each key/value in the
 	// map. Returning false in the closure prematurely stops the
 	// iteration.
 	Iterate(func(key string, value Value) bool) bool
+	// IterateUsing uses the provided allocator and runs the given function for each key/value
+	// in the map. Returning false in the closure prematurely stops the iteration.
+	IterateUsing(Allocator, func(key string, value Value) bool) bool
 	// Length returns the number of items in the map.
 	Length() int
 	// Empty returns true if the map is empty.
@@ -45,9 +57,11 @@ type Map interface {
 	// with the values from both maps, otherwise it is called with the value of the map that contains the key and nil
 	// for the map that does not contain the key. Returning false in the closure prematurely stops the iteration.
 	Zip(other Map, order MapTraverseOrder, fn func(key string, lhs, rhs Value) bool) bool
-	// Recycle gives back this Map once it is no longer needed. The
-	// value shouldn't be used after this call.
-	Recycle()
+	// ZipUsing uses the provided allocator and iterates over the entries of two maps together. If both maps
+	// contain a value for a given key, fn is called with the values from both maps, otherwise it is called with
+	// the value of the map that contains the key and nil for the map that does not contain the key. Returning
+	// false in the closure prematurely stops the iteration.
+	ZipUsing(a Allocator, other Map, order MapTraverseOrder, fn func(key string, lhs, rhs Value) bool) bool
 }
 
 // MapTraverseOrder defines the map traversal ordering available.
@@ -64,11 +78,19 @@ const (
 // with the values from both maps, otherwise it is called with the value of the map that contains the key and nil
 // for the other map. Returning false in the closure prematurely stops the iteration.
 func MapZip(lhs, rhs Map, order MapTraverseOrder, fn func(key string, lhs, rhs Value) bool) bool {
+	return MapZipUsing(HeapAllocator, lhs, rhs, order, fn)
+}
+
+// MapZipUsing uses the provided allocator and iterates over the entries of two maps together. If both maps
+// contain a value for a given key, fn is called with the values from both maps, otherwise it is called with
+// the value of the map that contains the key and nil for the other map. Returning false in the closure
+// prematurely stops the iteration.
+func MapZipUsing(a Allocator, lhs, rhs Map, order MapTraverseOrder, fn func(key string, lhs, rhs Value) bool) bool {
 	if lhs != nil {
-		return lhs.Zip(rhs, order, fn)
+		return lhs.ZipUsing(a, rhs, order, fn)
 	}
 	if rhs != nil {
-		return rhs.Zip(lhs, order, func(key string, rhs, lhs Value) bool { // arg positions of lhs and rhs deliberately swapped
+		return rhs.ZipUsing(a, lhs, order, func(key string, rhs, lhs Value) bool { // arg positions of lhs and rhs deliberately swapped
 			return fn(key, lhs, rhs)
 		})
 	}
@@ -77,29 +99,29 @@ func MapZip(lhs, rhs Map, order MapTraverseOrder, fn func(key string, lhs, rhs V
 
 // defaultMapZip provides a default implementation of Zip for implementations that do not need to provide
 // their own optimized implementation.
-func defaultMapZip(lhs, rhs Map, order MapTraverseOrder, fn func(key string, lhs, rhs Value) bool) bool {
+func defaultMapZip(a Allocator, lhs, rhs Map, order MapTraverseOrder, fn func(key string, lhs, rhs Value) bool) bool {
 	switch order {
 	case Unordered:
-		return unorderedMapZip(lhs, rhs, fn)
+		return unorderedMapZip(a, lhs, rhs, fn)
 	case LexicalKeyOrder:
-		return lexicalKeyOrderedMapZip(lhs, rhs, fn)
+		return lexicalKeyOrderedMapZip(a, lhs, rhs, fn)
 	default:
 		panic("Unsupported map order")
 	}
 }
 
-func unorderedMapZip(lhs, rhs Map, fn func(key string, lhs, rhs Value) bool) bool {
+func unorderedMapZip(a Allocator, lhs, rhs Map, fn func(key string, lhs, rhs Value) bool) bool {
 	if (lhs == nil || lhs.Empty()) && (rhs == nil || rhs.Empty()) {
 		return true
 	}
 
 	if lhs != nil {
-		ok := lhs.Iterate(func(key string, lhsValue Value) bool {
+		ok := lhs.IterateUsing(a, func(key string, lhsValue Value) bool {
 			var rhsValue Value
 			if rhs != nil {
-				if item, ok := rhs.Get(key); ok {
+				if item, ok := rhs.GetUsing(a, key); ok {
 					rhsValue = item
-					defer rhsValue.Recycle()
+					defer a.Free(rhsValue)
 				}
 			}
 			return fn(key, lhsValue, rhsValue)
@@ -109,7 +131,7 @@ func unorderedMapZip(lhs, rhs Map, fn func(key string, lhs, rhs Value) bool) boo
 		}
 	}
 	if rhs != nil {
-		return rhs.Iterate(func(key string, rhsValue Value) bool {
+		return rhs.IterateUsing(a, func(key string, rhsValue Value) bool {
 			if lhs == nil || !lhs.Has(key) {
 				return fn(key, nil, rhsValue)
 			}
@@ -119,7 +141,7 @@ func unorderedMapZip(lhs, rhs Map, fn func(key string, lhs, rhs Value) bool) boo
 	return true
 }
 
-func lexicalKeyOrderedMapZip(lhs, rhs Map, fn func(key string, lhs, rhs Value) bool) bool {
+func lexicalKeyOrderedMapZip(a Allocator, lhs, rhs Map, fn func(key string, lhs, rhs Value) bool) bool {
 	var lhsLength, rhsLength int
 	var orderedLength int // rough estimate of length of union of map keys
 	if lhs != nil {
@@ -138,13 +160,13 @@ func lexicalKeyOrderedMapZip(lhs, rhs Map, fn func(key string, lhs, rhs Value) b
 
 	ordered := make([]string, 0, orderedLength)
 	if lhs != nil {
-		lhs.Iterate(func(key string, _ Value) bool {
+		lhs.IterateUsing(a, func(key string, _ Value) bool {
 			ordered = append(ordered, key)
 			return true
 		})
 	}
 	if rhs != nil {
-		rhs.Iterate(func(key string, _ Value) bool {
+		rhs.IterateUsing(a, func(key string, _ Value) bool {
 			if lhs == nil || !lhs.Has(key) {
 				ordered = append(ordered, key)
 			}
@@ -155,17 +177,17 @@ func lexicalKeyOrderedMapZip(lhs, rhs Map, fn func(key string, lhs, rhs Value) b
 	for _, key := range ordered {
 		var litem, ritem Value
 		if lhs != nil {
-			litem, _ = lhs.Get(key)
+			litem, _ = lhs.GetUsing(a, key)
 		}
 		if rhs != nil {
-			ritem, _ = rhs.Get(key)
+			ritem, _ = rhs.GetUsing(a, key)
 		}
 		ok := fn(key, litem, ritem)
 		if litem != nil {
-			litem.Recycle()
+			a.Free(litem)
 		}
 		if ritem != nil {
-			ritem.Recycle()
+			a.Free(ritem)
 		}
 		if !ok {
 			return false
@@ -181,6 +203,11 @@ func MapLess(lhs, rhs Map) bool {
 
 // MapCompare compares two maps lexically.
 func MapCompare(lhs, rhs Map) int {
+	return MapCompareUsing(HeapAllocator, lhs, rhs)
+}
+
+// MapCompareUsing uses the provided allocator and compares two maps lexically.
+func MapCompareUsing(a Allocator, lhs, rhs Map) int {
 	c := 0
 	var llength, rlength int
 	if lhs != nil {
@@ -193,7 +220,7 @@ func MapCompare(lhs, rhs Map) int {
 		return 0
 	}
 	i := 0
-	MapZip(lhs, rhs, LexicalKeyOrder, func(key string, lhs, rhs Value) bool {
+	MapZipUsing(a, lhs, rhs, LexicalKeyOrder, func(key string, lhs, rhs Value) bool {
 		switch {
 		case i == llength:
 			c = -1
@@ -204,7 +231,7 @@ func MapCompare(lhs, rhs Map) int {
 		case rhs == nil:
 			c = -1
 		default:
-			c = Compare(lhs, rhs)
+			c = CompareUsing(a, lhs, rhs)
 		}
 		i++
 		return c == 0
@@ -217,6 +244,14 @@ func MapCompare(lhs, rhs Map) int {
 // implement Map.Equals.
 // WARN: This is a naive implementation, calling lhs.Equals(rhs) is typically the most efficient.
 func MapEquals(lhs, rhs Map) bool {
+	return MapEqualsUsing(HeapAllocator, lhs, rhs)
+}
+
+// MapEqualsUsing uses the provided allocator and returns true if lhs == rhs,
+// false otherwise. This function acts on generic types and should not be used
+// by callers, but can help implement Map.Equals.
+// WARN: This is a naive implementation, calling lhs.EqualsUsing(allocator, rhs) is typically the most efficient.
+func MapEqualsUsing(a Allocator, lhs, rhs Map) bool {
 	if lhs == nil && rhs == nil {
 		return true
 	}
@@ -226,10 +261,10 @@ func MapEquals(lhs, rhs Map) bool {
 	if lhs.Length() != rhs.Length() {
 		return false
 	}
-	return MapZip(lhs, rhs, Unordered, func(key string, lhs, rhs Value) bool {
+	return MapZipUsing(a, lhs, rhs, Unordered, func(key string, lhs, rhs Value) bool {
 		if lhs == nil || rhs == nil {
 			return false
 		}
-		return Equals(lhs, rhs)
+		return EqualsUsing(a, lhs, rhs)
 	})
 }

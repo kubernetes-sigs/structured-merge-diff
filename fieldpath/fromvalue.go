@@ -25,9 +25,10 @@ func SetFromValue(v value.Value) *Set {
 	s := NewSet()
 
 	w := objectWalker{
-		path:  Path{},
-		value: v,
-		do:    func(p Path) { s.Insert(p) },
+		path:      Path{},
+		value:     v,
+		allocator: value.NewFreelistAllocator(),
+		do:        func(p Path) { s.Insert(p) },
 	}
 
 	w.walk()
@@ -35,8 +36,9 @@ func SetFromValue(v value.Value) *Set {
 }
 
 type objectWalker struct {
-	path  Path
-	value value.Value
+	path      Path
+	value     value.Value
+	allocator value.Allocator
 
 	do func(Path)
 }
@@ -55,14 +57,14 @@ func (w *objectWalker) walk() {
 	case w.value.IsList():
 		// If the list were atomic, we'd break here, but we don't have
 		// a schema, so we can't tell.
-		l := w.value.AsList()
-		defer l.Recycle()
-		iter := l.Range()
-		defer iter.Recycle()
+		l := w.value.AsListUsing(w.allocator)
+		defer w.allocator.Free(l)
+		iter := l.RangeUsing(w.allocator)
+		defer w.allocator.Free(iter)
 		for iter.Next() {
 			i, value := iter.Item()
 			w2 := *w
-			w2.path = append(w.path, GuessBestListPathElement(i, value))
+			w2.path = append(w.path, w.GuessBestListPathElement(i, value))
 			w2.value = value
 			w2.walk()
 		}
@@ -71,9 +73,9 @@ func (w *objectWalker) walk() {
 		// If the map/struct were atomic, we'd break here, but we don't
 		// have a schema, so we can't tell.
 
-		m := w.value.AsMap()
-		defer m.Recycle()
-		m.Iterate(func(k string, val value.Value) bool {
+		m := w.value.AsMapUsing(w.allocator)
+		defer w.allocator.Free(m)
+		m.IterateUsing(w.allocator, func(k string, val value.Value) bool {
 			w2 := *w
 			w2.path = append(w.path, PathElement{FieldName: &k})
 			w2.value = val
@@ -102,7 +104,7 @@ var AssociativeListCandidateFieldNames = []string{
 // referencing by index is acceptable. Currently this is done by checking
 // whether item has any of the fields listed in
 // AssociativeListCandidateFieldNames which have scalar values.
-func GuessBestListPathElement(index int, item value.Value) PathElement {
+func (w *objectWalker) GuessBestListPathElement(index int, item value.Value) PathElement {
 	if !item.IsMap() {
 		// Non map items could be parts of sets or regular "atomic"
 		// lists. We won't try to guess whether something should be a
@@ -110,8 +112,8 @@ func GuessBestListPathElement(index int, item value.Value) PathElement {
 		return PathElement{Index: &index}
 	}
 
-	m := item.AsMap()
-	defer m.Recycle()
+	m := item.AsMapUsing(w.allocator)
+	defer w.allocator.Free(m)
 	var keys value.FieldList
 	for _, name := range AssociativeListCandidateFieldNames {
 		f, ok := m.Get(name)

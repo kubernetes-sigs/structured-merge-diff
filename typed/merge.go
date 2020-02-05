@@ -48,6 +48,8 @@ type mergingWalker struct {
 
 	// Allocate only as many walkers as needed for the depth by storing them here.
 	spareWalkers *[]*mergingWalker
+
+	allocator value.Allocator
 }
 
 // merge rules examine w.lhs and w.rhs (up to one of which may be nil) and
@@ -152,7 +154,7 @@ func (w *mergingWalker) derefMap(prefix string, v value.Value) (value.Map, Valid
 	if v == nil {
 		return nil, nil
 	}
-	m, err := mapValue(v)
+	m, err := mapValue(w.allocator, v)
 	if err != nil {
 		return nil, errorf("%v: %v", prefix, err)
 	}
@@ -181,7 +183,7 @@ func (w *mergingWalker) visitListItems(t *schema.List, lhs, rhs value.List) (err
 	if rhs != nil {
 		for i := 0; i < rhs.Length(); i++ {
 			child := rhs.At(i)
-			pe, err := listItemToPathElement(t, i, child)
+			pe, err := listItemToPathElement(w.allocator, t, i, child)
 			if err != nil {
 				errs = append(errs, errorf("rhs: element %v: %v", i, err.Error())...)
 				// If we can't construct the path element, we can't
@@ -202,7 +204,7 @@ func (w *mergingWalker) visitListItems(t *schema.List, lhs, rhs value.List) (err
 	if lhs != nil {
 		for i := 0; i < lhs.Length(); i++ {
 			child := lhs.At(i)
-			pe, err := listItemToPathElement(t, i, child)
+			pe, err := listItemToPathElement(w.allocator, t, i, child)
 			if err != nil {
 				errs = append(errs, errorf("lhs: element %v: %v", i, err.Error())...)
 				// If we can't construct the path element, we can't
@@ -254,7 +256,7 @@ func (w *mergingWalker) derefList(prefix string, v value.Value) (value.List, Val
 	if v == nil {
 		return nil, nil
 	}
-	l, err := listValue(v)
+	l, err := listValue(w.allocator, v)
 	if err != nil {
 		return nil, errorf("%v: %v", prefix, err)
 	}
@@ -264,11 +266,11 @@ func (w *mergingWalker) derefList(prefix string, v value.Value) (value.List, Val
 func (w *mergingWalker) doList(t *schema.List) (errs ValidationErrors) {
 	lhs, _ := w.derefList("lhs: ", w.lhs)
 	if lhs != nil {
-		defer lhs.Recycle()
+		defer w.allocator.Free(lhs)
 	}
 	rhs, _ := w.derefList("rhs: ", w.rhs)
 	if rhs != nil {
-		defer rhs.Recycle()
+		defer w.allocator.Free(rhs)
 	}
 
 	// If both lhs and rhs are empty/null, treat it as a
@@ -310,7 +312,7 @@ func (w *mergingWalker) visitMapItem(t *schema.Map, out map[string]interface{}, 
 func (w *mergingWalker) visitMapItems(t *schema.Map, lhs, rhs value.Map) (errs ValidationErrors) {
 	out := map[string]interface{}{}
 
-	value.MapZip(lhs, rhs, value.Unordered, func(key string, lhsValue, rhsValue value.Value) bool {
+	value.MapZipUsing(w.allocator, lhs, rhs, value.Unordered, func(key string, lhsValue, rhsValue value.Value) bool {
 		errs = append(errs, w.visitMapItem(t, out, key, lhsValue, rhsValue)...)
 		return true
 	})
@@ -325,11 +327,11 @@ func (w *mergingWalker) visitMapItems(t *schema.Map, lhs, rhs value.Map) (errs V
 func (w *mergingWalker) doMap(t *schema.Map) (errs ValidationErrors) {
 	lhs, _ := w.derefMap("lhs: ", w.lhs)
 	if lhs != nil {
-		defer lhs.Recycle()
+		defer w.allocator.Free(lhs)
 	}
 	rhs, _ := w.derefMap("rhs: ", w.rhs)
 	if rhs != nil {
-		defer rhs.Recycle()
+		defer w.allocator.Free(rhs)
 	}
 	// If both lhs and rhs are empty/null, treat it as a
 	// leaf: this helps preserve the empty/null

@@ -18,7 +18,6 @@ package value
 
 import (
 	"reflect"
-	"sync"
 )
 
 type listReflect struct {
@@ -35,6 +34,11 @@ func (r listReflect) At(i int) Value {
 	return mustWrapValueReflect(val.Index(i), nil, nil)
 }
 
+func (r listReflect) AtUsing(a Allocator, i int) Value {
+	val := r.Value
+	return a.allocValueReflect().mustReuse(val.Index(i), nil, nil, nil)
+}
+
 func (r listReflect) Unstructured() interface{} {
 	l := r.Length()
 	result := make([]interface{}, l)
@@ -44,22 +48,16 @@ func (r listReflect) Unstructured() interface{} {
 	return result
 }
 
-var lrrPool = sync.Pool{
-	New: func() interface{} {
-		return &listReflectRange{vr: &valueReflect{}}
-	},
-}
-
-func (r *listReflect) Recycle() {
-	listReflectPool.Put(r)
-}
-
 func (r listReflect) Range() ListRange {
+	return r.RangeUsing(HeapAllocator)
+}
+
+func (r listReflect) RangeUsing(a Allocator) ListRange {
 	length := r.Value.Len()
 	if length == 0 {
 		return EmptyRange
 	}
-	rr := lrrPool.Get().(*listReflectRange)
+	rr := a.allocListReflectRange()
 	rr.list = r.Value
 	rr.i = -1
 	rr.entry = TypeReflectEntryOf(r.Value.Type().Elem())
@@ -67,10 +65,13 @@ func (r listReflect) Range() ListRange {
 }
 
 func (r listReflect) Equals(other List) bool {
+	return r.EqualsUsing(HeapAllocator, other)
+}
+func (r listReflect) EqualsUsing(a Allocator, other List) bool {
 	if otherReflectList, ok := other.(*listReflect); ok {
 		return reflect.DeepEqual(r.Value.Interface(), otherReflectList.Value.Interface())
 	}
-	return ListEquals(&r, other)
+	return ListEqualsUsing(a, &r, other)
 }
 
 type listReflectRange struct {
@@ -94,8 +95,4 @@ func (r *listReflectRange) Item() (index int, value Value) {
 	}
 	v := r.list.Index(r.i)
 	return r.i, r.vr.mustReuse(v, r.entry, nil, nil)
-}
-
-func (r *listReflectRange) Recycle() {
-	lrrPool.Put(r)
 }
