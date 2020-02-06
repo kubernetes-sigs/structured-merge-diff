@@ -84,7 +84,6 @@ func (r *valueReflect) reuse(value reflect.Value, cacheEntry *TypeReflectCacheEn
 		}
 	}
 	r.Value = dereference(value)
-	r.Value.Type()
 	r.ParentMap = parentMap
 	r.ParentMapKey = parentMapKey
 	r.kind = kind(r.Value)
@@ -137,7 +136,7 @@ func (r valueReflect) IsFloat() bool {
 }
 
 func (r valueReflect) IsString() bool {
-	return r.kind == stringType
+	return r.kind == stringType || r.kind == byteStringType
 }
 
 func (r valueReflect) IsNull() bool {
@@ -154,6 +153,7 @@ const (
 	uintType
 	floatType
 	stringType
+	byteStringType
 	boolType
 	nullType
 )
@@ -186,16 +186,16 @@ func kind(v reflect.Value) reflectType {
 		}
 		elemKind := typ.Elem().Kind()
 		if elemKind == reflect.Uint8 {
-			return stringType
+			return byteStringType
 		}
 		return listType
 	case reflect.Chan, reflect.Func, reflect.Ptr, reflect.UnsafePointer, reflect.Interface:
 		if v.IsNil() {
 			return nullType
 		}
-		panic(fmt.Sprintf("unsupported type: %v", v))
+		panic(fmt.Sprintf("unsupported type: %v", v.Type()))
 	default:
-		panic(fmt.Sprintf("unsupported type: %v", v))
+		panic(fmt.Sprintf("unsupported type: %v", v.Type()))
 	}
 }
 
@@ -209,13 +209,34 @@ func safeIsNil(v reflect.Value) bool {
 	return false
 }
 
+var structReflectPool = sync.Pool{
+	New: func() interface{} {
+		return &structReflect{}
+	},
+}
+
+var mapReflectPool = sync.Pool{
+	New: func() interface{} {
+		return &mapReflect{}
+	},
+}
+
+var listReflectPool = sync.Pool{
+	New: func() interface{} {
+		return &listReflect{}
+	},
+}
+
 func (r valueReflect) AsMap() Map {
-	val := r.Value
-	switch val.Kind() {
-	case reflect.Struct:
-		return structReflect{r}
-	case reflect.Map:
-		return mapReflect{r}
+	switch r.kind {
+	case structMapType:
+		v := structReflectPool.Get().(*structReflect)
+		v.valueReflect = r
+		return v
+	case mapType:
+		v := mapReflectPool.Get().(*mapReflect)
+		v.valueReflect = r
+		return v
 	default:
 		panic("value is not a map or struct")
 	}
@@ -227,7 +248,9 @@ func (r *valueReflect) Recycle() {
 
 func (r valueReflect) AsList() List {
 	if r.IsList() {
-		return listReflect{Value: r.Value}
+		v := listReflectPool.Get().(*listReflect)
+		v.Value = r.Value
+		return v
 	}
 	panic("value is not a list")
 }
@@ -258,11 +281,10 @@ func (r valueReflect) AsFloat() float64 {
 }
 
 func (r valueReflect) AsString() string {
-	kind := r.Value.Kind()
-	if kind == reflect.String {
+	switch r.kind {
+	case stringType:
 		return r.Value.String()
-	}
-	if kind == reflect.Slice && r.Value.Type().Elem().Kind() == reflect.Uint8 {
+	case byteStringType:
 		return base64.StdEncoding.EncodeToString(r.Value.Bytes())
 	}
 	panic("value is not a string")

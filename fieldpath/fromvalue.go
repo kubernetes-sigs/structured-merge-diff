@@ -55,7 +55,9 @@ func (w *objectWalker) walk() {
 	case w.value.IsList():
 		// If the list were atomic, we'd break here, but we don't have
 		// a schema, so we can't tell.
-		iter := w.value.AsList().Range()
+		l := w.value.AsList()
+		defer l.Recycle()
+		iter := l.Range()
 		defer iter.Recycle()
 		for iter.Next() {
 			i, value := iter.Item()
@@ -69,7 +71,9 @@ func (w *objectWalker) walk() {
 		// If the map/struct were atomic, we'd break here, but we don't
 		// have a schema, so we can't tell.
 
-		w.value.AsMap().Iterate(func(k string, val value.Value) bool {
+		m := w.value.AsMap()
+		defer m.Recycle()
+		m.Iterate(func(k string, val value.Value) bool {
 			w2 := *w
 			w2.path = append(w.path, PathElement{FieldName: &k})
 			w2.value = val
@@ -106,9 +110,11 @@ func GuessBestListPathElement(index int, item value.Value) PathElement {
 		return PathElement{Index: &index}
 	}
 
+	m := item.AsMap()
+	defer m.Recycle()
 	var keys value.FieldList
 	for _, name := range AssociativeListCandidateFieldNames {
-		f, ok := item.AsMap().Get(name)
+		f, ok := m.Get(name)
 		if !ok {
 			continue
 		}

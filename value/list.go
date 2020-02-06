@@ -25,6 +25,13 @@ type List interface {
 	At(int) Value
 	// Range returns a ListRange for iterating over the items in the list.
 	Range() ListRange
+
+	// Equals compares the two list, and return true if they are the same, false otherwise.
+	// Implementations can use ListEquals as a general implementation for this methods.
+	Equals(List) bool
+	// Recycle gives back this List once it is no longer needed. The
+	// value shouldn't be used after this call.
+	Recycle()
 }
 
 // ListRange represents a single iteration across the items of a list.
@@ -36,7 +43,7 @@ type ListRange interface {
 	// pointers to the value returned by Item() that escape the iteration loop since they become invalid once either
 	// Item() or Recycle() is called.
 	Item() (index int, value Value)
-	// Recycle returns a ListRange that is no longer needed. The value returned by Item() becomes invalid once this is
+	// Recycle gives back this ListRange once it is no longer needed. The value returned by Item() becomes invalid once this is
 	// called.
 	Recycle()
 }
@@ -56,6 +63,7 @@ func (_ *emptyRange) Item() (index int, value Value) {
 func (_ *emptyRange) Recycle() {}
 
 // ListEquals compares two lists lexically.
+// WARN: This is a naive implementation, calling lhs.Equals(rhs) is typically the most efficient.
 func ListEquals(lhs, rhs List) bool {
 	if lhs.Length() != rhs.Length() {
 		return false

@@ -61,6 +61,10 @@ func (m mapUnstructuredInterface) Length() int {
 	return len(m)
 }
 
+func (m mapUnstructuredInterface) Empty() bool {
+	return len(m) == 0
+}
+
 func (m mapUnstructuredInterface) Equals(other Map) bool {
 	lhsLength := m.Length()
 	rhsLength := other.Length()
@@ -79,6 +83,14 @@ func (m mapUnstructuredInterface) Equals(other Map) bool {
 		}
 		return Equals(vv.reuse(lhsVal), value)
 	})
+}
+
+func (m mapUnstructuredInterface) Zip(other Map, order MapTraverseOrder, fn func(key string, lhs, rhs Value) bool) bool {
+	return defaultMapZip(m, other, order, fn)
+}
+
+func (m mapUnstructuredInterface) Recycle() {
+
 }
 
 type mapUnstructuredString map[string]interface{}
@@ -140,4 +152,16 @@ func (m mapUnstructuredString) Equals(other Map) bool {
 		}
 		return Equals(vv.reuse(lhsVal), value)
 	})
+}
+
+func (m mapUnstructuredString) Zip(other Map, order MapTraverseOrder, fn func(key string, lhs, rhs Value) bool) bool {
+	return defaultMapZip(m, other, order, fn)
+}
+
+func (m mapUnstructuredString) Recycle() {
+
+}
+
+func (m mapUnstructuredString) Empty() bool {
+	return len(m) == 0
 }

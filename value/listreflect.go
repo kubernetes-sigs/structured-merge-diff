@@ -50,6 +50,10 @@ var lrrPool = sync.Pool{
 	},
 }
 
+func (r *listReflect) Recycle() {
+	listReflectPool.Put(r)
+}
+
 func (r listReflect) Range() ListRange {
 	length := r.Value.Len()
 	if length == 0 {
@@ -58,8 +62,15 @@ func (r listReflect) Range() ListRange {
 	rr := lrrPool.Get().(*listReflectRange)
 	rr.list = r.Value
 	rr.i = -1
-	rr.entry = nil
+	rr.entry = TypeReflectEntryOf(r.Value.Type().Elem())
 	return rr
+}
+
+func (r listReflect) Equals(other List) bool {
+	if otherReflectList, ok := other.(*listReflect); ok {
+		return reflect.DeepEqual(r.Value.Interface(), otherReflectList.Value.Interface())
+	}
+	return ListEquals(&r, other)
 }
 
 type listReflectRange struct {
@@ -82,9 +93,6 @@ func (r *listReflectRange) Item() (index int, value Value) {
 		panic("Item() called on ListRange with no more items")
 	}
 	v := r.list.Index(r.i)
-	if r.entry == nil {
-		r.entry = TypeReflectEntryOf(v.Type())
-	}
 	return r.i, r.vr.mustReuse(v, r.entry, nil, nil)
 }
 

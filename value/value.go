@@ -71,7 +71,7 @@ type Value interface {
 	// doesn't allow it).
 	AsString() string
 
-	// Recycle returns a value of this type that is no longer needed. The
+	// Recycle gives back this Value once it is no longer needed. The
 	// value shouldn't be used after this call.
 	Recycle()
 
@@ -173,7 +173,11 @@ func Equals(lhs, rhs Value) bool {
 	}
 	if lhs.IsList() {
 		if rhs.IsList() {
-			return ListEquals(lhs.AsList(), rhs.AsList())
+			lhsList := lhs.AsList()
+			defer lhsList.Recycle()
+			rhsList := rhs.AsList()
+			defer rhsList.Recycle()
+			return lhsList.Equals(rhsList)
 		}
 		return false
 	} else if rhs.IsList() {
@@ -181,7 +185,11 @@ func Equals(lhs, rhs Value) bool {
 	}
 	if lhs.IsMap() {
 		if rhs.IsMap() {
-			return lhs.AsMap().Equals(rhs.AsMap())
+			lhsList := lhs.AsMap()
+			defer lhsList.Recycle()
+			rhsList := rhs.AsMap()
+			defer rhsList.Recycle()
+			return lhsList.Equals(rhsList)
 		}
 		return false
 	} else if rhs.IsMap() {
@@ -216,6 +224,7 @@ func ToString(v Value) string {
 	case v.IsList():
 		strs := []string{}
 		list := v.AsList()
+		defer list.Recycle()
 		for i := 0; i < list.Length(); i++ {
 			strs = append(strs, ToString(list.At(i)))
 		}
@@ -290,7 +299,11 @@ func Compare(lhs, rhs Value) int {
 		if !rhs.IsList() {
 			return -1
 		}
-		return ListCompare(lhs.AsList(), rhs.AsList())
+		lhsList := lhs.AsList()
+		defer lhsList.Recycle()
+		rhsList := rhs.AsList()
+		defer rhsList.Recycle()
+		return ListCompare(lhsList, rhsList)
 	} else if rhs.IsList() {
 		return 1
 	}
@@ -298,7 +311,11 @@ func Compare(lhs, rhs Value) int {
 		if !rhs.IsMap() {
 			return -1
 		}
-		return MapCompare(lhs.AsMap(), rhs.AsMap())
+		lhsMap := lhs.AsMap()
+		defer lhsMap.Recycle()
+		rhsMap := rhs.AsMap()
+		defer rhsMap.Recycle()
+		return MapCompare(lhsMap, rhsMap)
 	} else if rhs.IsMap() {
 		return 1
 	}

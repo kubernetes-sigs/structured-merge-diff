@@ -28,10 +28,18 @@ func (l listUnstructured) At(i int) Value {
 	return NewValueInterface(l[i])
 }
 
+func (l listUnstructured) Equals(other List) bool {
+	return ListEquals(&l, other)
+}
+
 var lurPool = sync.Pool{
 	New: func() interface{} {
 		return &listUnstructuredRange{vv: &valueUnstructured{}}
 	},
+}
+
+func (_ listUnstructured) Recycle() {
+
 }
 
 func (l listUnstructured) Range() ListRange {

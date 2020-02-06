@@ -34,15 +34,21 @@ func (r structReflect) Length() int {
 	return i
 }
 
+func (r structReflect) Empty() bool {
+	return eachStructField(r.Value, func(_ *TypeReflectCacheEntry, s string, value reflect.Value) bool {
+		return false // exit early if the struct is non-empty
+	})
+}
+
 func (r structReflect) Get(key string) (Value, bool) {
-	if val, ok, _ := r.findJsonNameField(key); ok {
+	if val, ok := r.findJsonNameField(key); ok {
 		return mustWrapValueReflect(val, nil, nil), true
 	}
 	return nil, false
 }
 
 func (r structReflect) Has(key string) bool {
-	_, ok, _ := r.findJsonNameField(key)
+	_, ok := r.findJsonNameField(key)
 	return ok
 }
 
@@ -100,13 +106,13 @@ func (r structReflect) Iterate(fn func(string, Value) bool) bool {
 }
 
 func eachStructField(structVal reflect.Value, fn func(*TypeReflectCacheEntry, string, reflect.Value) bool) bool {
-	for jsonName, fieldCacheEntry := range TypeReflectEntryOf(structVal.Type()).Fields() {
+	for _, fieldCacheEntry := range TypeReflectEntryOf(structVal.Type()).OrderedFields() {
 		fieldVal := fieldCacheEntry.GetFrom(structVal)
-		if fieldCacheEntry.isOmitEmpty && (safeIsNil(fieldVal) || isZero(fieldVal)) {
+		if fieldCacheEntry.CanOmit(fieldVal) {
 			// omit it
 			continue
 		}
-		ok := fn(fieldCacheEntry.TypeEntry, jsonName, fieldVal)
+		ok := fn(fieldCacheEntry.TypeEntry, fieldCacheEntry.JsonName, fieldVal)
 		if !ok {
 			return false
 		}
@@ -125,29 +131,8 @@ func (r structReflect) Unstructured() interface{} {
 }
 
 func (r structReflect) Equals(m Map) bool {
-	if rhsStruct, ok := m.(structReflect); ok {
-		return reflect.DeepEqual(r.Value.Interface(), rhsStruct.Value.Interface())
-	}
-	length := r.Length()
-	if length != m.Length() {
-		return false
-	}
-
-	if length == 0 {
-		return true
-	}
-
-	structCacheEntry := TypeReflectEntryOf(r.Value.Type()).Fields()
-	vr := reflectPool.Get().(*valueReflect)
-	defer vr.Recycle()
-	return m.Iterate(func(s string, value Value) bool {
-		fieldCacheEntry, ok := structCacheEntry[s]
-		if !ok {
-			return false
-		}
-		lhsVal := fieldCacheEntry.GetFrom(r.Value)
-		return Equals(vr.mustReuse(lhsVal, nil, nil, nil), value)
-	})
+	// MapEquals uses zip and is fairly efficient for structReflect
+	return MapEquals(&r, m)
 }
 
 func (r structReflect) findJsonNameFieldAndNotEmpty(jsonName string) (reflect.Value, bool) {
@@ -156,15 +141,58 @@ func (r structReflect) findJsonNameFieldAndNotEmpty(jsonName string) (reflect.Va
 		return reflect.Value{}, false
 	}
 	fieldVal := structCacheEntry.GetFrom(r.Value)
-	omit := structCacheEntry.isOmitEmpty && (safeIsNil(fieldVal) || isZero(fieldVal))
-	return fieldVal, !omit
+	return fieldVal, !structCacheEntry.CanOmit(fieldVal)
 }
 
-func (r structReflect) findJsonNameField(jsonName string) (val reflect.Value, ok bool, omitEmpty bool) {
+func (r structReflect) findJsonNameField(jsonName string) (val reflect.Value, ok bool) {
 	structCacheEntry, ok := TypeReflectEntryOf(r.Value.Type()).Fields()[jsonName]
 	if !ok {
-		return reflect.Value{}, false, false
+		return reflect.Value{}, false
 	}
 	fieldVal := structCacheEntry.GetFrom(r.Value)
-	return fieldVal, true, structCacheEntry.isOmitEmpty
+	return fieldVal, !structCacheEntry.CanOmit(fieldVal)
+}
+
+func (r *structReflect) Recycle() {
+	structReflectPool.Put(r)
+}
+
+func (r structReflect) Zip(other Map, order MapTraverseOrder, fn func(key string, lhs, rhs Value) bool) bool {
+	if otherStruct, ok := other.(*structReflect); ok && r.Value.Type() == otherStruct.Value.Type() {
+		return r.structZip(otherStruct, fn)
+	}
+	return defaultMapZip(&r, other, order, fn)
+}
+
+// structZip provides an optimized zip for structReflect types. The zip is always lexical key ordered since there is
+// no additional cost to ordering the zip for structured types.
+func (r structReflect) structZip(other *structReflect, fn func(key string, lhs, rhs Value) bool) bool {
+	lhsVal := r.Value
+	rhsVal := other.Value
+
+	lhsvr := reflectPool.Get().(*valueReflect)
+	defer lhsvr.Recycle()
+	rhsvr := reflectPool.Get().(*valueReflect)
+	defer rhsvr.Recycle()
+
+	for _, fieldCacheEntry := range TypeReflectEntryOf(lhsVal.Type()).OrderedFields() {
+		lhsFieldVal := fieldCacheEntry.GetFrom(lhsVal)
+		rhsFieldVal := fieldCacheEntry.GetFrom(rhsVal)
+		lhsOmit := fieldCacheEntry.CanOmit(lhsFieldVal)
+		rhsOmit := fieldCacheEntry.CanOmit(rhsFieldVal)
+		if lhsOmit && rhsOmit {
+			continue
+		}
+		var lhsVal, rhsVal Value
+		if !lhsOmit {
+			lhsVal = lhsvr.mustReuse(lhsFieldVal, fieldCacheEntry.TypeEntry, nil, nil)
+		}
+		if !rhsOmit {
+			rhsVal = rhsvr.mustReuse(rhsFieldVal, fieldCacheEntry.TypeEntry, nil, nil)
+		}
+		if !fn(fieldCacheEntry.JsonName, lhsVal, rhsVal) {
+			return false
+		}
+	}
+	return true
 }
