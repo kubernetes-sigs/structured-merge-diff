@@ -20,14 +20,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"reflect"
-	"sync"
 )
-
-var reflectPool = sync.Pool{
-	New: func() interface{} {
-		return &valueReflect{}
-	},
-}
 
 // NewValueReflect creates a Value backed by an "interface{}" type,
 // typically an structured object in Kubernetes world that is uses reflection to expose.
@@ -49,7 +42,7 @@ func NewValueReflect(value interface{}) (Value, error) {
 // wrapValueReflect wraps the provide reflect.Value as a value. If parent in the data tree is a map, parentMap
 // and parentMapKey must be provided so that the returned value may be set and deleted.
 func wrapValueReflect(value reflect.Value, parentMap, parentMapKey *reflect.Value) (Value, error) {
-	val := reflectPool.Get().(*valueReflect)
+	val := HeapAllocator.allocValueReflect()
 	return val.reuse(value, nil, parentMap, parentMapKey)
 }
 
@@ -209,32 +202,18 @@ func safeIsNil(v reflect.Value) bool {
 	return false
 }
 
-var structReflectPool = sync.Pool{
-	New: func() interface{} {
-		return &structReflect{}
-	},
-}
-
-var mapReflectPool = sync.Pool{
-	New: func() interface{} {
-		return &mapReflect{}
-	},
-}
-
-var listReflectPool = sync.Pool{
-	New: func() interface{} {
-		return &listReflect{}
-	},
-}
-
 func (r valueReflect) AsMap() Map {
+	return r.AsMapUsing(HeapAllocator)
+}
+
+func (r valueReflect) AsMapUsing(a Allocator) Map {
 	switch r.kind {
 	case structMapType:
-		v := structReflectPool.Get().(*structReflect)
+		v := a.allocStructReflect()
 		v.valueReflect = r
 		return v
 	case mapType:
-		v := mapReflectPool.Get().(*mapReflect)
+		v := a.allocMapReflect()
 		v.valueReflect = r
 		return v
 	default:
@@ -242,13 +221,13 @@ func (r valueReflect) AsMap() Map {
 	}
 }
 
-func (r *valueReflect) Recycle() {
-	reflectPool.Put(r)
+func (r valueReflect) AsList() List {
+	return r.AsListUsing(HeapAllocator)
 }
 
-func (r valueReflect) AsList() List {
+func (r valueReflect) AsListUsing(a Allocator) List {
 	if r.IsList() {
-		v := listReflectPool.Get().(*listReflect)
+		v := a.allocListReflect()
 		v.Value = r.Value
 		return v
 	}
@@ -298,7 +277,7 @@ func (r valueReflect) Unstructured() interface{} {
 	case val.Kind() == reflect.Struct:
 		return structReflect{r}.Unstructured()
 	case val.Kind() == reflect.Map:
-		return mapReflect{r}.Unstructured()
+		return mapReflect{valueReflect: r}.Unstructured()
 	case r.IsList():
 		return listReflect{r.Value}.Unstructured()
 	case r.IsString():

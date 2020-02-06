@@ -635,7 +635,6 @@ func TestReflectList(t *testing.T) {
 			}
 
 			iter := m.Range()
-			defer iter.Recycle()
 			iterateResult = make([]interface{}, l)
 			for iter.Next() {
 				i, val := iter.Item()

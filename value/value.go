@@ -55,9 +55,15 @@ type Value interface {
 	// AsMap converts the Value into a Map (or panic if the type
 	// doesn't allow it).
 	AsMap() Map
+	// AsMapUsing uses the provided allocator and converts the Value
+	// into a Map (or panic if the type doesn't allow it).
+	AsMapUsing(Allocator) Map
 	// AsList converts the Value into a List (or panic if the type
 	// doesn't allow it).
 	AsList() List
+	// AsListUsing uses the provided allocator and converts the Value
+	// into a List (or panic if the type doesn't allow it).
+	AsListUsing(Allocator) List
 	// AsBool converts the Value into a bool (or panic if the type
 	// doesn't allow it).
 	AsBool() bool
@@ -70,10 +76,6 @@ type Value interface {
 	// AsString converts the Value into a string (or panic if the type
 	// doesn't allow it).
 	AsString() string
-
-	// Recycle gives back this Value once it is no longer needed. The
-	// value shouldn't be used after this call.
-	Recycle()
 
 	// Unstructured converts the Value into an Unstructured interface{}.
 	Unstructured() interface{}
@@ -128,6 +130,11 @@ func ToYAML(v Value) ([]byte, error) {
 
 // Equals returns true iff the two values are equal.
 func Equals(lhs, rhs Value) bool {
+	return EqualsUsing(HeapAllocator, lhs, rhs)
+}
+
+// EqualsUsing uses the provided allocator and returns true iff the two values are equal.
+func EqualsUsing(a Allocator, lhs, rhs Value) bool {
 	if lhs.IsFloat() || rhs.IsFloat() {
 		var lf float64
 		if lhs.IsFloat() {
@@ -173,11 +180,11 @@ func Equals(lhs, rhs Value) bool {
 	}
 	if lhs.IsList() {
 		if rhs.IsList() {
-			lhsList := lhs.AsList()
-			defer lhsList.Recycle()
-			rhsList := rhs.AsList()
-			defer rhsList.Recycle()
-			return lhsList.Equals(rhsList)
+			lhsList := lhs.AsListUsing(a)
+			defer a.Free(lhsList)
+			rhsList := rhs.AsListUsing(a)
+			defer a.Free(rhsList)
+			return lhsList.EqualsUsing(a, rhsList)
 		}
 		return false
 	} else if rhs.IsList() {
@@ -185,11 +192,11 @@ func Equals(lhs, rhs Value) bool {
 	}
 	if lhs.IsMap() {
 		if rhs.IsMap() {
-			lhsList := lhs.AsMap()
-			defer lhsList.Recycle()
-			rhsList := rhs.AsMap()
-			defer rhsList.Recycle()
-			return lhsList.Equals(rhsList)
+			lhsList := lhs.AsMapUsing(a)
+			defer a.Free(lhsList)
+			rhsList := rhs.AsMapUsing(a)
+			defer a.Free(rhsList)
+			return lhsList.EqualsUsing(a, rhsList)
 		}
 		return false
 	} else if rhs.IsMap() {
@@ -224,7 +231,6 @@ func ToString(v Value) string {
 	case v.IsList():
 		strs := []string{}
 		list := v.AsList()
-		defer list.Recycle()
 		for i := 0; i < list.Length(); i++ {
 			strs = append(strs, ToString(list.At(i)))
 		}
@@ -251,6 +257,14 @@ func Less(lhs, rhs Value) bool {
 // sorted, even if they are of different types). The result will be 0 if
 // v==rhs, -1 if v < rhs, and +1 if v > rhs.
 func Compare(lhs, rhs Value) int {
+	return CompareUsing(HeapAllocator, lhs, rhs)
+}
+
+// CompareUsing uses the provided allocator and provides a total
+// ordering for Value (so that they can be sorted, even if they
+// are of different types). The result will be 0 if v==rhs, -1
+// if v < rhs, and +1 if v > rhs.
+func CompareUsing(a Allocator, lhs, rhs Value) int {
 	if lhs.IsFloat() {
 		if !rhs.IsFloat() {
 			// Extra: compare floats and ints numerically.
@@ -299,11 +313,11 @@ func Compare(lhs, rhs Value) int {
 		if !rhs.IsList() {
 			return -1
 		}
-		lhsList := lhs.AsList()
-		defer lhsList.Recycle()
-		rhsList := rhs.AsList()
-		defer rhsList.Recycle()
-		return ListCompare(lhsList, rhsList)
+		lhsList := lhs.AsListUsing(a)
+		defer a.Free(lhsList)
+		rhsList := rhs.AsListUsing(a)
+		defer a.Free(rhsList)
+		return ListCompareUsing(a, lhsList, rhsList)
 	} else if rhs.IsList() {
 		return 1
 	}
@@ -311,11 +325,11 @@ func Compare(lhs, rhs Value) int {
 		if !rhs.IsMap() {
 			return -1
 		}
-		lhsMap := lhs.AsMap()
-		defer lhsMap.Recycle()
-		rhsMap := rhs.AsMap()
-		defer rhsMap.Recycle()
-		return MapCompare(lhsMap, rhsMap)
+		lhsMap := lhs.AsMapUsing(a)
+		defer a.Free(lhsMap)
+		rhsMap := rhs.AsMapUsing(a)
+		defer a.Free(rhsMap)
+		return MapCompareUsing(a, lhsMap, rhsMap)
 	} else if rhs.IsMap() {
 		return 1
 	}
