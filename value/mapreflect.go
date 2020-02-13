@@ -92,14 +92,13 @@ func (r mapReflect) IterateUsing(a Allocator, fn func(string, Value) bool) bool 
 }
 
 func eachMapEntry(val reflect.Value, fn func(*TypeReflectCacheEntry, reflect.Value, reflect.Value) bool) bool {
-	iter := val.MapRange()
 	entry := TypeReflectEntryOf(val.Type().Elem())
-	for iter.Next() {
-		next := iter.Value()
+	for _, key := range val.MapKeys() {
+		next := val.MapIndex(key)
 		if !next.IsValid() {
 			continue
 		}
-		if !fn(entry, iter.Key(), next) {
+		if !fn(entry, key, next) {
 			return false
 		}
 	}
@@ -170,12 +169,10 @@ func (r mapReflect) unorderedReflectZip(a Allocator, other *mapReflect, fn func(
 	if other != nil {
 		rhs := other.Value
 		rhsEntry := TypeReflectEntryOf(rhs.Type().Elem())
-		iter := rhs.MapRange()
 
-		for iter.Next() {
-			key := iter.Key()
+		for _, key := range rhs.MapKeys() {
 			keyString := key.String()
-			next := iter.Value()
+			next := rhs.MapIndex(key)
 			if !next.IsValid() {
 				continue
 			}
@@ -191,13 +188,11 @@ func (r mapReflect) unorderedReflectZip(a Allocator, other *mapReflect, fn func(
 		}
 	}
 
-	iter := lhs.MapRange()
-	for iter.Next() {
-		key := iter.Key()
+	for _, key := range lhs.MapKeys() {
 		if _, ok := visited[key.String()]; ok {
 			continue
 		}
-		next := iter.Value()
+		next := lhs.MapIndex(key)
 		if !next.IsValid() {
 			continue
 		}
