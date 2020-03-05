@@ -75,6 +75,15 @@ func (lhs ManagedFields) Equals(rhs ManagedFields) bool {
 	return true
 }
 
+// Copy the list, this is mostly a shallow copy.
+func (lhs ManagedFields) Copy() ManagedFields {
+	copy := ManagedFields{}
+	for manager, set := range lhs {
+		copy[manager] = set
+	}
+	return copy
+}
+
 // Difference returns a symmetric difference between two Managers. If a
 // given user's entry has version X in lhs and version Y in rhs, then
 // the return value for that user will be from rhs. If the difference for
