@@ -40,7 +40,7 @@ func TestFindNamedType(t *testing.T) {
 				Types: tt.defs,
 			}
 			td, exist := s.FindNamedType(tt.namedType)
-			if !td.Equals(tt.expectTypeDef) {
+			if !td.Equals(&tt.expectTypeDef) {
 				t.Errorf("expected TypeDef %v, got %v", tt.expectTypeDef, td)
 			}
 			if exist != tt.expectExist {

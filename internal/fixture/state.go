@@ -121,9 +121,10 @@ func (s *State) ApplyObject(tv *typed.TypedValue, version fieldpath.APIVersion, 
 	if err != nil {
 		return err
 	}
-	s.Live = new
 	s.Managers = managers
-
+	if new != nil {
+		s.Live = new
+	}
 	return nil
 }
 

@@ -76,7 +76,7 @@ func (w *mergingWalker) merge() (errs ValidationErrors) {
 
 	alhs := deduceAtom(a, w.lhs)
 	arhs := deduceAtom(a, w.rhs)
-	if alhs.Equals(arhs) {
+	if alhs.Equals(&arhs) {
 		errs = append(errs, handleAtom(arhs, w.typeRef, w)...)
 	} else {
 		w2 := *w
