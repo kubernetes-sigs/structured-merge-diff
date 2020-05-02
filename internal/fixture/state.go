@@ -109,7 +109,7 @@ func (s *State) checkInit(version fieldpath.APIVersion) error {
 	return nil
 }
 
-func (s *State) UpdateObject(tv *typed.TypedValue, version fieldpath.APIVersion, manager string) error {
+func (s *State) UpdateObject(tv *typed.TypedValue, version fieldpath.APIVersion, ignored *fieldpath.Set, manager string) error {
 	err := s.checkInit(version)
 	if err != nil {
 		return err
@@ -118,7 +118,7 @@ func (s *State) UpdateObject(tv *typed.TypedValue, version fieldpath.APIVersion,
 	if err != nil {
 		return err
 	}
-	newObj, managers, err := s.Updater.Update(s.Live, tv, version, s.Managers, manager)
+	newObj, managers, err := s.Updater.Update(s.Live, tv, version, s.Managers, ignored, manager)
 	if err != nil {
 		return err
 	}
@@ -129,12 +129,12 @@ func (s *State) UpdateObject(tv *typed.TypedValue, version fieldpath.APIVersion,
 }
 
 // Update the current state with the passed in object
-func (s *State) Update(obj typed.YAMLObject, version fieldpath.APIVersion, manager string) error {
+func (s *State) Update(obj typed.YAMLObject, version fieldpath.APIVersion, ignored *fieldpath.Set, manager string) error {
 	tv, err := s.Parser.Type(string(version)).FromYAML(FixTabsOrDie(obj))
 	if err != nil {
 		return err
 	}
-	return s.UpdateObject(tv, version, manager)
+	return s.UpdateObject(tv, version, ignored, manager)
 }
 
 func (s *State) ApplyObject(tv *typed.TypedValue, version fieldpath.APIVersion, manager string, force bool) error {
@@ -344,15 +344,16 @@ func (f ForceApplyObject) preprocess(parser Parser) (Operation, error) {
 // Update is a type of operation. It is a controller type of
 // update. Errors are passed along.
 type Update struct {
-	Manager    string
-	APIVersion fieldpath.APIVersion
-	Object     typed.YAMLObject
+	Manager       string
+	APIVersion    fieldpath.APIVersion
+	Object        typed.YAMLObject
+	IgnoredFields *fieldpath.Set
 }
 
 var _ Operation = &Update{}
 
 func (u Update) run(state *State) error {
-	return state.Update(u.Object, u.APIVersion, u.Manager)
+	return state.Update(u.Object, u.APIVersion, u.IgnoredFields, u.Manager)
 }
 
 func (u Update) preprocess(parser Parser) (Operation, error) {
@@ -361,24 +362,26 @@ func (u Update) preprocess(parser Parser) (Operation, error) {
 		return nil, err
 	}
 	return UpdateObject{
-		Manager:    u.Manager,
-		APIVersion: u.APIVersion,
-		Object:     tv,
+		Manager:       u.Manager,
+		APIVersion:    u.APIVersion,
+		Object:        tv,
+		IgnoredFields: u.IgnoredFields,
 	}, nil
 }
 
 // UpdateObject is a type of operation. It is a controller type of
 // update. Errors are passed along.
 type UpdateObject struct {
-	Manager    string
-	APIVersion fieldpath.APIVersion
-	Object     *typed.TypedValue
+	Manager       string
+	APIVersion    fieldpath.APIVersion
+	Object        *typed.TypedValue
+	IgnoredFields *fieldpath.Set
 }
 
 var _ Operation = &Update{}
 
 func (u UpdateObject) run(state *State) error {
-	return state.UpdateObject(u.Object, u.APIVersion, u.Manager)
+	return state.UpdateObject(u.Object, u.APIVersion, u.IgnoredFields, u.Manager)
 }
 
 func (f UpdateObject) preprocess(parser Parser) (Operation, error) {
@@ -504,4 +507,72 @@ func (tc TestCase) TestWithConverter(parser Parser, converter merge.Converter) e
 	}
 
 	return nil
+}
+
+// PrintState is an Operation printing the current state to help with debugging tests
+type PrintState struct{}
+
+var _ Operation = PrintState{}
+
+func (op PrintState) run(s *State) error {
+	fmt.Println(value.ToString(s.Live.AsValue()))
+	return nil
+}
+
+func (op PrintState) preprocess(_ Parser) (Operation, error) {
+	return op, nil
+}
+
+// ExpectState is an Operation comparing the current state to the defined config to help with debugging tests
+type ExpectState struct {
+	APIVersion fieldpath.APIVersion
+	Object     typed.YAMLObject
+}
+
+var _ Operation = ExpectState{}
+
+func (op ExpectState) run(state *State) error {
+	comparison, err := state.CompareLive(op.Object, op.APIVersion)
+	if err != nil {
+		return fmt.Errorf("failed to compare live with config: %v", err)
+	}
+	if !comparison.IsSame() {
+		config, err := state.Parser.Type(string(op.APIVersion)).FromYAML(FixTabsOrDie(op.Object))
+		if err != nil {
+			return fmt.Errorf("failed to parse config: %w", err)
+		}
+		return fmt.Errorf("expected live and config to be the same:\n%v\nConfig: %v\nLive:   %v\n", comparison, value.ToString(config.AsValue()), value.ToString(state.Live.AsValue()))
+	}
+	return nil
+}
+
+func (op ExpectState) preprocess(parser Parser) (Operation, error) {
+	return op, nil
+}
+
+// ExpectManagedFields is an Operation checking if the manager owns the defined fields in the current state
+// If the Fields are nil, it won't be an error if the manager is missing
+type ExpectManagedFields struct {
+	Manager string
+	Fields  *fieldpath.Set
+}
+
+var _ Operation = ExpectManagedFields{}
+
+func (op ExpectManagedFields) run(state *State) error {
+	manager, ok := state.Managers[op.Manager]
+	if !ok {
+		if op.Fields == nil {
+			return nil
+		}
+		return fmt.Errorf("manager not found: %s", op.Manager)
+	}
+	if diff := manager.Set().Difference(op.Fields); !diff.Empty() {
+		return fmt.Errorf("unexpected managedFields for %s: \n%v", op.Manager, diff)
+	}
+	return nil
+}
+
+func (op ExpectManagedFields) preprocess(parser Parser) (Operation, error) {
+	return op, nil
 }

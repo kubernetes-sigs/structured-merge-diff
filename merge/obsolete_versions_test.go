@@ -56,16 +56,16 @@ func TestObsoleteVersions(t *testing.T) {
 		Parser:  DeducedParser,
 	}
 
-	if err := state.Update(typed.YAMLObject(`{"v1": 0}`), fieldpath.APIVersion("v1"), "v1"); err != nil {
+	if err := state.Update(typed.YAMLObject(`{"v1": 0}`), fieldpath.APIVersion("v1"), nil, "v1"); err != nil {
 		t.Fatalf("Failed to apply: %v", err)
 	}
-	if err := state.Update(typed.YAMLObject(`{"v1": 0, "v2": 0}`), fieldpath.APIVersion("v2"), "v2"); err != nil {
+	if err := state.Update(typed.YAMLObject(`{"v1": 0, "v2": 0}`), fieldpath.APIVersion("v2"), nil, "v2"); err != nil {
 		t.Fatalf("Failed to apply: %v", err)
 	}
 	// Remove v1, add v3 instead.
 	converter.AcceptedVersions = []fieldpath.APIVersion{"v2", "v3"}
 
-	if err := state.Update(typed.YAMLObject(`{"v1": 0, "v2": 0, "v3": 0}`), fieldpath.APIVersion("v3"), "v3"); err != nil {
+	if err := state.Update(typed.YAMLObject(`{"v1": 0, "v2": 0, "v3": 0}`), fieldpath.APIVersion("v3"), nil, "v3"); err != nil {
 		t.Fatalf("Failed to apply: %v", err)
 	}
 
