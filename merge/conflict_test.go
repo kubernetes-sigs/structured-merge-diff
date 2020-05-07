@@ -61,3 +61,34 @@ conflicts with "Bob":
 		t.Errorf("Got %v, wanted %v", got.Error(), wanted)
 	}
 }
+
+func TestToSet(t *testing.T) {
+	conflicts := merge.ConflictsFromManagers(fieldpath.ManagedFields{
+		"Bob": fieldpath.NewVersionedSet(
+			_NS(
+				_P("key"),
+				_P("list", _KBF("key", "a", "id", 2), "id"),
+			),
+			"v1",
+			false,
+		),
+		"Alice": fieldpath.NewVersionedSet(
+			_NS(
+				_P("value"),
+				_P("list", _KBF("key", "a", "id", 2), "key"),
+			),
+			"v1",
+			false,
+		),
+	})
+	expected := fieldpath.NewSet(
+		_P("key"),
+		_P("value"),
+		_P("list", _KBF("key", "a", "id", 2), "id"),
+		_P("list", _KBF("key", "a", "id", 2), "key"),
+	)
+	actual := conflicts.ToSet()
+	if !expected.Equals(actual) {
+		t.Fatalf("expected\n%v\n, but got\n%v\n", expected, actual)
+	}
+}
