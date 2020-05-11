@@ -515,20 +515,6 @@ func (tc TestCase) TestWithConverter(parser Parser, converter merge.Converter) e
 	return nil
 }
 
-// PrintState is an Operation printing the current state to help with debugging tests
-type PrintState struct{}
-
-var _ Operation = PrintState{}
-
-func (op PrintState) run(s *State) error {
-	fmt.Println(value.ToString(s.Live.AsValue()))
-	return nil
-}
-
-func (op PrintState) preprocess(_ Parser) (Operation, error) {
-	return op, nil
-}
-
 // ExpectState is an Operation comparing the current state to the defined config to help with debugging tests
 type ExpectState struct {
 	APIVersion fieldpath.APIVersion
