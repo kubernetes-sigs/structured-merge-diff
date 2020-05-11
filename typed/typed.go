@@ -291,3 +291,13 @@ func (c *Comparison) String() string {
 	}
 	return bld.String()
 }
+
+// Remove fields from the compare
+func (c *Comparison) Remove(fields *fieldpath.Set) {
+	if fields == nil || fields.Empty() {
+		return
+	}
+	c.Removed = c.Removed.RecursiveDifference(fields)
+	c.Modified = c.Modified.RecursiveDifference(fields)
+	c.Added = c.Added.RecursiveDifference(fields)
+}
