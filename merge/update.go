@@ -80,9 +80,10 @@ func (s *Updater) update(oldObject, newObject *typed.TypedValue, version fieldpa
 			if err != nil {
 				return nil, nil, fmt.Errorf("failed to compare objects: %v", err)
 			}
-			compare.Remove(ignored)
 			versions[managerSet.APIVersion()] = compare
 		}
+
+		compare.Remove(ignored)
 
 		conflictSet := managerSet.Set().Intersection(compare.Modified.Union(compare.Added))
 		if !conflictSet.Empty() {
@@ -136,8 +137,11 @@ func (s *Updater) Update(liveObject, newObject *typed.TypedValue, version fieldp
 	if _, ok := managers[manager]; !ok {
 		managers[manager] = fieldpath.NewVersionedSet(fieldpath.NewSet(), version, false)
 	}
+	if ignored == nil {
+		ignored = fieldpath.NewSet()
+	}
 	managers[manager] = fieldpath.NewVersionedSet(
-		managers[manager].Set().Union(compare.Modified).Union(compare.Added).Difference(compare.Removed),
+		managers[manager].Set().Union(compare.Modified).Union(compare.Added).Difference(compare.Removed).RecursiveDifference(ignored),
 		version,
 		false,
 	)
@@ -172,11 +176,15 @@ func (s *Updater) Apply(liveObject, configObject *typed.TypedValue, version fiel
 	}
 	lastSet := managers[manager]
 	set, err := configObject.ToFieldSet()
-	if ignored != nil {
-		set = set.RecursiveDifference(ignored)
-	}
 	if err != nil {
 		return nil, fieldpath.ManagedFields{}, fmt.Errorf("failed to get field set: %v", err)
+	}
+	if ignored != nil {
+		set = set.RecursiveDifference(ignored)
+		// TODO: is this correct. If we don't remove from lastSet pruning might remove the fields?
+		if lastSet != nil {
+			lastSet.Set().RecursiveDifference(ignored)
+		}
 	}
 	managers[manager] = fieldpath.NewVersionedSet(set, version, true)
 	newObject, err = s.prune(newObject, managers, manager, lastSet)

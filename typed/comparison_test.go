@@ -146,6 +146,30 @@ func TestComparisonRemove(t *testing.T) {
 				Removed:  fieldpath.NewSet(),
 			},
 		},
+		{
+			name: "removes simple path",
+			Comparison: &typed.Comparison{
+				Added: fieldpath.NewSet(
+					fieldpath.MakePathOrDie("a"),
+				),
+				Modified: fieldpath.NewSet(
+					fieldpath.MakePathOrDie("b"),
+				),
+				Removed: fieldpath.NewSet(
+					fieldpath.MakePathOrDie("c"),
+				),
+			},
+			Remove: fieldpath.NewSet(
+				fieldpath.MakePathOrDie("a"),
+				fieldpath.MakePathOrDie("b"),
+				fieldpath.MakePathOrDie("c"),
+			),
+			Expect: &typed.Comparison{
+				Added:    fieldpath.NewSet(),
+				Modified: fieldpath.NewSet(),
+				Removed:  fieldpath.NewSet(),
+			},
+		},
 	}
 
 	for _, c := range cases {
