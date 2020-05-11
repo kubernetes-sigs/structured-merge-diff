@@ -137,7 +137,7 @@ func (s *State) Update(obj typed.YAMLObject, version fieldpath.APIVersion, ignor
 	return s.UpdateObject(tv, version, ignored, manager)
 }
 
-func (s *State) ApplyObject(tv *typed.TypedValue, version fieldpath.APIVersion, manager string, force bool) error {
+func (s *State) ApplyObject(tv *typed.TypedValue, version fieldpath.APIVersion, ignored *fieldpath.Set, manager string, force bool) error {
 	err := s.checkInit(version)
 	if err != nil {
 		return err
@@ -146,7 +146,7 @@ func (s *State) ApplyObject(tv *typed.TypedValue, version fieldpath.APIVersion, 
 	if err != nil {
 		return err
 	}
-	new, managers, err := s.Updater.Apply(s.Live, tv, version, s.Managers, manager, force)
+	new, managers, err := s.Updater.Apply(s.Live, tv, version, s.Managers, ignored, manager, force)
 	if err != nil {
 		return err
 	}
@@ -158,12 +158,12 @@ func (s *State) ApplyObject(tv *typed.TypedValue, version fieldpath.APIVersion, 
 }
 
 // Apply the passed in object to the current state
-func (s *State) Apply(obj typed.YAMLObject, version fieldpath.APIVersion, manager string, force bool) error {
+func (s *State) Apply(obj typed.YAMLObject, version fieldpath.APIVersion, ignored *fieldpath.Set, manager string, force bool) error {
 	tv, err := s.Parser.Type(string(version)).FromYAML(FixTabsOrDie(obj))
 	if err != nil {
 		return err
 	}
-	return s.ApplyObject(tv, version, manager, force)
+	return s.ApplyObject(tv, version, ignored, manager, force)
 }
 
 // CompareLive takes a YAML string and returns the comparison with the
@@ -231,10 +231,11 @@ func addedConflicts(one, other merge.Conflicts) merge.Conflicts {
 // conflict, the user can specify the expected conflicts. If conflicts
 // don't match, an error will occur.
 type Apply struct {
-	Manager    string
-	APIVersion fieldpath.APIVersion
-	Object     typed.YAMLObject
-	Conflicts  merge.Conflicts
+	Manager       string
+	APIVersion    fieldpath.APIVersion
+	Object        typed.YAMLObject
+	Conflicts     merge.Conflicts
+	IgnoredFields *fieldpath.Set
 }
 
 var _ Operation = &Apply{}
@@ -253,24 +254,26 @@ func (a Apply) preprocess(parser Parser) (Operation, error) {
 		return nil, err
 	}
 	return ApplyObject{
-		Manager:    a.Manager,
-		APIVersion: a.APIVersion,
-		Object:     tv,
-		Conflicts:  a.Conflicts,
+		Manager:       a.Manager,
+		APIVersion:    a.APIVersion,
+		Object:        tv,
+		Conflicts:     a.Conflicts,
+		IgnoredFields: a.IgnoredFields,
 	}, nil
 }
 
 type ApplyObject struct {
-	Manager    string
-	APIVersion fieldpath.APIVersion
-	Object     *typed.TypedValue
-	Conflicts  merge.Conflicts
+	Manager       string
+	APIVersion    fieldpath.APIVersion
+	Object        *typed.TypedValue
+	Conflicts     merge.Conflicts
+	IgnoredFields *fieldpath.Set
 }
 
 var _ Operation = &ApplyObject{}
 
 func (a ApplyObject) run(state *State) error {
-	err := state.ApplyObject(a.Object, a.APIVersion, a.Manager, false)
+	err := state.ApplyObject(a.Object, a.APIVersion, a.IgnoredFields, a.Manager, false)
 	if err != nil {
 		if _, ok := err.(merge.Conflicts); !ok || a.Conflicts == nil {
 			return err
@@ -300,15 +303,16 @@ func (a ApplyObject) preprocess(parser Parser) (Operation, error) {
 // ForceApply is a type of operation. It is a forced-apply run by a
 // manager with a given object. Any error will be returned.
 type ForceApply struct {
-	Manager    string
-	APIVersion fieldpath.APIVersion
-	Object     typed.YAMLObject
+	Manager       string
+	APIVersion    fieldpath.APIVersion
+	Object        typed.YAMLObject
+	IgnoredFields *fieldpath.Set
 }
 
 var _ Operation = &ForceApply{}
 
 func (f ForceApply) run(state *State) error {
-	return state.Apply(f.Object, f.APIVersion, f.Manager, true)
+	return state.Apply(f.Object, f.APIVersion, f.IgnoredFields, f.Manager, true)
 }
 
 func (f ForceApply) preprocess(parser Parser) (Operation, error) {
@@ -317,24 +321,26 @@ func (f ForceApply) preprocess(parser Parser) (Operation, error) {
 		return nil, err
 	}
 	return ForceApplyObject{
-		Manager:    f.Manager,
-		APIVersion: f.APIVersion,
-		Object:     tv,
+		Manager:       f.Manager,
+		APIVersion:    f.APIVersion,
+		Object:        tv,
+		IgnoredFields: f.IgnoredFields,
 	}, nil
 }
 
 // ForceApplyObject is a type of operation. It is a forced-apply run by
 // a manager with a given object. Any error will be returned.
 type ForceApplyObject struct {
-	Manager    string
-	APIVersion fieldpath.APIVersion
-	Object     *typed.TypedValue
+	Manager       string
+	APIVersion    fieldpath.APIVersion
+	Object        *typed.TypedValue
+	IgnoredFields *fieldpath.Set
 }
 
 var _ Operation = &ForceApplyObject{}
 
 func (f ForceApplyObject) run(state *State) error {
-	return state.ApplyObject(f.Object, f.APIVersion, f.Manager, true)
+	return state.ApplyObject(f.Object, f.APIVersion, f.IgnoredFields, f.Manager, true)
 }
 
 func (f ForceApplyObject) preprocess(parser Parser) (Operation, error) {
@@ -566,6 +572,9 @@ func (op ExpectManagedFields) run(state *State) error {
 			return nil
 		}
 		return fmt.Errorf("manager not found: %s", op.Manager)
+	}
+	if op.Fields == nil {
+		op.Fields = fieldpath.NewSet()
 	}
 	if diff := manager.Set().Difference(op.Fields); !diff.Empty() {
 		return fmt.Errorf("unexpected managedFields for %s: \n%v", op.Manager, diff)

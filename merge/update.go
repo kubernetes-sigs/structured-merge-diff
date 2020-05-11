@@ -80,6 +80,7 @@ func (s *Updater) update(oldObject, newObject *typed.TypedValue, version fieldpa
 			if err != nil {
 				return nil, nil, fmt.Errorf("failed to compare objects: %v", err)
 			}
+			compare.Remove(ignored)
 			versions[managerSet.APIVersion()] = compare
 		}
 
@@ -150,7 +151,7 @@ func (s *Updater) Update(liveObject, newObject *typed.TypedValue, version fieldp
 // well as the configuration that is applied. This will merge the object
 // and return it. If the object hasn't changed, nil is returned (the
 // managers can still have changed though).
-func (s *Updater) Apply(liveObject, configObject *typed.TypedValue, version fieldpath.APIVersion, managers fieldpath.ManagedFields, manager string, force bool) (*typed.TypedValue, fieldpath.ManagedFields, error) {
+func (s *Updater) Apply(liveObject, configObject *typed.TypedValue, version fieldpath.APIVersion, managers fieldpath.ManagedFields, ignored *fieldpath.Set, manager string, force bool) (*typed.TypedValue, fieldpath.ManagedFields, error) {
 	managers = shallowCopyManagers(managers)
 	var err error
 	if s.enableUnions {
@@ -171,6 +172,9 @@ func (s *Updater) Apply(liveObject, configObject *typed.TypedValue, version fiel
 	}
 	lastSet := managers[manager]
 	set, err := configObject.ToFieldSet()
+	if ignored != nil {
+		set = set.RecursiveDifference(ignored)
+	}
 	if err != nil {
 		return nil, fieldpath.ManagedFields{}, fmt.Errorf("failed to get field set: %v", err)
 	}
@@ -179,7 +183,7 @@ func (s *Updater) Apply(liveObject, configObject *typed.TypedValue, version fiel
 	if err != nil {
 		return nil, fieldpath.ManagedFields{}, fmt.Errorf("failed to prune fields: %v", err)
 	}
-	managers, compare, err := s.update(liveObject, newObject, version, managers, nil, manager, force)
+	managers, compare, err := s.update(liveObject, newObject, version, managers, ignored, manager, force)
 	if err != nil {
 		return nil, fieldpath.ManagedFields{}, err
 	}

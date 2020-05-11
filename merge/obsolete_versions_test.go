@@ -113,13 +113,13 @@ func TestApplyObsoleteVersion(t *testing.T) {
 		Parser:  SameVersionParser{T: parser.Type("sets")},
 	}
 
-	if err := state.Apply(typed.YAMLObject(`{"list": ["a", "b", "c", "d"]}`), fieldpath.APIVersion("v1"), "apply", false); err != nil {
+	if err := state.Apply(typed.YAMLObject(`{"list": ["a", "b", "c", "d"]}`), fieldpath.APIVersion("v1"), nil, "apply", false); err != nil {
 		t.Fatalf("Failed to apply: %v", err)
 	}
 	// Remove v1, add v2 instead.
 	converter.AcceptedVersions = []fieldpath.APIVersion{"v2"}
 
-	if err := state.Apply(typed.YAMLObject(`{"list": ["a"]}`), fieldpath.APIVersion("v2"), "apply", false); err != nil {
+	if err := state.Apply(typed.YAMLObject(`{"list": ["a"]}`), fieldpath.APIVersion("v2"), nil, "apply", false); err != nil {
 		t.Fatalf("Failed to apply: %v", err)
 	}
 
