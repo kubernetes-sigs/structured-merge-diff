@@ -83,7 +83,7 @@ func (s *Updater) update(oldObject, newObject *typed.TypedValue, version fieldpa
 			versions[managerSet.APIVersion()] = compare
 		}
 
-		compare.Remove(ignored)
+		compare.ExcludeFields(ignored)
 
 		conflictSet := managerSet.Set().Intersection(compare.Modified.Union(compare.Added))
 		if !conflictSet.Empty() {

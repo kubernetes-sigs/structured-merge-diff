@@ -292,8 +292,9 @@ func (c *Comparison) String() string {
 	return bld.String()
 }
 
-// Remove fields from the compare
-func (c *Comparison) Remove(fields *fieldpath.Set) {
+// ExcludeFields fields from the compare recursively removes the fields
+// from the entire comparison
+func (c *Comparison) ExcludeFields(fields *fieldpath.Set) {
 	if fields == nil || fields.Empty() {
 		return
 	}

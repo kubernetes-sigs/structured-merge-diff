@@ -7,7 +7,7 @@ import (
 	"sigs.k8s.io/structured-merge-diff/v3/typed"
 )
 
-func TestComparisonRemove(t *testing.T) {
+func TestComparisonExcludeFields(t *testing.T) {
 	cases := []struct {
 		name       string
 		Comparison *typed.Comparison
@@ -174,7 +174,7 @@ func TestComparisonRemove(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			c.Comparison.Remove(c.Remove)
+			c.Comparison.ExcludeFields(c.Remove)
 			if (!c.Comparison.Added.Equals(c.Expect.Added) ||
 				!c.Comparison.Modified.Equals(c.Expect.Modified) ||
 				!c.Comparison.Removed.Equals(c.Expect.Removed)) != c.Fails {
