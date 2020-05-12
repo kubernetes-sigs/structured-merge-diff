@@ -23,19 +23,19 @@ func TestIgnoredFields(t *testing.T) {
 						fieldpath.MakePathOrDie("string"),
 					),
 				},
-				ExpectState{
-					APIVersion: "v1",
-					Object: `
-						numeric: 1
-						string: "some string"
-					`,
-				},
-				ExpectManagedFields{
-					Manager: "default",
-					Fields: fieldpath.NewSet(
+			},
+			Object: `
+				numeric: 1
+				string: "some string"
+			`,
+			Managed: fieldpath.ManagedFields{
+				"default": fieldpath.NewVersionedSet(
+					fieldpath.NewSet(
 						fieldpath.MakePathOrDie("numeric"),
 					),
-				},
+					"v1",
+					false,
+				),
 			},
 		},
 		"update_does_not_steal_ignored": {
@@ -49,20 +49,6 @@ func TestIgnoredFields(t *testing.T) {
 						string: "some string"
 					`,
 				},
-				ExpectState{
-					APIVersion: "v1",
-					Object: `
-						numeric: 1
-						string: "some string"
-					`,
-				},
-				ExpectManagedFields{
-					Manager: "default",
-					Fields: fieldpath.NewSet(
-						fieldpath.MakePathOrDie("numeric"),
-						fieldpath.MakePathOrDie("string"),
-					),
-				},
 				Update{
 					Manager:    "default2",
 					APIVersion: "v1",
@@ -72,17 +58,20 @@ func TestIgnoredFields(t *testing.T) {
 					`,
 					IgnoredFields: fieldpath.NewSet(fieldpath.MakePathOrDie("string")),
 				},
-				ExpectState{
-					APIVersion: "v1",
-					Object: `
-						numeric: 1
-						string: "no string"
-					`,
-				},
-				ExpectManagedFields{
-					Manager: "default2",
-					Fields:  nil,
-				},
+			},
+			Object: `
+				numeric: 1
+				string: "no string"
+			`,
+			Managed: fieldpath.ManagedFields{
+				"default": fieldpath.NewVersionedSet(
+					fieldpath.NewSet(
+						fieldpath.MakePathOrDie("numeric"),
+						fieldpath.MakePathOrDie("string"),
+					),
+					"v1",
+					false,
+				),
 			},
 		},
 		"update_does_not_own_deep_ignored": {
@@ -96,16 +85,16 @@ func TestIgnoredFields(t *testing.T) {
 						fieldpath.MakePathOrDie("obj"),
 					),
 				},
-				ExpectState{
-					APIVersion: "v1",
-					Object:     `{"numeric": 1, "obj": {"string": "foo", "numeric": 2}}`,
-				},
-				ExpectManagedFields{
-					Manager: "default",
-					Fields: fieldpath.NewSet(
+			},
+			Object: `{"numeric": 1, "obj": {"string": "foo", "numeric": 2}}`,
+			Managed: fieldpath.ManagedFields{
+				"default": fieldpath.NewVersionedSet(
+					fieldpath.NewSet(
 						fieldpath.MakePathOrDie("numeric"),
 					),
-				},
+					"v1",
+					false,
+				),
 			},
 		},
 		"apply_does_not_own_ignored": {
@@ -122,19 +111,19 @@ func TestIgnoredFields(t *testing.T) {
 						fieldpath.MakePathOrDie("string"),
 					),
 				},
-				ExpectState{
-					APIVersion: "v1",
-					Object: `
-						numeric: 1
-						string: "some string"
-					`,
-				},
-				ExpectManagedFields{
-					Manager: "default",
-					Fields: fieldpath.NewSet(
+			},
+			Object: `
+				numeric: 1
+				string: "some string"
+			`,
+			Managed: fieldpath.ManagedFields{
+				"default": fieldpath.NewVersionedSet(
+					fieldpath.NewSet(
 						fieldpath.MakePathOrDie("numeric"),
 					),
-				},
+					"v1",
+					true,
+				),
 			},
 		},
 		"apply_does_not_steal_ignored": {
@@ -148,20 +137,6 @@ func TestIgnoredFields(t *testing.T) {
 						string: "some string"
 					`,
 				},
-				ExpectState{
-					APIVersion: "v1",
-					Object: `
-						numeric: 1
-						string: "some string"
-					`,
-				},
-				ExpectManagedFields{
-					Manager: "default",
-					Fields: fieldpath.NewSet(
-						fieldpath.MakePathOrDie("numeric"),
-						fieldpath.MakePathOrDie("string"),
-					),
-				},
 				Apply{
 					Manager:    "default2",
 					APIVersion: "v1",
@@ -171,26 +146,27 @@ func TestIgnoredFields(t *testing.T) {
 					`,
 					IgnoredFields: fieldpath.NewSet(fieldpath.MakePathOrDie("string")),
 				},
-				ExpectState{
-					APIVersion: "v1",
-					Object: `
-						numeric: 1
-						string: "some string"
-					`,
-				},
-				ExpectManagedFields{
-					Manager: "default",
-					Fields: fieldpath.NewSet(
+			},
+			Object: `
+				numeric: 1
+				string: "some string"
+			`,
+			Managed: fieldpath.ManagedFields{
+				"default": fieldpath.NewVersionedSet(
+					fieldpath.NewSet(
 						fieldpath.MakePathOrDie("numeric"),
 						fieldpath.MakePathOrDie("string"),
 					),
-				},
-				ExpectManagedFields{
-					Manager: "default2",
-					Fields: fieldpath.NewSet(
+					"v1",
+					true,
+				),
+				"default2": fieldpath.NewVersionedSet(
+					fieldpath.NewSet(
 						fieldpath.MakePathOrDie("numeric"),
 					),
-				},
+					"v1",
+					true,
+				),
 			},
 		},
 		"apply_does_not_own_deep_ignored": {
@@ -204,16 +180,16 @@ func TestIgnoredFields(t *testing.T) {
 						fieldpath.MakePathOrDie("obj"),
 					),
 				},
-				ExpectState{
-					APIVersion: "v1",
-					Object:     `{"numeric": 1, "obj": {"string": "foo", "numeric": 2}}`,
-				},
-				ExpectManagedFields{
-					Manager: "default",
-					Fields: fieldpath.NewSet(
+			},
+			Object: `{"numeric": 1, "obj": {"string": "foo", "numeric": 2}}`,
+			Managed: fieldpath.ManagedFields{
+				"default": fieldpath.NewVersionedSet(
+					fieldpath.NewSet(
 						fieldpath.MakePathOrDie("numeric"),
 					),
-				},
+					"v1",
+					true,
+				),
 			},
 		},
 	}
