@@ -131,6 +131,12 @@ func BenchmarkFieldSet(b *testing.B) {
 				randOperand().Difference(randOperand())
 			}
 		})
+		b.Run(fmt.Sprintf("recursive-difference-%v", here.size), func(b *testing.B) {
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				randOperand().RecursiveDifference(randOperand())
+			}
+		})
 	}
 }
 
