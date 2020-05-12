@@ -447,6 +447,62 @@ func TestSetIntersectionDifference(t *testing.T) {
 	})
 }
 
+func TestSetRecursiveDifference(t *testing.T) {
+	table := []struct {
+		name   string
+		a      *Set
+		b      *Set
+		expect *Set
+	}{
+		{
+			name:   "removes simple path",
+			a:      NewSet(MakePathOrDie("a")),
+			b:      NewSet(MakePathOrDie("a")),
+			expect: NewSet(),
+		},
+		{
+			name:   "removes direct path",
+			a:      NewSet(MakePathOrDie("a", "b", "c")),
+			b:      NewSet(MakePathOrDie("a", "b", "c")),
+			expect: NewSet(),
+		},
+		{
+			name: "only removes matching child",
+			a: NewSet(
+				MakePathOrDie("a", "b", "c"),
+				MakePathOrDie("b", "b", "c"),
+			),
+			b:      NewSet(MakePathOrDie("a", "b", "c")),
+			expect: NewSet(MakePathOrDie("b", "b", "c")),
+		},
+		{
+			name:   "removes nested path",
+			a:      NewSet(MakePathOrDie("a", "b", "c")),
+			b:      NewSet(MakePathOrDie("a")),
+			expect: NewSet(),
+		},
+		{
+			name: "only removes nested path for matching children",
+			a: NewSet(
+				MakePathOrDie("a", "aa", "aab"),
+				MakePathOrDie("a", "ab", "aba"),
+			),
+			b: NewSet(MakePathOrDie("a", "aa")),
+			expect: NewSet(
+				MakePathOrDie("a", "ab", "aba"),
+			),
+		},
+	}
+
+	for _, c := range table {
+		t.Run(c.name, func(t *testing.T) {
+			if result := c.a.RecursiveDifference(c.b); !result.Equals(c.expect) {
+				t.Fatalf("expected: \n%v\n, got: \n%v\n", c.expect, result)
+			}
+		})
+	}
+}
+
 func TestSetNodeMapIterate(t *testing.T) {
 	set := &SetNodeMap{}
 	toAdd := 5
