@@ -109,7 +109,7 @@ func (s *State) checkInit(version fieldpath.APIVersion) error {
 	return nil
 }
 
-func (s *State) UpdateObject(tv *typed.TypedValue, version fieldpath.APIVersion, ignored fieldpath.SetVersions, manager string) error {
+func (s *State) UpdateObject(tv *typed.TypedValue, version fieldpath.APIVersion, ignored map[fieldpath.APIVersion]*fieldpath.Set, manager string) error {
 	err := s.checkInit(version)
 	if err != nil {
 		return err
@@ -130,7 +130,7 @@ func (s *State) UpdateObject(tv *typed.TypedValue, version fieldpath.APIVersion,
 }
 
 // Update the current state with the passed in object
-func (s *State) Update(obj typed.YAMLObject, version fieldpath.APIVersion, ignored fieldpath.SetVersions, manager string) error {
+func (s *State) Update(obj typed.YAMLObject, version fieldpath.APIVersion, ignored map[fieldpath.APIVersion]*fieldpath.Set, manager string) error {
 	tv, err := s.Parser.Type(string(version)).FromYAML(FixTabsOrDie(obj))
 	if err != nil {
 		return err
@@ -138,7 +138,7 @@ func (s *State) Update(obj typed.YAMLObject, version fieldpath.APIVersion, ignor
 	return s.UpdateObject(tv, version, ignored, manager)
 }
 
-func (s *State) ApplyObject(tv *typed.TypedValue, version fieldpath.APIVersion, ignored fieldpath.SetVersions, manager string, force bool) error {
+func (s *State) ApplyObject(tv *typed.TypedValue, version fieldpath.APIVersion, ignored map[fieldpath.APIVersion]*fieldpath.Set, manager string, force bool) error {
 	err := s.checkInit(version)
 	if err != nil {
 		return err
@@ -160,7 +160,7 @@ func (s *State) ApplyObject(tv *typed.TypedValue, version fieldpath.APIVersion, 
 }
 
 // Apply the passed in object to the current state
-func (s *State) Apply(obj typed.YAMLObject, version fieldpath.APIVersion, ignored fieldpath.SetVersions, manager string, force bool) error {
+func (s *State) Apply(obj typed.YAMLObject, version fieldpath.APIVersion, ignored map[fieldpath.APIVersion]*fieldpath.Set, manager string, force bool) error {
 	tv, err := s.Parser.Type(string(version)).FromYAML(FixTabsOrDie(obj))
 	if err != nil {
 		return err
@@ -237,7 +237,7 @@ type Apply struct {
 	APIVersion    fieldpath.APIVersion
 	Object        typed.YAMLObject
 	Conflicts     merge.Conflicts
-	IgnoredFields fieldpath.SetVersions
+	IgnoredFields map[fieldpath.APIVersion]*fieldpath.Set
 }
 
 var _ Operation = &Apply{}
@@ -269,7 +269,7 @@ type ApplyObject struct {
 	APIVersion    fieldpath.APIVersion
 	Object        *typed.TypedValue
 	Conflicts     merge.Conflicts
-	IgnoredFields fieldpath.SetVersions
+	IgnoredFields map[fieldpath.APIVersion]*fieldpath.Set
 }
 
 var _ Operation = &ApplyObject{}
@@ -308,7 +308,7 @@ type ForceApply struct {
 	Manager       string
 	APIVersion    fieldpath.APIVersion
 	Object        typed.YAMLObject
-	IgnoredFields fieldpath.SetVersions
+	IgnoredFields map[fieldpath.APIVersion]*fieldpath.Set
 }
 
 var _ Operation = &ForceApply{}
@@ -336,7 +336,7 @@ type ForceApplyObject struct {
 	Manager       string
 	APIVersion    fieldpath.APIVersion
 	Object        *typed.TypedValue
-	IgnoredFields fieldpath.SetVersions
+	IgnoredFields map[fieldpath.APIVersion]*fieldpath.Set
 }
 
 var _ Operation = &ForceApplyObject{}
@@ -355,7 +355,7 @@ type Update struct {
 	Manager       string
 	APIVersion    fieldpath.APIVersion
 	Object        typed.YAMLObject
-	IgnoredFields fieldpath.SetVersions
+	IgnoredFields map[fieldpath.APIVersion]*fieldpath.Set
 }
 
 var _ Operation = &Update{}
@@ -383,7 +383,7 @@ type UpdateObject struct {
 	Manager       string
 	APIVersion    fieldpath.APIVersion
 	Object        *typed.TypedValue
-	IgnoredFields fieldpath.SetVersions
+	IgnoredFields map[fieldpath.APIVersion]*fieldpath.Set
 }
 
 var _ Operation = &Update{}
@@ -519,7 +519,7 @@ func (tc TestCase) TestWithConverter(parser Parser, converter merge.Converter) e
 
 // setIgnoredFieldsAndCleanup sets the ignored fields for the provided updater and returns the cleanup function resetting them again
 // this way it can be called in a single defer call
-func setIgnoredFieldsAndCleanup(updater *merge.Updater, ignored fieldpath.SetVersions) func() {
+func setIgnoredFieldsAndCleanup(updater *merge.Updater, ignored map[fieldpath.APIVersion]*fieldpath.Set) func() {
 	if ignored == nil {
 		return func() {}
 	}

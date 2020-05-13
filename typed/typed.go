@@ -294,11 +294,12 @@ func (c *Comparison) String() string {
 
 // ExcludeFields fields from the compare recursively removes the fields
 // from the entire comparison
-func (c *Comparison) ExcludeFields(fields *fieldpath.Set) {
+func (c *Comparison) ExcludeFields(fields *fieldpath.Set) *Comparison {
 	if fields == nil || fields.Empty() {
-		return
+		return c
 	}
 	c.Removed = c.Removed.RecursiveDifference(fields)
 	c.Modified = c.Modified.RecursiveDifference(fields)
 	c.Added = c.Added.RecursiveDifference(fields)
+	return c
 }

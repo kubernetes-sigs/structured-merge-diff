@@ -31,7 +31,7 @@ type Converter interface {
 // merge the object on Apply.
 type Updater struct {
 	Converter     Converter
-	IgnoredFields fieldpath.SetVersions
+	IgnoredFields map[fieldpath.APIVersion]*fieldpath.Set
 
 	enableUnions bool
 }
@@ -50,10 +50,8 @@ func (s *Updater) update(oldObject, newObject *typed.TypedValue, version fieldpa
 		return nil, nil, fmt.Errorf("failed to compare objects: %v", err)
 	}
 
-	compare.ExcludeFields(s.IgnoredFields[version])
-
 	versions := map[fieldpath.APIVersion]*typed.Comparison{
-		version: compare,
+		version: compare.ExcludeFields(s.IgnoredFields[version]),
 	}
 
 	for manager, managerSet := range managers {
@@ -83,8 +81,7 @@ func (s *Updater) update(oldObject, newObject *typed.TypedValue, version fieldpa
 			if err != nil {
 				return nil, nil, fmt.Errorf("failed to compare objects: %v", err)
 			}
-			compare.ExcludeFields(s.IgnoredFields[managerSet.APIVersion()])
-			versions[managerSet.APIVersion()] = compare
+			versions[managerSet.APIVersion()] = compare.ExcludeFields(s.IgnoredFields[managerSet.APIVersion()])
 		}
 
 		conflictSet := managerSet.Set().Intersection(compare.Modified.Union(compare.Added))

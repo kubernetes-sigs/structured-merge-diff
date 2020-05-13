@@ -35,7 +35,7 @@ func TestIgnoredFields(t *testing.T) {
 						numeric: 1
 						string: "some string"
 					`,
-					IgnoredFields: fieldpath.SetVersions{
+					IgnoredFields: map[fieldpath.APIVersion]*fieldpath.Set{
 						"v1": _NS(
 							_P("string"),
 						),
@@ -74,7 +74,7 @@ func TestIgnoredFields(t *testing.T) {
 						numeric: 1
 						string: "no string"
 					`,
-					IgnoredFields: fieldpath.SetVersions{
+					IgnoredFields: map[fieldpath.APIVersion]*fieldpath.Set{
 						"v1": _NS(
 							_P("string"),
 						),
@@ -103,7 +103,7 @@ func TestIgnoredFields(t *testing.T) {
 					Manager:    "default",
 					APIVersion: "v1",
 					Object:     `{"numeric": 1, "obj": {"string": "foo", "numeric": 2}}`,
-					IgnoredFields: fieldpath.SetVersions{
+					IgnoredFields: map[fieldpath.APIVersion]*fieldpath.Set{
 						"v1": _NS(
 							_P("obj"),
 						),
@@ -131,7 +131,7 @@ func TestIgnoredFields(t *testing.T) {
 						numeric: 1
 						string: "some string"
 					`,
-					IgnoredFields: fieldpath.SetVersions{
+					IgnoredFields: map[fieldpath.APIVersion]*fieldpath.Set{
 						"v1": _NS(
 							_P("string"),
 						),
@@ -170,7 +170,7 @@ func TestIgnoredFields(t *testing.T) {
 						numeric: 1
 						string: "no string"
 					`,
-					IgnoredFields: fieldpath.SetVersions{
+					IgnoredFields: map[fieldpath.APIVersion]*fieldpath.Set{
 						"v1": _NS(_P("string")),
 					},
 				},
@@ -204,7 +204,7 @@ func TestIgnoredFields(t *testing.T) {
 					Manager:    "default",
 					APIVersion: "v1",
 					Object:     `{"numeric": 1, "obj": {"string": "foo", "numeric": 2}}`,
-					IgnoredFields: fieldpath.SetVersions{
+					IgnoredFields: map[fieldpath.APIVersion]*fieldpath.Set{
 						"v1": _NS(
 							_P("obj"),
 						),
@@ -234,7 +234,7 @@ func TestIgnoredFields(t *testing.T) {
 }
 
 func TestIgnoredFieldsUsesVersions(t *testing.T) {
-	ignored := fieldpath.SetVersions{
+	ignored := map[fieldpath.APIVersion]*fieldpath.Set{
 		"v1": _NS(
 			_P("mapOfMapsRecursive", "c"),
 		),
