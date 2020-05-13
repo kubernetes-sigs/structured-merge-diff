@@ -35,9 +35,11 @@ func TestIgnoredFields(t *testing.T) {
 						numeric: 1
 						string: "some string"
 					`,
-					IgnoredFields: fieldpath.NewSet(
-						fieldpath.MakePathOrDie("string"),
-					),
+					IgnoredFields: fieldpath.SetVersions{
+						"v1": _NS(
+							_P("string"),
+						),
+					},
 				},
 			},
 			Object: `
@@ -46,8 +48,8 @@ func TestIgnoredFields(t *testing.T) {
 			`,
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
-					fieldpath.NewSet(
-						fieldpath.MakePathOrDie("numeric"),
+					_NS(
+						_P("numeric"),
 					),
 					"v1",
 					false,
@@ -72,7 +74,11 @@ func TestIgnoredFields(t *testing.T) {
 						numeric: 1
 						string: "no string"
 					`,
-					IgnoredFields: fieldpath.NewSet(fieldpath.MakePathOrDie("string")),
+					IgnoredFields: fieldpath.SetVersions{
+						"v1": _NS(
+							_P("string"),
+						),
+					},
 				},
 			},
 			Object: `
@@ -81,9 +87,9 @@ func TestIgnoredFields(t *testing.T) {
 			`,
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
-					fieldpath.NewSet(
-						fieldpath.MakePathOrDie("numeric"),
-						fieldpath.MakePathOrDie("string"),
+					_NS(
+						_P("numeric"),
+						_P("string"),
 					),
 					"v1",
 					false,
@@ -97,16 +103,18 @@ func TestIgnoredFields(t *testing.T) {
 					Manager:    "default",
 					APIVersion: "v1",
 					Object:     `{"numeric": 1, "obj": {"string": "foo", "numeric": 2}}`,
-					IgnoredFields: fieldpath.NewSet(
-						fieldpath.MakePathOrDie("obj"),
-					),
+					IgnoredFields: fieldpath.SetVersions{
+						"v1": _NS(
+							_P("obj"),
+						),
+					},
 				},
 			},
 			Object: `{"numeric": 1, "obj": {"string": "foo", "numeric": 2}}`,
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
-					fieldpath.NewSet(
-						fieldpath.MakePathOrDie("numeric"),
+					_NS(
+						_P("numeric"),
 					),
 					"v1",
 					false,
@@ -123,9 +131,11 @@ func TestIgnoredFields(t *testing.T) {
 						numeric: 1
 						string: "some string"
 					`,
-					IgnoredFields: fieldpath.NewSet(
-						fieldpath.MakePathOrDie("string"),
-					),
+					IgnoredFields: fieldpath.SetVersions{
+						"v1": _NS(
+							_P("string"),
+						),
+					},
 				},
 			},
 			Object: `
@@ -134,8 +144,8 @@ func TestIgnoredFields(t *testing.T) {
 			`,
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
-					fieldpath.NewSet(
-						fieldpath.MakePathOrDie("numeric"),
+					_NS(
+						_P("numeric"),
 					),
 					"v1",
 					true,
@@ -160,7 +170,9 @@ func TestIgnoredFields(t *testing.T) {
 						numeric: 1
 						string: "no string"
 					`,
-					IgnoredFields: fieldpath.NewSet(fieldpath.MakePathOrDie("string")),
+					IgnoredFields: fieldpath.SetVersions{
+						"v1": _NS(_P("string")),
+					},
 				},
 			},
 			Object: `
@@ -169,16 +181,16 @@ func TestIgnoredFields(t *testing.T) {
 			`,
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
-					fieldpath.NewSet(
-						fieldpath.MakePathOrDie("numeric"),
-						fieldpath.MakePathOrDie("string"),
+					_NS(
+						_P("numeric"),
+						_P("string"),
 					),
 					"v1",
 					true,
 				),
 				"default2": fieldpath.NewVersionedSet(
-					fieldpath.NewSet(
-						fieldpath.MakePathOrDie("numeric"),
+					_NS(
+						_P("numeric"),
 					),
 					"v1",
 					true,
@@ -192,16 +204,18 @@ func TestIgnoredFields(t *testing.T) {
 					Manager:    "default",
 					APIVersion: "v1",
 					Object:     `{"numeric": 1, "obj": {"string": "foo", "numeric": 2}}`,
-					IgnoredFields: fieldpath.NewSet(
-						fieldpath.MakePathOrDie("obj"),
-					),
+					IgnoredFields: fieldpath.SetVersions{
+						"v1": _NS(
+							_P("obj"),
+						),
+					},
 				},
 			},
 			Object: `{"numeric": 1, "obj": {"string": "foo", "numeric": 2}}`,
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
-					fieldpath.NewSet(
-						fieldpath.MakePathOrDie("numeric"),
+					_NS(
+						_P("numeric"),
 					),
 					"v1",
 					true,
@@ -216,5 +230,78 @@ func TestIgnoredFields(t *testing.T) {
 				t.Fatal("Should fail:", err)
 			}
 		})
+	}
+}
+
+func TestIgnoredFieldsUsesVersions(t *testing.T) {
+	ignored := fieldpath.SetVersions{
+		"v1": _NS(
+			_P("mapOfMapsRecursive", "c"),
+		),
+		"v2": _NS(
+			_P("mapOfMapsRecursive", "cc"),
+		),
+		"v3": _NS(
+			_P("mapOfMapsRecursive", "ccc"),
+		),
+		"v4": _NS(
+			_P("mapOfMapsRecursive", "cccc"),
+		),
+	}
+	test := TestCase{
+		Ops: []Operation{
+			Apply{
+				Manager: "apply-one",
+				Object: `
+						mapOfMapsRecursive:
+						  a:
+						    b:
+						  c:
+						    d:
+					`,
+				APIVersion:    "v1",
+				IgnoredFields: ignored,
+			},
+			Apply{
+				Manager: "apply-two",
+				Object: `
+						mapOfMapsRecursive:
+						  aa:
+						  cc:
+						    dd:
+					`,
+				APIVersion:    "v2",
+				IgnoredFields: ignored,
+			},
+			Apply{
+				Manager: "apply-one",
+				Object: `
+						mapOfMapsRecursive:
+					`,
+				APIVersion:    "v4",
+				IgnoredFields: ignored,
+			},
+		},
+		// note that this still contains cccc due to ignored fields not being removed from the update result
+		Object: `
+				mapOfMapsRecursive:
+				  aaaa:
+				  cccc:
+				    dddd:
+			`,
+		APIVersion: "v4",
+		Managed: fieldpath.ManagedFields{
+			"apply-two": fieldpath.NewVersionedSet(
+				_NS(
+					_P("mapOfMapsRecursive", "aa"),
+				),
+				"v2",
+				false,
+			),
+		},
+	}
+
+	if err := test.TestWithConverter(nestedTypeParser, repeatingConverter{nestedTypeParser}); err != nil {
+		t.Fatal(err)
 	}
 }
