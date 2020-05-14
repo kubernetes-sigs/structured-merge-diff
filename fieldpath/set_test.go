@@ -498,6 +498,15 @@ func TestSetRecursiveDifference(t *testing.T) {
 				MakePathOrDie("a", "ab", "aba"),
 			),
 		},
+		{
+			name: "remove all matching children",
+			a: NewSet(
+				MakePathOrDie("a", "aa", "aab"),
+				MakePathOrDie("a", "ab", "aba"),
+			),
+			b:      NewSet(MakePathOrDie("a")),
+			expect: NewSet(),
+		},
 	}
 
 	for _, c := range table {
