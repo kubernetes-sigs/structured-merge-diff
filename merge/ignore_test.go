@@ -35,11 +35,6 @@ func TestIgnoredFields(t *testing.T) {
 						numeric: 1
 						string: "some string"
 					`,
-					IgnoredFields: map[fieldpath.APIVersion]*fieldpath.Set{
-						"v1": _NS(
-							_P("string"),
-						),
-					},
 				},
 			},
 			Object: `
@@ -55,44 +50,9 @@ func TestIgnoredFields(t *testing.T) {
 					false,
 				),
 			},
-		},
-		"update_does_not_steal_ignored": {
-			APIVersion: "v1",
-			Ops: []Operation{
-				Update{
-					Manager:    "default",
-					APIVersion: "v1",
-					Object: `
-						numeric: 1
-						string: "some string"
-					`,
-				},
-				Update{
-					Manager:    "default2",
-					APIVersion: "v1",
-					Object: `
-						numeric: 1
-						string: "no string"
-					`,
-					IgnoredFields: map[fieldpath.APIVersion]*fieldpath.Set{
-						"v1": _NS(
-							_P("string"),
-						),
-					},
-				},
-			},
-			Object: `
-				numeric: 1
-				string: "no string"
-			`,
-			Managed: fieldpath.ManagedFields{
-				"default": fieldpath.NewVersionedSet(
-					_NS(
-						_P("numeric"),
-						_P("string"),
-					),
-					"v1",
-					false,
+			IgnoredFields: map[fieldpath.APIVersion]*fieldpath.Set{
+				"v1": _NS(
+					_P("string"),
 				),
 			},
 		},
@@ -103,11 +63,6 @@ func TestIgnoredFields(t *testing.T) {
 					Manager:    "default",
 					APIVersion: "v1",
 					Object:     `{"numeric": 1, "obj": {"string": "foo", "numeric": 2}}`,
-					IgnoredFields: map[fieldpath.APIVersion]*fieldpath.Set{
-						"v1": _NS(
-							_P("obj"),
-						),
-					},
 				},
 			},
 			Object: `{"numeric": 1, "obj": {"string": "foo", "numeric": 2}}`,
@@ -118,6 +73,11 @@ func TestIgnoredFields(t *testing.T) {
 					),
 					"v1",
 					false,
+				),
+			},
+			IgnoredFields: map[fieldpath.APIVersion]*fieldpath.Set{
+				"v1": _NS(
+					_P("obj"),
 				),
 			},
 		},
@@ -131,11 +91,6 @@ func TestIgnoredFields(t *testing.T) {
 						numeric: 1
 						string: "some string"
 					`,
-					IgnoredFields: map[fieldpath.APIVersion]*fieldpath.Set{
-						"v1": _NS(
-							_P("string"),
-						),
-					},
 				},
 			},
 			Object: `
@@ -151,49 +106,9 @@ func TestIgnoredFields(t *testing.T) {
 					true,
 				),
 			},
-		},
-		"apply_does_not_steal_ignored": {
-			APIVersion: "v1",
-			Ops: []Operation{
-				Apply{
-					Manager:    "default",
-					APIVersion: "v1",
-					Object: `
-						numeric: 1
-						string: "some string"
-					`,
-				},
-				Apply{
-					Manager:    "default2",
-					APIVersion: "v1",
-					Object: `
-						numeric: 1
-						string: "no string"
-					`,
-					IgnoredFields: map[fieldpath.APIVersion]*fieldpath.Set{
-						"v1": _NS(_P("string")),
-					},
-				},
-			},
-			Object: `
-				numeric: 1
-				string: "some string"
-			`,
-			Managed: fieldpath.ManagedFields{
-				"default": fieldpath.NewVersionedSet(
-					_NS(
-						_P("numeric"),
-						_P("string"),
-					),
-					"v1",
-					true,
-				),
-				"default2": fieldpath.NewVersionedSet(
-					_NS(
-						_P("numeric"),
-					),
-					"v1",
-					true,
+			IgnoredFields: map[fieldpath.APIVersion]*fieldpath.Set{
+				"v1": _NS(
+					_P("string"),
 				),
 			},
 		},
@@ -204,11 +119,6 @@ func TestIgnoredFields(t *testing.T) {
 					Manager:    "default",
 					APIVersion: "v1",
 					Object:     `{"numeric": 1, "obj": {"string": "foo", "numeric": 2}}`,
-					IgnoredFields: map[fieldpath.APIVersion]*fieldpath.Set{
-						"v1": _NS(
-							_P("obj"),
-						),
-					},
 				},
 			},
 			Object: `{"numeric": 1, "obj": {"string": "foo", "numeric": 2}}`,
@@ -219,6 +129,11 @@ func TestIgnoredFields(t *testing.T) {
 					),
 					"v1",
 					true,
+				),
+			},
+			IgnoredFields: map[fieldpath.APIVersion]*fieldpath.Set{
+				"v1": _NS(
+					_P("obj"),
 				),
 			},
 		},
@@ -234,74 +149,195 @@ func TestIgnoredFields(t *testing.T) {
 }
 
 func TestIgnoredFieldsUsesVersions(t *testing.T) {
-	ignored := map[fieldpath.APIVersion]*fieldpath.Set{
-		"v1": _NS(
-			_P("mapOfMapsRecursive", "c"),
-		),
-		"v2": _NS(
-			_P("mapOfMapsRecursive", "cc"),
-		),
-		"v3": _NS(
-			_P("mapOfMapsRecursive", "ccc"),
-		),
-		"v4": _NS(
-			_P("mapOfMapsRecursive", "cccc"),
-		),
-	}
-	test := TestCase{
-		Ops: []Operation{
-			Apply{
-				Manager: "apply-one",
-				Object: `
+	tests := map[string]TestCase{
+		"does_use_ignored_fields_versions": {
+			Ops: []Operation{
+				Apply{
+					Manager: "apply-one",
+					Object: `
 						mapOfMapsRecursive:
 						  a:
 						    b:
 						  c:
 						    d:
 					`,
-				APIVersion:    "v1",
-				IgnoredFields: ignored,
-			},
-			Apply{
-				Manager: "apply-two",
-				Object: `
+					APIVersion: "v1",
+				},
+				Apply{
+					Manager: "apply-two",
+					Object: `
 						mapOfMapsRecursive:
 						  aa:
 						  cc:
 						    dd:
 					`,
-				APIVersion:    "v2",
-				IgnoredFields: ignored,
-			},
-			Apply{
-				Manager: "apply-one",
-				Object: `
+					APIVersion: "v2",
+				},
+				Apply{
+					Manager: "apply-one",
+					Object: `
 						mapOfMapsRecursive:
 					`,
-				APIVersion:    "v4",
-				IgnoredFields: ignored,
+					APIVersion: "v4",
+				},
 			},
-		},
-		// note that this still contains cccc due to ignored fields not being removed from the update result
-		Object: `
+			// note that this still contains cccc due to ignored fields not being removed from the update result
+			Object: `
 				mapOfMapsRecursive:
 				  aaaa:
 				  cccc:
 				    dddd:
 			`,
-		APIVersion: "v4",
-		Managed: fieldpath.ManagedFields{
-			"apply-two": fieldpath.NewVersionedSet(
-				_NS(
-					_P("mapOfMapsRecursive", "aa"),
+			APIVersion: "v4",
+			Managed: fieldpath.ManagedFields{
+				"apply-two": fieldpath.NewVersionedSet(
+					_NS(
+						_P("mapOfMapsRecursive", "aa"),
+					),
+					"v2",
+					false,
 				),
-				"v2",
-				false,
-			),
+			},
+			IgnoredFields: map[fieldpath.APIVersion]*fieldpath.Set{
+				"v1": _NS(
+					_P("mapOfMapsRecursive", "c"),
+				),
+				"v2": _NS(
+					_P("mapOfMapsRecursive", "cc"),
+				),
+				"v3": _NS(
+					_P("mapOfMapsRecursive", "ccc"),
+				),
+				"v4": _NS(
+					_P("mapOfMapsRecursive", "cccc"),
+				),
+			},
+		},
+		"update_does_not_steal_ignored": {
+			APIVersion: "v1",
+			Ops: []Operation{
+				Update{
+					Manager: "update-one",
+					Object: `
+						mapOfMapsRecursive:
+						  a: 
+						    b:
+						  c:
+						    d:
+					`,
+					APIVersion: "v1",
+				},
+				Update{
+					Manager: "update-two",
+					Object: `
+						mapOfMapsRecursive:
+						  a: 
+						    b:
+						  c:
+						    e:
+					`,
+					APIVersion: "v2",
+				},
+			},
+			Object: `
+				mapOfMapsRecursive:
+				  a: 
+				    b:
+				  c:
+				    e:
+			`,
+			Managed: fieldpath.ManagedFields{
+				"update-one": fieldpath.NewVersionedSet(
+					_NS(
+						_P("mapOfMapsRecursive"),
+						_P("mapOfMapsRecursive", "a"),
+						_P("mapOfMapsRecursive", "a", "b"),
+						_P("mapOfMapsRecursive", "c"),
+					),
+					"v1",
+					false,
+				),
+				"update-two": fieldpath.NewVersionedSet(
+					_NS(
+						_P("mapOfMapsRecursive", "a"),
+						_P("mapOfMapsRecursive", "a", "b"),
+					),
+					"v2",
+					false,
+				),
+			},
+			IgnoredFields: map[fieldpath.APIVersion]*fieldpath.Set{
+				"v2": _NS(
+					_P("mapOfMapsRecursive", "c"),
+				),
+			},
+		},
+		"apply_does_not_steal_ignored": {
+			APIVersion: "v1",
+			Ops: []Operation{
+				Apply{
+					Manager: "apply-one",
+					Object: `
+						mapOfMapsRecursive:
+						  a: 
+						    b:
+						  c:
+						    d:
+					`,
+					APIVersion: "v1",
+				},
+				Apply{
+					Manager: "apply-two",
+					Object: `
+						mapOfMapsRecursive:
+						  a: 
+						    b:
+						  c:
+						    e:
+					`,
+					APIVersion: "v2",
+				},
+			},
+			Object: `
+				mapOfMapsRecursive:
+				  a: 
+				    b:
+				  c:
+				    d:
+			`,
+			Managed: fieldpath.ManagedFields{
+				"apply-one": fieldpath.NewVersionedSet(
+					_NS(
+						_P("mapOfMapsRecursive", "a"),
+						_P("mapOfMapsRecursive", "a", "b"),
+						_P("mapOfMapsRecursive", "c"),
+						_P("mapOfMapsRecursive", "c", "d"),
+					),
+					"v1",
+					false,
+				),
+				"apply-two": fieldpath.NewVersionedSet(
+					_NS(
+						_P("mapOfMapsRecursive", "a"),
+						_P("mapOfMapsRecursive", "a", "b"),
+					),
+					"v2",
+					false,
+				),
+			},
+			IgnoredFields: map[fieldpath.APIVersion]*fieldpath.Set{
+				"v2": _NS(
+					_P("mapOfMapsRecursive", "c"),
+				),
+			},
 		},
 	}
 
-	if err := test.TestWithConverter(nestedTypeParser, repeatingConverter{nestedTypeParser}); err != nil {
-		t.Fatal(err)
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			if err := test.TestWithConverter(nestedTypeParser, repeatingConverter{nestedTypeParser}); err != nil {
+				t.Fatal(err)
+			}
+		})
 	}
 }

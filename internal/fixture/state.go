@@ -109,7 +109,7 @@ func (s *State) checkInit(version fieldpath.APIVersion) error {
 	return nil
 }
 
-func (s *State) UpdateObject(tv *typed.TypedValue, version fieldpath.APIVersion, ignored map[fieldpath.APIVersion]*fieldpath.Set, manager string) error {
+func (s *State) UpdateObject(tv *typed.TypedValue, version fieldpath.APIVersion, manager string) error {
 	err := s.checkInit(version)
 	if err != nil {
 		return err
@@ -118,7 +118,6 @@ func (s *State) UpdateObject(tv *typed.TypedValue, version fieldpath.APIVersion,
 	if err != nil {
 		return err
 	}
-	defer setIgnoredFieldsAndCleanup(s.Updater, ignored)()
 	newObj, managers, err := s.Updater.Update(s.Live, tv, version, s.Managers, manager)
 	if err != nil {
 		return err
@@ -130,15 +129,15 @@ func (s *State) UpdateObject(tv *typed.TypedValue, version fieldpath.APIVersion,
 }
 
 // Update the current state with the passed in object
-func (s *State) Update(obj typed.YAMLObject, version fieldpath.APIVersion, ignored map[fieldpath.APIVersion]*fieldpath.Set, manager string) error {
+func (s *State) Update(obj typed.YAMLObject, version fieldpath.APIVersion, manager string) error {
 	tv, err := s.Parser.Type(string(version)).FromYAML(FixTabsOrDie(obj))
 	if err != nil {
 		return err
 	}
-	return s.UpdateObject(tv, version, ignored, manager)
+	return s.UpdateObject(tv, version, manager)
 }
 
-func (s *State) ApplyObject(tv *typed.TypedValue, version fieldpath.APIVersion, ignored map[fieldpath.APIVersion]*fieldpath.Set, manager string, force bool) error {
+func (s *State) ApplyObject(tv *typed.TypedValue, version fieldpath.APIVersion, manager string, force bool) error {
 	err := s.checkInit(version)
 	if err != nil {
 		return err
@@ -147,7 +146,6 @@ func (s *State) ApplyObject(tv *typed.TypedValue, version fieldpath.APIVersion, 
 	if err != nil {
 		return err
 	}
-	defer setIgnoredFieldsAndCleanup(s.Updater, ignored)()
 	new, managers, err := s.Updater.Apply(s.Live, tv, version, s.Managers, manager, force)
 	if err != nil {
 		return err
@@ -160,12 +158,12 @@ func (s *State) ApplyObject(tv *typed.TypedValue, version fieldpath.APIVersion, 
 }
 
 // Apply the passed in object to the current state
-func (s *State) Apply(obj typed.YAMLObject, version fieldpath.APIVersion, ignored map[fieldpath.APIVersion]*fieldpath.Set, manager string, force bool) error {
+func (s *State) Apply(obj typed.YAMLObject, version fieldpath.APIVersion, manager string, force bool) error {
 	tv, err := s.Parser.Type(string(version)).FromYAML(FixTabsOrDie(obj))
 	if err != nil {
 		return err
 	}
-	return s.ApplyObject(tv, version, ignored, manager, force)
+	return s.ApplyObject(tv, version, manager, force)
 }
 
 // CompareLive takes a YAML string and returns the comparison with the
@@ -233,11 +231,10 @@ func addedConflicts(one, other merge.Conflicts) merge.Conflicts {
 // conflict, the user can specify the expected conflicts. If conflicts
 // don't match, an error will occur.
 type Apply struct {
-	Manager       string
-	APIVersion    fieldpath.APIVersion
-	Object        typed.YAMLObject
-	Conflicts     merge.Conflicts
-	IgnoredFields map[fieldpath.APIVersion]*fieldpath.Set
+	Manager    string
+	APIVersion fieldpath.APIVersion
+	Object     typed.YAMLObject
+	Conflicts  merge.Conflicts
 }
 
 var _ Operation = &Apply{}
@@ -256,26 +253,24 @@ func (a Apply) preprocess(parser Parser) (Operation, error) {
 		return nil, err
 	}
 	return ApplyObject{
-		Manager:       a.Manager,
-		APIVersion:    a.APIVersion,
-		Object:        tv,
-		Conflicts:     a.Conflicts,
-		IgnoredFields: a.IgnoredFields,
+		Manager:    a.Manager,
+		APIVersion: a.APIVersion,
+		Object:     tv,
+		Conflicts:  a.Conflicts,
 	}, nil
 }
 
 type ApplyObject struct {
-	Manager       string
-	APIVersion    fieldpath.APIVersion
-	Object        *typed.TypedValue
-	Conflicts     merge.Conflicts
-	IgnoredFields map[fieldpath.APIVersion]*fieldpath.Set
+	Manager    string
+	APIVersion fieldpath.APIVersion
+	Object     *typed.TypedValue
+	Conflicts  merge.Conflicts
 }
 
 var _ Operation = &ApplyObject{}
 
 func (a ApplyObject) run(state *State) error {
-	err := state.ApplyObject(a.Object, a.APIVersion, a.IgnoredFields, a.Manager, false)
+	err := state.ApplyObject(a.Object, a.APIVersion, a.Manager, false)
 	if err != nil {
 		if _, ok := err.(merge.Conflicts); !ok || a.Conflicts == nil {
 			return err
@@ -305,16 +300,15 @@ func (a ApplyObject) preprocess(parser Parser) (Operation, error) {
 // ForceApply is a type of operation. It is a forced-apply run by a
 // manager with a given object. Any error will be returned.
 type ForceApply struct {
-	Manager       string
-	APIVersion    fieldpath.APIVersion
-	Object        typed.YAMLObject
-	IgnoredFields map[fieldpath.APIVersion]*fieldpath.Set
+	Manager    string
+	APIVersion fieldpath.APIVersion
+	Object     typed.YAMLObject
 }
 
 var _ Operation = &ForceApply{}
 
 func (f ForceApply) run(state *State) error {
-	return state.Apply(f.Object, f.APIVersion, f.IgnoredFields, f.Manager, true)
+	return state.Apply(f.Object, f.APIVersion, f.Manager, true)
 }
 
 func (f ForceApply) preprocess(parser Parser) (Operation, error) {
@@ -323,26 +317,24 @@ func (f ForceApply) preprocess(parser Parser) (Operation, error) {
 		return nil, err
 	}
 	return ForceApplyObject{
-		Manager:       f.Manager,
-		APIVersion:    f.APIVersion,
-		Object:        tv,
-		IgnoredFields: f.IgnoredFields,
+		Manager:    f.Manager,
+		APIVersion: f.APIVersion,
+		Object:     tv,
 	}, nil
 }
 
 // ForceApplyObject is a type of operation. It is a forced-apply run by
 // a manager with a given object. Any error will be returned.
 type ForceApplyObject struct {
-	Manager       string
-	APIVersion    fieldpath.APIVersion
-	Object        *typed.TypedValue
-	IgnoredFields map[fieldpath.APIVersion]*fieldpath.Set
+	Manager    string
+	APIVersion fieldpath.APIVersion
+	Object     *typed.TypedValue
 }
 
 var _ Operation = &ForceApplyObject{}
 
 func (f ForceApplyObject) run(state *State) error {
-	return state.ApplyObject(f.Object, f.APIVersion, f.IgnoredFields, f.Manager, true)
+	return state.ApplyObject(f.Object, f.APIVersion, f.Manager, true)
 }
 
 func (f ForceApplyObject) preprocess(parser Parser) (Operation, error) {
@@ -352,16 +344,15 @@ func (f ForceApplyObject) preprocess(parser Parser) (Operation, error) {
 // Update is a type of operation. It is a controller type of
 // update. Errors are passed along.
 type Update struct {
-	Manager       string
-	APIVersion    fieldpath.APIVersion
-	Object        typed.YAMLObject
-	IgnoredFields map[fieldpath.APIVersion]*fieldpath.Set
+	Manager    string
+	APIVersion fieldpath.APIVersion
+	Object     typed.YAMLObject
 }
 
 var _ Operation = &Update{}
 
 func (u Update) run(state *State) error {
-	return state.Update(u.Object, u.APIVersion, u.IgnoredFields, u.Manager)
+	return state.Update(u.Object, u.APIVersion, u.Manager)
 }
 
 func (u Update) preprocess(parser Parser) (Operation, error) {
@@ -370,26 +361,24 @@ func (u Update) preprocess(parser Parser) (Operation, error) {
 		return nil, err
 	}
 	return UpdateObject{
-		Manager:       u.Manager,
-		APIVersion:    u.APIVersion,
-		Object:        tv,
-		IgnoredFields: u.IgnoredFields,
+		Manager:    u.Manager,
+		APIVersion: u.APIVersion,
+		Object:     tv,
 	}, nil
 }
 
 // UpdateObject is a type of operation. It is a controller type of
 // update. Errors are passed along.
 type UpdateObject struct {
-	Manager       string
-	APIVersion    fieldpath.APIVersion
-	Object        *typed.TypedValue
-	IgnoredFields map[fieldpath.APIVersion]*fieldpath.Set
+	Manager    string
+	APIVersion fieldpath.APIVersion
+	Object     *typed.TypedValue
 }
 
 var _ Operation = &Update{}
 
 func (u UpdateObject) run(state *State) error {
-	return state.UpdateObject(u.Object, u.APIVersion, u.IgnoredFields, u.Manager)
+	return state.UpdateObject(u.Object, u.APIVersion, u.Manager)
 }
 
 func (f UpdateObject) preprocess(parser Parser) (Operation, error) {
@@ -416,6 +405,8 @@ type TestCase struct {
 	Managed fieldpath.ManagedFields
 	// Set to true if the test case needs the union behavior enabled.
 	RequiresUnions bool
+	// IgnoredFields containing the set to ignore for every version
+	IgnoredFields map[fieldpath.APIVersion]*fieldpath.Set
 }
 
 // Test runs the test-case using the given parser and a dummy converter.
@@ -447,7 +438,7 @@ func (tc TestCase) PreprocessOperations(parser Parser) error {
 // actually passes..
 func (tc TestCase) BenchWithConverter(parser Parser, converter merge.Converter) error {
 	state := State{
-		Updater: &merge.Updater{Converter: converter},
+		Updater: &merge.Updater{Converter: converter, IgnoredFields: tc.IgnoredFields},
 		Parser:  parser,
 	}
 	if tc.RequiresUnions {
@@ -467,7 +458,7 @@ func (tc TestCase) BenchWithConverter(parser Parser, converter merge.Converter) 
 // TestWithConverter runs the test-case using the given parser and converter.
 func (tc TestCase) TestWithConverter(parser Parser, converter merge.Converter) error {
 	state := State{
-		Updater: &merge.Updater{Converter: converter},
+		Updater: &merge.Updater{Converter: converter, IgnoredFields: tc.IgnoredFields},
 		Parser:  parser,
 	}
 	if tc.RequiresUnions {
@@ -515,14 +506,4 @@ func (tc TestCase) TestWithConverter(parser Parser, converter merge.Converter) e
 	}
 
 	return nil
-}
-
-// setIgnoredFieldsAndCleanup sets the ignored fields for the provided updater and returns the cleanup function resetting them again
-// this way it can be called in a single defer call
-func setIgnoredFieldsAndCleanup(updater *merge.Updater, ignored map[fieldpath.APIVersion]*fieldpath.Set) func() {
-	if ignored == nil {
-		return func() {}
-	}
-	updater.IgnoredFields = ignored
-	return func() { updater.IgnoredFields = nil }
 }
