@@ -453,24 +453,27 @@ func TestSetIntersectionDifference(t *testing.T) {
 	})
 }
 
-func TestSetRecursiveDifference(t *testing.T) {
+func TestSetDifference(t *testing.T) {
 	table := []struct {
-		name   string
-		a      *Set
-		b      *Set
-		expect *Set
+		name                      string
+		a                         *Set
+		b                         *Set
+		expectDifference          *Set
+		expectRecursiveDifference *Set
 	}{
 		{
-			name:   "removes simple path",
-			a:      NewSet(MakePathOrDie("a")),
-			b:      NewSet(MakePathOrDie("a")),
-			expect: NewSet(),
+			name:                      "removes simple path",
+			a:                         NewSet(MakePathOrDie("a")),
+			b:                         NewSet(MakePathOrDie("a")),
+			expectDifference:          NewSet(),
+			expectRecursiveDifference: NewSet(),
 		},
 		{
-			name:   "removes direct path",
-			a:      NewSet(MakePathOrDie("a", "b", "c")),
-			b:      NewSet(MakePathOrDie("a", "b", "c")),
-			expect: NewSet(),
+			name:                      "removes direct path",
+			a:                         NewSet(MakePathOrDie("a", "b", "c")),
+			b:                         NewSet(MakePathOrDie("a", "b", "c")),
+			expectDifference:          NewSet(),
+			expectRecursiveDifference: NewSet(),
 		},
 		{
 			name: "only removes matching child",
@@ -478,41 +481,61 @@ func TestSetRecursiveDifference(t *testing.T) {
 				MakePathOrDie("a", "b", "c"),
 				MakePathOrDie("b", "b", "c"),
 			),
-			b:      NewSet(MakePathOrDie("a", "b", "c")),
-			expect: NewSet(MakePathOrDie("b", "b", "c")),
+			b:                         NewSet(MakePathOrDie("a", "b", "c")),
+			expectDifference:          NewSet(MakePathOrDie("b", "b", "c")),
+			expectRecursiveDifference: NewSet(MakePathOrDie("b", "b", "c")),
 		},
 		{
-			name:   "removes nested path",
-			a:      NewSet(MakePathOrDie("a", "b", "c")),
-			b:      NewSet(MakePathOrDie("a")),
-			expect: NewSet(),
+			name: "does not remove parent of specific path",
+			a: NewSet(
+				MakePathOrDie("a"),
+			),
+			b:                         NewSet(MakePathOrDie("a", "aa")),
+			expectDifference:          NewSet(MakePathOrDie("a")),
+			expectRecursiveDifference: NewSet(MakePathOrDie("a")),
 		},
 		{
-			name: "only removes nested path for matching children",
+			name:                      "RecursiveDifference removes nested path",
+			a:                         NewSet(MakePathOrDie("a", "b", "c")),
+			b:                         NewSet(MakePathOrDie("a")),
+			expectDifference:          NewSet(MakePathOrDie("a", "b", "c")),
+			expectRecursiveDifference: NewSet(),
+		},
+		{
+			name: "RecursiveDifference only removes nested path for matching children",
 			a: NewSet(
 				MakePathOrDie("a", "aa", "aab"),
 				MakePathOrDie("a", "ab", "aba"),
 			),
 			b: NewSet(MakePathOrDie("a", "aa")),
-			expect: NewSet(
+			expectDifference: NewSet(
+				MakePathOrDie("a", "aa", "aab"),
 				MakePathOrDie("a", "ab", "aba"),
 			),
+			expectRecursiveDifference: NewSet(MakePathOrDie("a", "ab", "aba")),
 		},
 		{
-			name: "remove all matching children",
+			name: "RecursiveDifference removes all matching children",
 			a: NewSet(
 				MakePathOrDie("a", "aa", "aab"),
 				MakePathOrDie("a", "ab", "aba"),
 			),
-			b:      NewSet(MakePathOrDie("a")),
-			expect: NewSet(),
+			b: NewSet(MakePathOrDie("a")),
+			expectDifference: NewSet(
+				MakePathOrDie("a", "aa", "aab"),
+				MakePathOrDie("a", "ab", "aba"),
+			),
+			expectRecursiveDifference: NewSet(),
 		},
 	}
 
 	for _, c := range table {
 		t.Run(c.name, func(t *testing.T) {
-			if result := c.a.RecursiveDifference(c.b); !result.Equals(c.expect) {
-				t.Fatalf("expected: \n%v\n, got: \n%v\n", c.expect, result)
+			if result := c.a.Difference(c.b); !result.Equals(c.expectDifference) {
+				t.Fatalf("Difference expected: \n%v\n, got: \n%v\n", c.expectDifference, result)
+			}
+			if result := c.a.RecursiveDifference(c.b); !result.Equals(c.expectRecursiveDifference) {
+				t.Fatalf("RecursiveDifference expected: \n%v\n, got: \n%v\n", c.expectRecursiveDifference, result)
 			}
 		})
 	}

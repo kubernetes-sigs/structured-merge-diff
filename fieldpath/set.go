@@ -98,9 +98,11 @@ func (s *Set) Difference(s2 *Set) *Set {
 // * appear in s
 // * do not appear in s2
 //
-// Compared to a regular difference, this recursively removes
-// all children from s
-// that are either children or members in s2
+// Compared to a regular difference,
+// this removes every field **and its children** from s that is contained in s2.
+//
+// For example, with s containing `a.b.c` and s2 containing `a.b`,
+// a RecursiveDifference will result in `a`, as the entire node `a.b` gets removed.
 func (s *Set) RecursiveDifference(s2 *Set) *Set {
 	return &Set{
 		Members:  *s.Members.Difference(&s2.Members),
@@ -349,9 +351,11 @@ func (s *SetNodeMap) Difference(s2 *Set) *SetNodeMap {
 
 // RecursiveDifference returns a SetNodeMap with members that appear in s but not in s2.
 //
-// Compared to a regular difference, this recursively removes
-// all children from s
-// that are either children or members in s2
+// Compared to a regular difference,
+// this removes every field **and its children** from s that is contained in s2.
+//
+// For example, with s containing `a.b.c` and s2 containing `a.b`,
+// a RecursiveDifference will result in `a`, as the entire node `a.b` gets removed.
 func (s *SetNodeMap) RecursiveDifference(s2 *Set) *SetNodeMap {
 	out := &SetNodeMap{}
 
@@ -359,10 +363,7 @@ func (s *SetNodeMap) RecursiveDifference(s2 *Set) *SetNodeMap {
 	for i < len(s.members) && j < len(s2.Children.members) {
 		if s.members[i].pathElement.Less(s2.Children.members[j].pathElement) {
 			if !s2.Members.Has(s.members[i].pathElement) {
-				out.members = append(out.members, setNode{
-					pathElement: s.members[i].pathElement,
-					set:         s.members[i].set,
-				})
+				out.members = append(out.members, setNode{pathElement: s.members[i].pathElement, set: s.members[i].set})
 			}
 			i++
 		} else {
