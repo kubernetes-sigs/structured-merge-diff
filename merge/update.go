@@ -62,19 +62,13 @@ func (s *Updater) update(oldObject, newObject *typed.TypedValue, version fieldpa
 			var err error
 			versionedOldObject, err := s.Converter.Convert(oldObject, managerSet.APIVersion())
 			if err != nil {
-				if s.Converter.IsMissingVersionError(err) {
-					delete(managers, manager)
-					continue
-				}
-				return nil, nil, fmt.Errorf("failed to convert old object: %v", err)
+				delete(managers, manager)
+				continue
 			}
 			versionedNewObject, err := s.Converter.Convert(newObject, managerSet.APIVersion())
 			if err != nil {
-				if s.Converter.IsMissingVersionError(err) {
-					delete(managers, manager)
-					continue
-				}
-				return nil, nil, fmt.Errorf("failed to convert new object: %v", err)
+				delete(managers, manager)
+				continue
 			}
 			compare, err = versionedOldObject.Compare(versionedNewObject)
 			if err != nil {
