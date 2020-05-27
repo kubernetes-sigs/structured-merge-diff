@@ -131,6 +131,12 @@ func BenchmarkFieldSet(b *testing.B) {
 				randOperand().Difference(randOperand())
 			}
 		})
+		b.Run(fmt.Sprintf("recursive-difference-%v", here.size), func(b *testing.B) {
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				randOperand().RecursiveDifference(randOperand())
+			}
+		})
 	}
 }
 
@@ -445,6 +451,94 @@ func TestSetIntersectionDifference(t *testing.T) {
 			t.Errorf("expected: \n%v\n, got \n%v\n", i, got)
 		}
 	})
+}
+
+func TestSetDifference(t *testing.T) {
+	table := []struct {
+		name                      string
+		a                         *Set
+		b                         *Set
+		expectDifference          *Set
+		expectRecursiveDifference *Set
+	}{
+		{
+			name:                      "removes simple path",
+			a:                         NewSet(MakePathOrDie("a")),
+			b:                         NewSet(MakePathOrDie("a")),
+			expectDifference:          NewSet(),
+			expectRecursiveDifference: NewSet(),
+		},
+		{
+			name:                      "removes direct path",
+			a:                         NewSet(MakePathOrDie("a", "b", "c")),
+			b:                         NewSet(MakePathOrDie("a", "b", "c")),
+			expectDifference:          NewSet(),
+			expectRecursiveDifference: NewSet(),
+		},
+		{
+			name: "only removes matching child",
+			a: NewSet(
+				MakePathOrDie("a", "b", "c"),
+				MakePathOrDie("b", "b", "c"),
+			),
+			b:                         NewSet(MakePathOrDie("a", "b", "c")),
+			expectDifference:          NewSet(MakePathOrDie("b", "b", "c")),
+			expectRecursiveDifference: NewSet(MakePathOrDie("b", "b", "c")),
+		},
+		{
+			name: "does not remove parent of specific path",
+			a: NewSet(
+				MakePathOrDie("a"),
+			),
+			b:                         NewSet(MakePathOrDie("a", "aa")),
+			expectDifference:          NewSet(MakePathOrDie("a")),
+			expectRecursiveDifference: NewSet(MakePathOrDie("a")),
+		},
+		{
+			name:                      "RecursiveDifference removes nested path",
+			a:                         NewSet(MakePathOrDie("a", "b", "c")),
+			b:                         NewSet(MakePathOrDie("a")),
+			expectDifference:          NewSet(MakePathOrDie("a", "b", "c")),
+			expectRecursiveDifference: NewSet(),
+		},
+		{
+			name: "RecursiveDifference only removes nested path for matching children",
+			a: NewSet(
+				MakePathOrDie("a", "aa", "aab"),
+				MakePathOrDie("a", "ab", "aba"),
+			),
+			b: NewSet(MakePathOrDie("a", "aa")),
+			expectDifference: NewSet(
+				MakePathOrDie("a", "aa", "aab"),
+				MakePathOrDie("a", "ab", "aba"),
+			),
+			expectRecursiveDifference: NewSet(MakePathOrDie("a", "ab", "aba")),
+		},
+		{
+			name: "RecursiveDifference removes all matching children",
+			a: NewSet(
+				MakePathOrDie("a", "aa", "aab"),
+				MakePathOrDie("a", "ab", "aba"),
+			),
+			b: NewSet(MakePathOrDie("a")),
+			expectDifference: NewSet(
+				MakePathOrDie("a", "aa", "aab"),
+				MakePathOrDie("a", "ab", "aba"),
+			),
+			expectRecursiveDifference: NewSet(),
+		},
+	}
+
+	for _, c := range table {
+		t.Run(c.name, func(t *testing.T) {
+			if result := c.a.Difference(c.b); !result.Equals(c.expectDifference) {
+				t.Fatalf("Difference expected: \n%v\n, got: \n%v\n", c.expectDifference, result)
+			}
+			if result := c.a.RecursiveDifference(c.b); !result.Equals(c.expectRecursiveDifference) {
+				t.Fatalf("RecursiveDifference expected: \n%v\n, got: \n%v\n", c.expectRecursiveDifference, result)
+			}
+		})
+	}
 }
 
 func TestSetNodeMapIterate(t *testing.T) {

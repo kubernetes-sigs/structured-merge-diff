@@ -405,6 +405,8 @@ type TestCase struct {
 	Managed fieldpath.ManagedFields
 	// Set to true if the test case needs the union behavior enabled.
 	RequiresUnions bool
+	// IgnoredFields containing the set to ignore for every version
+	IgnoredFields map[fieldpath.APIVersion]*fieldpath.Set
 }
 
 // Test runs the test-case using the given parser and a dummy converter.
@@ -436,7 +438,7 @@ func (tc TestCase) PreprocessOperations(parser Parser) error {
 // actually passes..
 func (tc TestCase) BenchWithConverter(parser Parser, converter merge.Converter) error {
 	state := State{
-		Updater: &merge.Updater{Converter: converter},
+		Updater: &merge.Updater{Converter: converter, IgnoredFields: tc.IgnoredFields},
 		Parser:  parser,
 	}
 	if tc.RequiresUnions {
@@ -456,7 +458,7 @@ func (tc TestCase) BenchWithConverter(parser Parser, converter merge.Converter) 
 // TestWithConverter runs the test-case using the given parser and converter.
 func (tc TestCase) TestWithConverter(parser Parser, converter merge.Converter) error {
 	state := State{
-		Updater: &merge.Updater{Converter: converter},
+		Updater: &merge.Updater{Converter: converter, IgnoredFields: tc.IgnoredFields},
 		Parser:  parser,
 	}
 	if tc.RequiresUnions {

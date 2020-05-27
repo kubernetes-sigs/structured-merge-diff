@@ -291,3 +291,15 @@ func (c *Comparison) String() string {
 	}
 	return bld.String()
 }
+
+// ExcludeFields fields from the compare recursively removes the fields
+// from the entire comparison
+func (c *Comparison) ExcludeFields(fields *fieldpath.Set) *Comparison {
+	if fields == nil || fields.Empty() {
+		return c
+	}
+	c.Removed = c.Removed.RecursiveDifference(fields)
+	c.Modified = c.Modified.RecursiveDifference(fields)
+	c.Added = c.Added.RecursiveDifference(fields)
+	return c
+}
