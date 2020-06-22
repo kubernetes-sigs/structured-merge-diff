@@ -212,7 +212,7 @@ func shallowCopyManagers(managers fieldpath.ManagedFields) fieldpath.ManagedFiel
 	return newManagers
 }
 
-// prune will remove a list or map item, iff:
+// prune will remove a field, list or map item, iff:
 // * applyingManager applied it last time
 // * applyingManager didn't apply it this time
 // * no other applier claims to manage it
@@ -240,7 +240,7 @@ func (s *Updater) prune(merged *typed.TypedValue, managers fieldpath.ManagedFiel
 	return s.Converter.Convert(pruned, managers[applyingManager].APIVersion())
 }
 
-// addBackOwnedItems adds back any list and map items that were removed by prune,
+// addBackOwnedItems adds back any fields, list and map items that were removed by prune,
 // but other appliers (or the current applier's new config) claim to own.
 func (s *Updater) addBackOwnedItems(merged, pruned *typed.TypedValue, managedFields fieldpath.ManagedFields, applyingManager string) (*typed.TypedValue, error) {
 	var err error
@@ -281,9 +281,9 @@ func (s *Updater) addBackOwnedItems(merged, pruned *typed.TypedValue, managedFie
 	return pruned, nil
 }
 
-// addBackDanglingItems makes sure that the only items removed by prune are items that were
-// previously owned by the currently applying manager. This will add back unowned items and items
-// which are owned by Updaters that shouldn't be removed.
+// addBackDanglingItems makes sure that the fields list and map items removed by prune were
+// previously owned by the currently applying manager. This will add back fields list and map items
+// that are unowned or that are owned by Updaters and shouldn't be removed.
 func (s *Updater) addBackDanglingItems(merged, pruned *typed.TypedValue, lastSet fieldpath.VersionedSet) (*typed.TypedValue, error) {
 	convertedPruned, err := s.Converter.Convert(pruned, lastSet.APIVersion())
 	if err != nil {
