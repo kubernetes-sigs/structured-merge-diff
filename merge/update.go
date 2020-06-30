@@ -241,17 +241,15 @@ func (s *Updater) prune(merged *typed.TypedValue, managers fieldpath.ManagedFiel
 }
 
 // addBackOwnedItems adds back any fields, list and map items that were removed by prune,
-// but other appliers (or the current applier's new config) claim to own.
+// but other appliers or updaters (or the current applier's new config) claim to own.
 func (s *Updater) addBackOwnedItems(merged, pruned *typed.TypedValue, managedFields fieldpath.ManagedFields, applyingManager string) (*typed.TypedValue, error) {
 	var err error
 	managedAtVersion := map[fieldpath.APIVersion]*fieldpath.Set{}
 	for _, managerSet := range managedFields {
-		if managerSet.Applied() {
-			if _, ok := managedAtVersion[managerSet.APIVersion()]; !ok {
-				managedAtVersion[managerSet.APIVersion()] = fieldpath.NewSet()
-			}
-			managedAtVersion[managerSet.APIVersion()] = managedAtVersion[managerSet.APIVersion()].Union(managerSet.Set())
+		if _, ok := managedAtVersion[managerSet.APIVersion()]; !ok {
+			managedAtVersion[managerSet.APIVersion()] = fieldpath.NewSet()
 		}
+		managedAtVersion[managerSet.APIVersion()] = managedAtVersion[managerSet.APIVersion()].Union(managerSet.Set())
 	}
 	for version, managed := range managedAtVersion {
 		merged, err = s.Converter.Convert(merged, version)

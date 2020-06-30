@@ -384,7 +384,7 @@ func testMultipleAppliersFieldUnsetting(t *testing.T, v1, v2, v3 fieldpath.APIVe
 				),
 			},
 		},
-		"unset_scalar_shared_owner": {
+		"unset_scalar_shared_with_applier": {
 			Ops: []Operation{
 				Apply{
 					Manager:    "apply-one",
@@ -435,6 +435,104 @@ func testMultipleAppliersFieldUnsetting(t *testing.T, v1, v2, v3 fieldpath.APIVe
 				),
 			},
 		},
+		"unset_scalar_shared_with_updater": {
+			Ops: []Operation{
+				Update{
+					Manager:    "updater",
+					APIVersion: v1,
+					Object: typed.YAMLObject(fmt.Sprintf(`
+						struct:
+						  name: a
+						  scalarField_%s: a
+					`, v1)),
+				},
+				Apply{
+					Manager:    "applier",
+					APIVersion: v2,
+					Object: typed.YAMLObject(fmt.Sprintf(`
+						struct:
+						  name: a
+						  scalarField_%s: a
+					`, v2)),
+				},
+				Apply{
+					Manager:    "applier",
+					APIVersion: v3,
+					Object: `
+						struct:
+						  name: a
+					`,
+				},
+			},
+			Object: typed.YAMLObject(fmt.Sprintf(`
+				struct:
+				  name: a
+				  scalarField_%s: a
+			`, v3)),
+			APIVersion: v3,
+			Managed: fieldpath.ManagedFields{
+				"updater": fieldpath.NewVersionedSet(
+					_NS(
+						_P("struct"),
+						_P("struct", "name"),
+						_P("struct", fmt.Sprintf("scalarField_%s", v1)),
+					),
+					v1,
+					false,
+				),
+				"applier": fieldpath.NewVersionedSet(
+					_NS(
+						_P("struct", "name"),
+					),
+					v3,
+					true,
+				),
+			},
+		},
+		"updater_claims_field": {
+			Ops: []Operation{
+				Apply{
+					Manager:    "applier",
+					APIVersion: v1,
+					Object: typed.YAMLObject(fmt.Sprintf(`
+						struct:
+						  name: a
+						  scalarField_%s: a
+					`, v1)),
+				},
+				Update{
+					Manager:    "updater",
+					APIVersion: v2,
+					Object: typed.YAMLObject(fmt.Sprintf(`
+						struct:
+						  name: a
+						  scalarField_%s: b
+					`, v2)),
+				},
+			},
+			Object: typed.YAMLObject(fmt.Sprintf(`
+				struct:
+				  name: a
+				  scalarField_%s: b
+			`, v3)),
+			APIVersion: v3,
+			Managed: fieldpath.ManagedFields{
+				"updater": fieldpath.NewVersionedSet(
+					_NS(
+						_P("struct", fmt.Sprintf("scalarField_%s", v2)),
+					),
+					v2,
+					false,
+				),
+				"applier": fieldpath.NewVersionedSet(
+					_NS(
+						_P("struct", "name"),
+					),
+					v1,
+					true,
+				),
+			},
+		},
 		"unset_complex_sole_owner": {
 			Ops: []Operation{
 				Apply{
@@ -472,7 +570,7 @@ func testMultipleAppliersFieldUnsetting(t *testing.T, v1, v2, v3 fieldpath.APIVe
 				),
 			},
 		},
-		"unset_complex_shared_owner": {
+		"unset_complex_shared_with_applier": {
 			Ops: []Operation{
 				Apply{
 					Manager:    "apply-one",
@@ -1206,7 +1304,7 @@ func TestMultipleAppliersRealConversion(t *testing.T) {
 				),
 			},
 		},
-		"appliers_remove_from_controller_real_conversion": {
+		"applier_updater_shared_ownership_real_conversion": {
 			Ops: []Operation{
 				Update{
 					Manager: "controller",
@@ -1242,6 +1340,8 @@ func TestMultipleAppliersRealConversion(t *testing.T) {
 			Object: `
 				mapOfMapsRecursive:
 				  aaa:
+				    bbb:
+				      ccc:
 				  ccc:
 			`,
 			APIVersion: "v3",
@@ -1250,6 +1350,8 @@ func TestMultipleAppliersRealConversion(t *testing.T) {
 					_NS(
 						_P("mapOfMapsRecursive"),
 						_P("mapOfMapsRecursive", "a"),
+						_P("mapOfMapsRecursive", "a", "b"),
+						_P("mapOfMapsRecursive", "a", "b", "c"),
 					),
 					"v1",
 					false,
@@ -1269,6 +1371,77 @@ func TestMultipleAppliersRealConversion(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			if err := test.TestWithConverter(nestedTypeParser, repeatingConverter{nestedTypeParser}); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+func TestMultipleAppliersFieldRenameConversions(t *testing.T) {
+	versions := []fieldpath.APIVersion{"v1", "v2", "v3"}
+	for _, v1 := range versions {
+		for _, v2 := range versions {
+			for _, v3 := range versions {
+				t.Run(fmt.Sprintf("%s-%s-%s", v1, v2, v3), func(t *testing.T) {
+					testMultipleAppliersFieldRenameConversions(t, v1, v2, v3)
+				})
+			}
+		}
+	}
+}
+
+func testMultipleAppliersFieldRenameConversions(t *testing.T, v1, v2, v3 fieldpath.APIVersion) {
+	tests := map[string]TestCase{
+		"updater_claims_field": {
+			Ops: []Operation{
+				Apply{
+					Manager:    "applier",
+					APIVersion: v1,
+					Object: typed.YAMLObject(fmt.Sprintf(`
+						struct:
+						  name: a
+						  scalarField_%s: a
+					`, v1)),
+				},
+				Update{
+					Manager:    "updater",
+					APIVersion: v2,
+					Object: typed.YAMLObject(fmt.Sprintf(`
+						struct:
+						  name: a
+						  scalarField_%s: b
+					`, v2)),
+				},
+			},
+			Object: typed.YAMLObject(fmt.Sprintf(`
+				struct:
+				  name: a
+				  scalarField_%s: b
+			`, v3)),
+			APIVersion: v3,
+			Managed: fieldpath.ManagedFields{
+				"updater": fieldpath.NewVersionedSet(
+					_NS(
+						_P("struct", fmt.Sprintf("scalarField_%s", v2)),
+					),
+					v2,
+					false,
+				),
+				"applier": fieldpath.NewVersionedSet(
+					_NS(
+						_P("struct", "name"),
+					),
+					v1,
+					true,
+				),
+			},
+		},
+	}
+
+	converter := renamingConverter{structMultiversionParser}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			if err := test.TestWithConverter(structMultiversionParser, converter); err != nil {
 				t.Fatal(err)
 			}
 		})
