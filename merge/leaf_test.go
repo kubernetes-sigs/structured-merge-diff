@@ -378,6 +378,42 @@ func TestUpdateLeaf(t *testing.T) {
 				),
 			},
 		},
+		"update_apply_omits": {
+			Ops: []Operation{
+				Apply{
+					Manager:    "default",
+					APIVersion: "v1",
+					Object: `
+						numeric: 2
+					`,
+				},
+				Update{
+					Manager:    "controller",
+					APIVersion: "v1",
+					Object: `
+						numeric: 1
+					`,
+				},
+				Apply{
+					Manager:    "default",
+					APIVersion: "v1",
+					Object:     ``,
+				},
+			},
+			Object: `
+						numeric: 1
+			`,
+			APIVersion: "v1",
+			Managed: fieldpath.ManagedFields{
+				"controller": fieldpath.NewVersionedSet(
+					_NS(
+						_P("numeric"),
+					),
+					"v1",
+					false,
+				),
+			},
+		},
 		"apply_twice_remove_different_version": {
 			Ops: []Operation{
 				Apply{
