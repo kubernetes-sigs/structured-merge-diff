@@ -1304,10 +1304,74 @@ func TestMultipleAppliersRealConversion(t *testing.T) {
 				),
 			},
 		},
-		"applier_updater_shared_ownership_real_conversion": {
+		"appliers_remove_from_controller_real_conversion": {
+			// Ensures that an applier can delete associative map items it created after a controller
+			// modifies them.
 			Ops: []Operation{
+				Apply{
+					Manager: "apply",
+					Object: `
+						mapOfMapsRecursive:
+						  aaa:
+						    bbb:
+					`,
+					APIVersion: "v3",
+				},
 				Update{
 					Manager: "controller",
+					Object: `
+						mapOfMapsRecursive:
+						  a:
+						    b:
+						      c:
+					`,
+					APIVersion: "v1",
+				},
+				Apply{
+					Manager: "apply",
+					Object: `
+						mapOfMapsRecursive:
+						  aa:
+						    bb:
+						  cc:
+						    dd:
+					`,
+					APIVersion: "v2",
+				},
+				Apply{
+					Manager: "apply",
+					Object: `
+						mapOfMapsRecursive:
+						  aaa:
+						  ccc:
+					`,
+					APIVersion: "v3",
+				},
+			},
+			Object: `
+				mapOfMapsRecursive:
+				  aaa:
+				  ccc:
+			`,
+			APIVersion: "v3",
+			Managed: fieldpath.ManagedFields{
+				"apply": fieldpath.NewVersionedSet(
+					_NS(
+						_P("mapOfMapsRecursive", "aaa"),
+						_P("mapOfMapsRecursive", "ccc"),
+					),
+					"v3",
+					false,
+				),
+			},
+		},
+		"applier_updater_shared_ownership_real_conversion": {
+			// Ensures that when an updater creates maps that they are not deleted when
+			// an applier shares ownership in them and then later removes them from its applied
+			// configuration
+			Ops: []Operation{
+				Update{
+					Manager: "updater",
 					Object: `
 						mapOfMapsRecursive:
 						  a:
@@ -1346,7 +1410,7 @@ func TestMultipleAppliersRealConversion(t *testing.T) {
 			`,
 			APIVersion: "v3",
 			Managed: fieldpath.ManagedFields{
-				"controller": fieldpath.NewVersionedSet(
+				"updater": fieldpath.NewVersionedSet(
 					_NS(
 						_P("mapOfMapsRecursive"),
 						_P("mapOfMapsRecursive", "a"),
