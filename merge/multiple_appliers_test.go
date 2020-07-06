@@ -27,6 +27,7 @@ import (
 	. "sigs.k8s.io/structured-merge-diff/v3/internal/fixture"
 	"sigs.k8s.io/structured-merge-diff/v3/merge"
 	"sigs.k8s.io/structured-merge-diff/v3/typed"
+	"sigs.k8s.io/structured-merge-diff/v3/value"
 )
 
 func TestMultipleAppliersSet(t *testing.T) {
@@ -237,6 +238,398 @@ func TestMultipleAppliersSet(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			if err := test.Test(associativeListParser); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+var structMultiversionParser = func() Parser {
+	parser, err := typed.NewParser(`types:
+- name: v1
+  map:
+    fields:
+      - name: struct
+        type:
+          namedType: struct
+      - name: version
+        type:
+          scalar: string
+- name: struct
+  map:
+    fields:
+      - name: name
+        type:
+          scalar: string
+      - name: scalarField_v1
+        type:
+          scalar: string
+      - name: complexField_v1
+        type:
+          namedType: complex
+- name: complex
+  map:
+    fields:
+      - name: name
+        type:
+          scalar: string
+- name: v2
+  map:
+    fields:
+      - name: struct
+        type:
+          namedType: struct_v2
+      - name: version
+        type:
+          scalar: string
+- name: struct_v2
+  map:
+    fields:
+      - name: name
+        type:
+          scalar: string
+      - name: scalarField_v2
+        type:
+          scalar: string
+      - name: complexField_v2
+        type:
+          namedType: complex_v2
+- name: complex_v2
+  map:
+    fields:
+      - name: name
+        type:
+          scalar: string
+- name: v3
+  map:
+    fields:
+      - name: struct
+        type:
+          namedType: struct_v3
+      - name: version
+        type:
+          scalar: string
+- name: struct_v3
+  map:
+    fields:
+      - name: name
+        type:
+          scalar: string
+      - name: scalarField_v3
+        type:
+          scalar: string
+      - name: complexField_v3
+        type:
+          namedType: complex_v3
+- name: complex_v3
+  map:
+    fields:
+      - name: name
+        type:
+          scalar: string
+`)
+	if err != nil {
+		panic(err)
+	}
+	return parser
+}()
+
+func TestMultipleAppliersFieldUnsetting(t *testing.T) {
+	versions := []fieldpath.APIVersion{"v1", "v2", "v3"}
+	for _, v1 := range versions {
+		for _, v2 := range versions {
+			for _, v3 := range versions {
+				t.Run(fmt.Sprintf("%s-%s-%s", v1, v2, v3), func(t *testing.T) {
+					testMultipleAppliersFieldUnsetting(t, v1, v2, v3)
+				})
+			}
+		}
+	}
+}
+
+func testMultipleAppliersFieldUnsetting(t *testing.T, v1, v2, v3 fieldpath.APIVersion) {
+	tests := map[string]TestCase{
+		"unset_scalar_sole_owner": {
+			Ops: []Operation{
+				Apply{
+					Manager:    "apply-one",
+					APIVersion: v1,
+					Object: typed.YAMLObject(fmt.Sprintf(`
+						struct:
+						  name: a
+						  scalarField_%s: a
+					`, v1)),
+				},
+				Apply{
+					Manager:    "apply-one",
+					APIVersion: v2,
+					Object: `
+						struct:
+						  name: a
+					`,
+				},
+			},
+			Object: `
+				struct:
+				  name: a
+			`,
+			APIVersion: v3,
+			Managed: fieldpath.ManagedFields{
+				"apply-one": fieldpath.NewVersionedSet(
+					_NS(
+						_P("struct", "name"),
+					),
+					v2,
+					false,
+				),
+			},
+		},
+		"unset_scalar_shared_with_applier": {
+			Ops: []Operation{
+				Apply{
+					Manager:    "apply-one",
+					APIVersion: v1,
+					Object: typed.YAMLObject(fmt.Sprintf(`
+						struct:
+						  name: a
+						  scalarField_%s: a
+					`, v1)),
+				},
+				Apply{
+					Manager:    "apply-two",
+					APIVersion: v2,
+					Object: typed.YAMLObject(fmt.Sprintf(`
+						struct:
+						  scalarField_%s: a
+					`, v2)),
+				},
+				Apply{
+					Manager:    "apply-one",
+					APIVersion: v3,
+					Object: `
+						struct:
+						  name: a
+					`,
+				},
+			},
+			Object: typed.YAMLObject(fmt.Sprintf(`
+				struct:
+				  name: a
+				  scalarField_%s: a
+			`, v3)),
+			APIVersion: v3,
+			Managed: fieldpath.ManagedFields{
+				"apply-one": fieldpath.NewVersionedSet(
+					_NS(
+						_P("struct", "name"),
+					),
+					v3,
+					true,
+				),
+				"apply-two": fieldpath.NewVersionedSet(
+					_NS(
+						_P("struct", fmt.Sprintf("scalarField_%s", v2)),
+					),
+					v2,
+					false,
+				),
+			},
+		},
+		"unset_scalar_shared_with_updater": {
+			Ops: []Operation{
+				Update{
+					Manager:    "updater",
+					APIVersion: v1,
+					Object: typed.YAMLObject(fmt.Sprintf(`
+						struct:
+						  name: a
+						  scalarField_%s: a
+					`, v1)),
+				},
+				Apply{
+					Manager:    "applier",
+					APIVersion: v2,
+					Object: typed.YAMLObject(fmt.Sprintf(`
+						struct:
+						  name: a
+						  scalarField_%s: a
+					`, v2)),
+				},
+				Apply{
+					Manager:    "applier",
+					APIVersion: v3,
+					Object: `
+						struct:
+						  name: a
+					`,
+				},
+			},
+			Object: typed.YAMLObject(fmt.Sprintf(`
+				struct:
+				  name: a
+				  scalarField_%s: a
+			`, v3)),
+			APIVersion: v3,
+			Managed: fieldpath.ManagedFields{
+				"updater": fieldpath.NewVersionedSet(
+					_NS(
+						_P("struct"),
+						_P("struct", "name"),
+						_P("struct", fmt.Sprintf("scalarField_%s", v1)),
+					),
+					v1,
+					false,
+				),
+				"applier": fieldpath.NewVersionedSet(
+					_NS(
+						_P("struct", "name"),
+					),
+					v3,
+					true,
+				),
+			},
+		},
+		"updater_claims_field": {
+			Ops: []Operation{
+				Apply{
+					Manager:    "applier",
+					APIVersion: v1,
+					Object: typed.YAMLObject(fmt.Sprintf(`
+						struct:
+						  name: a
+						  scalarField_%s: a
+					`, v1)),
+				},
+				Update{
+					Manager:    "updater",
+					APIVersion: v2,
+					Object: typed.YAMLObject(fmt.Sprintf(`
+						struct:
+						  name: a
+						  scalarField_%s: b
+					`, v2)),
+				},
+			},
+			Object: typed.YAMLObject(fmt.Sprintf(`
+				struct:
+				  name: a
+				  scalarField_%s: b
+			`, v3)),
+			APIVersion: v3,
+			Managed: fieldpath.ManagedFields{
+				"updater": fieldpath.NewVersionedSet(
+					_NS(
+						_P("struct", fmt.Sprintf("scalarField_%s", v2)),
+					),
+					v2,
+					false,
+				),
+				"applier": fieldpath.NewVersionedSet(
+					_NS(
+						_P("struct", "name"),
+					),
+					v1,
+					true,
+				),
+			},
+		},
+		"unset_complex_sole_owner": {
+			Ops: []Operation{
+				Apply{
+					Manager:    "apply-one",
+					APIVersion: v1,
+					Object: typed.YAMLObject(fmt.Sprintf(`
+						struct:
+						  name: a
+						  complexField_%s:
+						    name: b
+					`, v1)),
+				},
+				Apply{
+					Manager:    "apply-one",
+					APIVersion: v2,
+					Object: `
+						struct:
+						  name: a
+					`,
+				},
+			},
+			Object: typed.YAMLObject(fmt.Sprintf(`
+				struct:
+				  name: a
+				  complexField_%s: null
+			`, v3)),
+			APIVersion: v3,
+			Managed: fieldpath.ManagedFields{
+				"apply-one": fieldpath.NewVersionedSet(
+					_NS(
+						_P("struct", "name"),
+					),
+					v2,
+					false,
+				),
+			},
+		},
+		"unset_complex_shared_with_applier": {
+			Ops: []Operation{
+				Apply{
+					Manager:    "apply-one",
+					APIVersion: v1,
+					Object: typed.YAMLObject(fmt.Sprintf(`
+						struct:
+						  name: a
+						  complexField_%s:
+						    name: b
+					`, v1)),
+				},
+				Apply{
+					Manager:    "apply-two",
+					APIVersion: v2,
+					Object: typed.YAMLObject(fmt.Sprintf(`
+						struct:
+						  complexField_%s:
+						    name: b
+					`, v2)),
+				},
+				Apply{
+					Manager:    "apply-one",
+					APIVersion: v3,
+					Object: `
+						struct:
+						  name: a
+					`,
+				},
+			},
+			Object: typed.YAMLObject(fmt.Sprintf(`
+				struct:
+				  name: a
+				  complexField_%s:
+				    name: b
+			`, v3)),
+			APIVersion: v3,
+			Managed: fieldpath.ManagedFields{
+				"apply-one": fieldpath.NewVersionedSet(
+					_NS(
+						_P("struct", "name"),
+					),
+					v3,
+					false,
+				),
+				"apply-two": fieldpath.NewVersionedSet(
+					_NS(
+						_P("struct", fmt.Sprintf("complexField_%s", v2), "name"),
+					),
+					v2,
+					false,
+				),
+			},
+		},
+	}
+
+	converter := renamingConverter{structMultiversionParser}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			if err := test.TestWithConverter(structMultiversionParser, converter); err != nil {
 				t.Fatal(err)
 			}
 		})
@@ -912,7 +1305,18 @@ func TestMultipleAppliersRealConversion(t *testing.T) {
 			},
 		},
 		"appliers_remove_from_controller_real_conversion": {
+			// Ensures that an applier can delete associative map items it created after a controller
+			// modifies them.
 			Ops: []Operation{
+				Apply{
+					Manager: "apply",
+					Object: `
+						mapOfMapsRecursive:
+						  aaa:
+						    bbb:
+					`,
+					APIVersion: "v3",
+				},
 				Update{
 					Manager: "controller",
 					Object: `
@@ -951,10 +1355,67 @@ func TestMultipleAppliersRealConversion(t *testing.T) {
 			`,
 			APIVersion: "v3",
 			Managed: fieldpath.ManagedFields{
-				"controller": fieldpath.NewVersionedSet(
+				"apply": fieldpath.NewVersionedSet(
+					_NS(
+						_P("mapOfMapsRecursive", "aaa"),
+						_P("mapOfMapsRecursive", "ccc"),
+					),
+					"v3",
+					false,
+				),
+			},
+		},
+		"applier_updater_shared_ownership_real_conversion": {
+			// Ensures that when an updater creates maps that they are not deleted when
+			// an applier shares ownership in them and then later removes them from its applied
+			// configuration
+			Ops: []Operation{
+				Update{
+					Manager: "updater",
+					Object: `
+						mapOfMapsRecursive:
+						  a:
+						    b:
+						      c:
+					`,
+					APIVersion: "v1",
+				},
+				Apply{
+					Manager: "apply",
+					Object: `
+						mapOfMapsRecursive:
+						  aa:
+						    bb:
+						  cc:
+						    dd:
+					`,
+					APIVersion: "v2",
+				},
+				Apply{
+					Manager: "apply",
+					Object: `
+						mapOfMapsRecursive:
+						  aaa:
+						  ccc:
+					`,
+					APIVersion: "v3",
+				},
+			},
+			Object: `
+				mapOfMapsRecursive:
+				  aaa:
+				    bbb:
+				      ccc:
+				  ccc:
+			`,
+			APIVersion: "v3",
+			Managed: fieldpath.ManagedFields{
+				"updater": fieldpath.NewVersionedSet(
 					_NS(
 						_P("mapOfMapsRecursive"),
 						_P("mapOfMapsRecursive", "a"),
+						_P("mapOfMapsRecursive", "a", "b"),
+						_P("mapOfMapsRecursive", "a", "b", "c"),
 					),
 					"v1",
 					false,
@@ -974,6 +1435,77 @@ func TestMultipleAppliersRealConversion(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			if err := test.TestWithConverter(nestedTypeParser, repeatingConverter{nestedTypeParser}); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+func TestMultipleAppliersFieldRenameConversions(t *testing.T) {
+	versions := []fieldpath.APIVersion{"v1", "v2", "v3"}
+	for _, v1 := range versions {
+		for _, v2 := range versions {
+			for _, v3 := range versions {
+				t.Run(fmt.Sprintf("%s-%s-%s", v1, v2, v3), func(t *testing.T) {
+					testMultipleAppliersFieldRenameConversions(t, v1, v2, v3)
+				})
+			}
+		}
+	}
+}
+
+func testMultipleAppliersFieldRenameConversions(t *testing.T, v1, v2, v3 fieldpath.APIVersion) {
+	tests := map[string]TestCase{
+		"updater_claims_field": {
+			Ops: []Operation{
+				Apply{
+					Manager:    "applier",
+					APIVersion: v1,
+					Object: typed.YAMLObject(fmt.Sprintf(`
+						struct:
+						  name: a
+						  scalarField_%s: a
+					`, v1)),
+				},
+				Update{
+					Manager:    "updater",
+					APIVersion: v2,
+					Object: typed.YAMLObject(fmt.Sprintf(`
+						struct:
+						  name: a
+						  scalarField_%s: b
+					`, v2)),
+				},
+			},
+			Object: typed.YAMLObject(fmt.Sprintf(`
+				struct:
+				  name: a
+				  scalarField_%s: b
+			`, v3)),
+			APIVersion: v3,
+			Managed: fieldpath.ManagedFields{
+				"updater": fieldpath.NewVersionedSet(
+					_NS(
+						_P("struct", fmt.Sprintf("scalarField_%s", v2)),
+					),
+					v2,
+					false,
+				),
+				"applier": fieldpath.NewVersionedSet(
+					_NS(
+						_P("struct", "name"),
+					),
+					v1,
+					true,
+				),
+			},
+		},
+	}
+
+	converter := renamingConverter{structMultiversionParser}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			if err := test.TestWithConverter(structMultiversionParser, converter); err != nil {
 				t.Fatal(err)
 			}
 		})
@@ -1038,6 +1570,53 @@ func countLeadingSpace(line string) int {
 
 // Convert implements merge.Converter
 func (r repeatingConverter) IsMissingVersionError(err error) bool {
+	return err == missingVersionError
+}
+
+// renamingConverter renames fields by substituting the version suffix of the field name. E.g.
+// converting a map  with a field named "name_v1" from v1 to v2 renames the field to "name_v2".
+// Fields without a version suffix are not converted; they are the same in all versions.
+// When parsing, this converter will look for the type by using the APIVersion of the
+// object it's trying to parse. If trying to parse a "v1" object, a corresponding "v1" type
+// should exist in the schema of the provided parser.
+type renamingConverter struct {
+	parser Parser
+}
+
+// Convert implements merge.Converter
+func (r renamingConverter) Convert(v *typed.TypedValue, version fieldpath.APIVersion) (*typed.TypedValue, error) {
+	inVersion := fieldpath.APIVersion(*v.TypeRef().NamedType)
+	outType := r.parser.Type(string(version))
+	return outType.FromUnstructured(renameFields(v.AsValue(), string(inVersion), string(version)))
+}
+
+func renameFields(v value.Value, oldSuffix, newSuffix string) interface{} {
+	if v.IsMap() {
+		out := map[string]interface{}{}
+		v.AsMap().Iterate(func(key string, value value.Value) bool {
+			if strings.HasSuffix(key, oldSuffix) {
+				out[strings.TrimSuffix(key, oldSuffix)+newSuffix] = renameFields(value, oldSuffix, newSuffix)
+			} else {
+				out[key] = renameFields(value, oldSuffix, newSuffix)
+			}
+			return true
+		})
+		return out
+	}
+	if v.IsList() {
+		var out []interface{}
+		ri := v.AsList().Range()
+		for ri.Next() {
+			_, v := ri.Item()
+			out = append(out, renameFields(v, oldSuffix, newSuffix))
+		}
+		return out
+	}
+	return v.Unstructured()
+}
+
+// Convert implements merge.Converter
+func (r renamingConverter) IsMissingVersionError(err error) bool {
 	return err == missingVersionError
 }
 

@@ -61,6 +61,11 @@ type TypedValue struct {
 	schema  *schema.Schema
 }
 
+// TypeRef is the type of the value.
+func (tv TypedValue) TypeRef() schema.TypeRef {
+	return tv.typeRef
+}
+
 // AsValue removes the type from the TypedValue and only keeps the value.
 func (tv TypedValue) AsValue() value.Value {
 	return tv.value
