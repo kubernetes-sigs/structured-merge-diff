@@ -19,8 +19,8 @@ package merge_test
 import (
 	"testing"
 
-	"sigs.k8s.io/structured-merge-diff/v3/fieldpath"
-	. "sigs.k8s.io/structured-merge-diff/v3/internal/fixture"
+	"sigs.k8s.io/structured-merge-diff/v4/fieldpath"
+	. "sigs.k8s.io/structured-merge-diff/v4/internal/fixture"
 )
 
 func TestIgnoredFields(t *testing.T) {
@@ -220,7 +220,7 @@ func TestIgnoredFieldsUsesVersions(t *testing.T) {
 					Manager: "update-one",
 					Object: `
 						mapOfMapsRecursive:
-						  a: 
+						  a:
 						    b:
 						  c:
 						    d:
@@ -231,7 +231,7 @@ func TestIgnoredFieldsUsesVersions(t *testing.T) {
 					Manager: "update-two",
 					Object: `
 						mapOfMapsRecursive:
-						  a: 
+						  a:
 						    b:
 						  c:
 						    e:
@@ -241,7 +241,7 @@ func TestIgnoredFieldsUsesVersions(t *testing.T) {
 			},
 			Object: `
 				mapOfMapsRecursive:
-				  a: 
+				  a:
 				    b:
 				  c:
 				    e:
@@ -279,7 +279,7 @@ func TestIgnoredFieldsUsesVersions(t *testing.T) {
 					Manager: "apply-one",
 					Object: `
 						mapOfMapsRecursive:
-						  a: 
+						  a:
 						    b:
 						  c:
 						    d:
@@ -290,7 +290,7 @@ func TestIgnoredFieldsUsesVersions(t *testing.T) {
 					Manager: "apply-two",
 					Object: `
 						mapOfMapsRecursive:
-						  a: 
+						  a:
 						    b:
 						  c:
 						    e:
@@ -300,7 +300,7 @@ func TestIgnoredFieldsUsesVersions(t *testing.T) {
 			},
 			Object: `
 				mapOfMapsRecursive:
-				  a: 
+				  a:
 				    b:
 				  c:
 				    d:
