@@ -23,11 +23,11 @@ import (
 	"testing"
 
 	"gopkg.in/yaml.v2"
-	"sigs.k8s.io/structured-merge-diff/v3/fieldpath"
-	. "sigs.k8s.io/structured-merge-diff/v3/internal/fixture"
-	"sigs.k8s.io/structured-merge-diff/v3/merge"
-	"sigs.k8s.io/structured-merge-diff/v3/typed"
-	"sigs.k8s.io/structured-merge-diff/v3/value"
+	"sigs.k8s.io/structured-merge-diff/v4/fieldpath"
+	. "sigs.k8s.io/structured-merge-diff/v4/internal/fixture"
+	"sigs.k8s.io/structured-merge-diff/v4/merge"
+	"sigs.k8s.io/structured-merge-diff/v4/typed"
+	"sigs.k8s.io/structured-merge-diff/v4/value"
 )
 
 func TestMultipleAppliersSet(t *testing.T) {
