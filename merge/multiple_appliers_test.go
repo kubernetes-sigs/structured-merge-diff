@@ -1620,6 +1620,88 @@ func (r renamingConverter) IsMissingVersionError(err error) bool {
 	return err == missingVersionError
 }
 
+var atomicMapParser = func() Parser {
+	parser, err := typed.NewParser(`types:
+- name: v1
+  map:
+    fields:
+      - name: atomicMap
+        type:
+          namedType: atomicMap
+- name: atomicMap
+  map:
+    fields:
+      - name: field1
+        type:
+          scalar: string
+      - name: field2
+        type:
+          scalar: string
+    elementRelationship: atomic
+`)
+	if err != nil {
+		panic(err)
+	}
+	return parser
+}()
+
+func TestMultipleApplierAtomicMaps(t *testing.T) {
+	tests := map[string]TestCase{
+		"force": {
+			Ops: []Operation{
+				Apply{
+					Manager:    "apply-one",
+					APIVersion: "v1",
+					Object: `
+						atomicMap:
+						  field1: a
+					`,
+				},
+				Apply{
+					Manager:    "apply-two",
+					APIVersion: "v1",
+					Object: `
+						atomicMap:
+						  field2: b
+					`,
+					Conflicts: merge.Conflicts{
+						merge.Conflict{Manager: "apply-one", Path: _P("atomicMap")},
+					},
+				},
+				ForceApply{
+					Manager:    "apply-two",
+					APIVersion: "v1",
+					Object: `
+						atomicMap:
+						  field2: b
+					`,
+				},
+			},
+			Object: `
+				atomicMap:
+				  field2: b
+			`,
+			APIVersion: "v1",
+			Managed: fieldpath.ManagedFields{
+				"apply-two": fieldpath.NewVersionedSet(
+					_NS(
+						_P("atomicMap"),
+					),
+					"v1",
+					false,
+				),
+			},
+		},
+	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			if err := test.Test(atomicMapParser); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
 func BenchmarkMultipleApplierRecursiveRealConversion(b *testing.B) {
 	test := TestCase{
 		Ops: []Operation{
