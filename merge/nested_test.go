@@ -44,6 +44,15 @@ var nestedTypeParser = func() Parser {
       - name: mapOfMapsRecursive
         type:
           namedType: mapOfMapsRecursive
+      - name: recursiveStruct
+        type:
+          namedType: recursiveStruct
+- name: recursiveStruct
+  map:
+    fields:
+    - name: name
+      type:
+        scalar: string
 - name: listOfLists
   list:
     elementType:
@@ -499,6 +508,30 @@ func TestUpdateNestedType(t *testing.T) {
 					false,
 				),
 			},
+		},
+		"recursiveStruct_remove_dangling": {
+			Ops: []Operation{
+				Apply{
+					Manager: "default",
+					Object: `
+						recursiveStruct:
+						  name: a
+					`,
+					APIVersion: "v1",
+				},
+				Apply{
+					Manager: "default",
+					Object: `
+					`,
+					APIVersion: "v1",
+				},
+			},
+			// TODO: This is wrong, we're expecting an empty object.
+			Object: `
+				recursiveStruct: null
+			`,
+			APIVersion: "v1",
+			Managed:    fieldpath.ManagedFields{},
 		},
 	}
 
