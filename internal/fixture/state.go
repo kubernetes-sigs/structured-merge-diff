@@ -385,6 +385,33 @@ func (f UpdateObject) preprocess(parser Parser) (Operation, error) {
 	return f, nil
 }
 
+// ChangeParser is a type of operation. It simulates making changes a schema without versioning
+// the schema. This can be used to test the behavior of making backward compatible schema changes,
+// e.g. setting "elementRelationship: atomic" on an existing struct. It also may be used to ensure
+// that backward incompatible changes are detected appropriately.
+type ChangeParser struct {
+	Parser *typed.Parser
+}
+
+var _ Operation = &ChangeParser{}
+
+func (cs ChangeParser) run(state *State) error {
+	state.Parser = cs.Parser
+	// Swap the schema in for use with the live object so it merges.
+	// If the schema is incompatible, this will fail validation.
+
+	liveWithNewSchema, err := typed.AsTyped(state.Live.AsValue(), &cs.Parser.Schema, state.Live.TypeRef())
+	if err != nil {
+		return err
+	}
+	state.Live = liveWithNewSchema
+	return nil
+}
+
+func (cs ChangeParser) preprocess(_ Parser) (Operation, error) {
+	return cs, nil
+}
+
 // TestCase is the list of operations that need to be run, as well as
 // the object/managedfields as they are supposed to look like after all
 // the operations have been successfully performed. If Object/Managed is
