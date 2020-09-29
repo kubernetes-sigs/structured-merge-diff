@@ -509,7 +509,7 @@ func TestUpdateNestedType(t *testing.T) {
 				),
 			},
 		},
-		"recursiveStruct_remove_dangling": {
+		"recursiveStruct_remove_nested_dangling": {
 			Ops: []Operation{
 				Apply{
 					Manager: "default",
@@ -529,6 +529,31 @@ func TestUpdateNestedType(t *testing.T) {
 			// TODO: This is wrong, we're expecting an empty object.
 			Object: `
 				recursiveStruct: null
+			`,
+			APIVersion: "v1",
+			Managed:    fieldpath.ManagedFields{},
+		},
+		"recursiveStruct_remove_dangling": {
+			Ops: []Operation{
+				Apply{
+					Manager: "default",
+					Object: `
+						recursiveStruct:
+						  name: a
+					`,
+					APIVersion: "v1",
+				},
+				Apply{
+					Manager: "default",
+					Object: `
+						recursiveStruct:
+					`,
+					APIVersion: "v1",
+				},
+			},
+			// If person applies the empty struct, we should keep it.
+			Object: `
+				recursiveStruct:
 			`,
 			APIVersion: "v1",
 			Managed:    fieldpath.ManagedFields{},
