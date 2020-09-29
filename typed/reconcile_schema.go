@@ -183,7 +183,7 @@ func (v *reconcileWithSchemaWalker) visitListItems(t *schema.List, element *fiel
 	element.Members.Iterate(func(pe fieldpath.PathElement) {
 		handleElement(pe, true)
 	})
-	return nil
+	return errs
 }
 
 func (v *reconcileWithSchemaWalker) doList(t *schema.List) (errs ValidationErrors) {
@@ -227,7 +227,7 @@ func (v *reconcileWithSchemaWalker) visitMapItems(t *schema.Map, element *fieldp
 		handleElement(pe, true)
 	})
 
-	return nil
+	return errs
 }
 
 func (v *reconcileWithSchemaWalker) doMap(t *schema.Map) (errs ValidationErrors) {
@@ -253,24 +253,17 @@ func (v *reconcileWithSchemaWalker) doMap(t *schema.Map) (errs ValidationErrors)
 }
 
 func buildGranularFieldSet(path fieldpath.Path, value *TypedValue) (*fieldpath.Set, ValidationErrors) {
-	result := fieldpath.NewSet(path)
+
 	valueFieldSet, err := value.ToFieldSet()
 	if err != nil {
 		return nil, errorf("toFieldSet: %v", err)
 	}
-	if listValueFieldSet, ok := fieldSetAtPath(valueFieldSet, path); ok {
-		valueFieldSet = prefixWithPath(path, listValueFieldSet)
-		result = result.Union(valueFieldSet)
+	result := fieldpath.NewSet(path)
+	resultAtPath := descendToPath(result, path)
+	if valueFieldSetAtPath, ok := fieldSetAtPath(valueFieldSet, path); ok {
+		*resultAtPath = *valueFieldSetAtPath
 	}
 	return result, nil
-}
-
-func prefixWithPath(prefix fieldpath.Path, set *fieldpath.Set) *fieldpath.Set {
-	result := fieldpath.NewSet()
-	set.Iterate(func(path fieldpath.Path) {
-		result.Insert(append(prefix.Copy(), path...))
-	})
-	return result
 }
 
 func fieldSetAtPath(node *fieldpath.Set, path fieldpath.Path) (*fieldpath.Set, bool) {
@@ -281,6 +274,13 @@ func fieldSetAtPath(node *fieldpath.Set, path fieldpath.Path) (*fieldpath.Set, b
 		}
 	}
 	return node, ok
+}
+
+func descendToPath(node *fieldpath.Set, path fieldpath.Path) *fieldpath.Set {
+	for _, pe := range path {
+		node = node.Children.Descend(pe)
+	}
+	return node
 }
 
 func typeRefAtPath(t *schema.Map, pe fieldpath.PathElement) (tr schema.TypeRef, errs ValidationErrors) {

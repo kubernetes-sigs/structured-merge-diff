@@ -155,35 +155,6 @@ func (s *Updater) Update(liveObject, newObject *typed.TypedValue, version fieldp
 	return newObject, managers, nil
 }
 
-// reconcileManagedFieldsWithSchemaChanges reconciles the managed fields with any changes to the
-// object's schema since the managed fields were written.
-//
-// Supports:
-// - changing types from atomic to granular
-// - changing types from granular to atomic
-func (s *Updater) reconcileManagedFieldsWithSchemaChanges(liveObject *typed.TypedValue, managers fieldpath.ManagedFields) (fieldpath.ManagedFields, error) {
-	result := fieldpath.ManagedFields{}
-	for manager, versionedSet := range managers {
-		tv, err := s.Converter.Convert(liveObject, versionedSet.APIVersion())
-		if s.Converter.IsMissingVersionError(err) { // okay to skip, obsolete versions will be deleted automatically anyway
-			continue
-		}
-		if err != nil {
-			return nil, err
-		}
-		reconciled, err := typed.ReconcileFieldSetWithSchema(versionedSet.Set(), tv)
-		if err != nil {
-			return nil, err
-		}
-		if reconciled != nil {
-			result[manager] = fieldpath.NewVersionedSet(reconciled, versionedSet.APIVersion(), versionedSet.Applied())
-		} else {
-			result[manager] = versionedSet
-		}
-	}
-	return result, nil
-}
-
 // Apply should be called when Apply is run, given the current object as
 // well as the configuration that is applied. This will merge the object
 // and return it. If the object hasn't changed, nil is returned (the
@@ -326,4 +297,33 @@ func (s *Updater) addBackDanglingItems(merged, pruned *typed.TypedValue, lastSet
 		return nil, fmt.Errorf("failed to create field set from merged object in last applied version: %v", err)
 	}
 	return merged.RemoveItems(mergedSet.Difference(prunedSet).Intersection(lastSet.Set())), nil
+}
+
+// reconcileManagedFieldsWithSchemaChanges reconciles the managed fields with any changes to the
+// object's schema since the managed fields were written.
+//
+// Supports:
+// - changing types from atomic to granular
+// - changing types from granular to atomic
+func (s *Updater) reconcileManagedFieldsWithSchemaChanges(liveObject *typed.TypedValue, managers fieldpath.ManagedFields) (fieldpath.ManagedFields, error) {
+	result := fieldpath.ManagedFields{}
+	for manager, versionedSet := range managers {
+		tv, err := s.Converter.Convert(liveObject, versionedSet.APIVersion())
+		if s.Converter.IsMissingVersionError(err) { // okay to skip, obsolete versions will be deleted automatically anyway
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		reconciled, err := typed.ReconcileFieldSetWithSchema(versionedSet.Set(), tv)
+		if err != nil {
+			return nil, err
+		}
+		if reconciled != nil {
+			result[manager] = fieldpath.NewVersionedSet(reconciled, versionedSet.APIVersion(), versionedSet.Applied())
+		} else {
+			result[manager] = versionedSet
+		}
+	}
+	return result, nil
 }
