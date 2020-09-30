@@ -209,13 +209,13 @@ func (v *reconcileWithSchemaWalker) doList(t *schema.List) (errs ValidationError
 func (v *reconcileWithSchemaWalker) visitMapItems(t *schema.Map, element *fieldpath.Set) (errs ValidationErrors) {
 	handleElement := func(pe fieldpath.PathElement, isMember bool) {
 		var hasChildren bool
-		tr, lookupErrs := typeRefAtPath(t, pe)
-		errs = append(errs, lookupErrs...)
-		v2 := v.prepareDescent(pe, tr)
-		v2.fieldSet, hasChildren = element.Children.Get(pe)
-		v2.isAtomic = isMember && !hasChildren
-		errs = append(errs, v2.reconcile()...)
-		v.finishDescent(v2)
+		if tr, ok := typeRefAtPath(t, pe); ok { // ignore fields not in the schema
+			v2 := v.prepareDescent(pe, tr)
+			v2.fieldSet, hasChildren = element.Children.Get(pe)
+			v2.isAtomic = isMember && !hasChildren
+			errs = append(errs, v2.reconcile()...)
+			v.finishDescent(v2)
+		}
 	}
 	element.Children.Iterate(func(pe fieldpath.PathElement) {
 		if element.Members.Has(pe) {
@@ -283,15 +283,12 @@ func descendToPath(node *fieldpath.Set, path fieldpath.Path) *fieldpath.Set {
 	return node
 }
 
-func typeRefAtPath(t *schema.Map, pe fieldpath.PathElement) (tr schema.TypeRef, errs ValidationErrors) {
-	tr = t.ElementType
+func typeRefAtPath(t *schema.Map, pe fieldpath.PathElement) (schema.TypeRef, bool) {
+	tr := t.ElementType
 	if pe.FieldName != nil {
 		if sf, ok := t.FindField(*pe.FieldName); ok {
 			tr = sf.Type
 		}
 	}
-	if (tr == schema.TypeRef{}) {
-		errs = append(errs, errorf("field not declared in schema").WithPrefix(pe.String())...)
-	}
-	return tr, errs
+	return tr, tr != schema.TypeRef{}
 }
