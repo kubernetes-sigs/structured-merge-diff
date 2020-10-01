@@ -267,6 +267,29 @@ var reconcileCases = []reconcileTestCase{{
 		_P("unchanged", "numeric"),
 	),
 	fixedFields: nil, // indicates no change
+}, {
+	name:         "no-change-empty-granular",
+	rootTypeName: "v1",
+	oldSchema:    granularSchema("v1"),
+	newSchema:    granularSchema("v1"),
+	liveObject: typed.YAMLObject(`
+struct: {}
+list: []
+objectList:
+  - keyA: a1
+    keyB: b1
+stringMap: {}
+unchanged: {}
+`),
+	oldFields: _NS(
+		_P("struct"),
+		_P("list"),
+		_P("objectList"),
+		_P("objectList", _KBF("keyA", "a1", "keyB", "b1")),
+		_P("objectList", _KBF("keyA", "a1", "keyB", "b1"), "value"),
+		_P("unchanged"),
+	),
+	fixedFields: nil, // indicates no change
 }}
 
 func TestReconcileFieldSetWithSchema(t *testing.T) {
