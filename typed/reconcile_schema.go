@@ -258,12 +258,13 @@ func buildGranularFieldSet(path fieldpath.Path, value *TypedValue) (*fieldpath.S
 	if err != nil {
 		return nil, errorf("toFieldSet: %v", err)
 	}
-	result := fieldpath.NewSet(path)
-	resultAtPath := descendToPath(result, path)
 	if valueFieldSetAtPath, ok := fieldSetAtPath(valueFieldSet, path); ok {
+		result := fieldpath.NewSet(path)
+		resultAtPath := descendToPath(result, path)
 		*resultAtPath = *valueFieldSetAtPath
+		return result, nil
 	}
-	return result, nil
+	return nil, nil
 }
 
 func fieldSetAtPath(node *fieldpath.Set, path fieldpath.Path) (*fieldpath.Set, bool) {
