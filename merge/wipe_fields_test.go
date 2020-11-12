@@ -127,6 +127,32 @@ func TestWipeManagedFields(t *testing.T) {
 				"test": fieldpath.NewVersionedSet(_NS(_P("a") /* _P("b") */), "v1", false),
 			},
 		},
+		"does not own new fields removed by prepare on create": {
+			liveManagedFields: fieldpath.ManagedFields{},
+			newManagedFields: fieldpath.ManagedFields{
+				"test": fieldpath.NewVersionedSet(_NS(_P("a"), _P("b")), "v1", false),
+			},
+			manager:        "test",
+			liveObject:     ``,
+			newObject:      `{"a": 1, "b": 2}`,
+			preparedObject: `{"a": 1}`,
+			expectedManagedFields: fieldpath.ManagedFields{
+				"test": fieldpath.NewVersionedSet(_NS(_P("a")), "v1", false),
+			},
+		},
+		"does not own new nested fields removed by prepare on create": {
+			liveManagedFields: fieldpath.ManagedFields{},
+			newManagedFields: fieldpath.ManagedFields{
+				"test": fieldpath.NewVersionedSet(_NS(_P("a", "b"), _P("c", "d")), "v1", false),
+			},
+			manager:        "test",
+			liveObject:     ``,
+			newObject:      `{"a": {"b": 1}, "c": {"d": 2}}`,
+			preparedObject: `{"a": {"b": 1}, "c": {}}`,
+			expectedManagedFields: fieldpath.ManagedFields{
+				"test": fieldpath.NewVersionedSet(_NS(_P("a", "b")), "v1", false),
+			},
+		},
 	}
 
 	for name, test := range tests {
