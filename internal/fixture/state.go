@@ -91,7 +91,7 @@ func FixTabsOrDie(in typed.YAMLObject) typed.YAMLObject {
 			break
 		}
 		if !bytes.HasPrefix(line, prefix) {
-			panic(fmt.Errorf("line %d doesn't start with expected number (%d) of tabs: %v", i, len(prefix), line))
+			panic(fmt.Errorf("line %d doesn't start with expected number (%d) of tabs: %v", i, len(prefix), string(line)))
 		}
 		lines[i] = line[len(prefix):]
 	}
