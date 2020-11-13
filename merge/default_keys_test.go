@@ -256,7 +256,7 @@ var bookParser = func() *typed.Parser {
                         map:
                           fields:
                           - name: page
-                            default: 2
+                            default: 2.0
                             type:
                               scalar: numeric
                           - name: line
@@ -315,6 +315,61 @@ func TestDefaultKeysNested(t *testing.T) {
 							"book", _KBF("chapter", 1, "section", "A"),
 							"sentences", _KBF("page", 2, "line", 3),
 							"text",
+						),
+					),
+					"v1",
+					false,
+				),
+			},
+		},
+		"apply_integer_key_with_float_default": {
+			Ops: []Operation{
+				Apply{
+					Manager:    "default",
+					APIVersion: "v1",
+					Object: `
+						book:
+						- sentences:
+						  - text: blah
+					`,
+				},
+				Apply{
+					Manager:    "default",
+					APIVersion: "v1",
+					Object: `
+						book:
+						- sentences:
+						  - text: blah
+						    page: 2
+					`,
+				},
+			},
+			APIVersion: "v1",
+			Object: `
+				book:
+				- sentences:
+				  - text: blah
+				    page: 2
+			`,
+			Managed: fieldpath.ManagedFields{
+				"default": fieldpath.NewVersionedSet(
+					_NS(
+						_P(
+							"book", _KBF("chapter", 1, "section", "A"),
+						),
+						_P(
+							"book", _KBF("chapter", 1, "section", "A"),
+							"sentences", _KBF("page", 2, "line", 3),
+						),
+						_P(
+							"book", _KBF("chapter", 1, "section", "A"),
+							"sentences", _KBF("page", 2, "line", 3),
+							"text",
+						),
+						_P(
+							"book", _KBF("chapter", 1, "section", "A"),
+							"sentences", _KBF("page", 2, "line", 3),
+							"page",
 						),
 					),
 					"v1",
