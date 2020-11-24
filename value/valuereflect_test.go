@@ -237,6 +237,9 @@ type testOmitemptyStruct struct {
 	Noomit *string `json:"noomit"`
 	Omit   *string `json:"omit,omitempty"`
 }
+type testEmbeddedStruct struct {
+	*testBasicStruct `json:",inline"`
+}
 
 func TestReflectStruct(t *testing.T) {
 	cases := []struct {
@@ -280,6 +283,12 @@ func TestReflectStruct(t *testing.T) {
 			val:                  testOmitemptyStruct{Noomit: nil, Omit: nil},
 			expectedMap:          map[string]interface{}{"noomit": (*string)(nil)},
 			expectedUnstructured: map[string]interface{}{"noomit": nil},
+		},
+		{
+			name:                 "embedded",
+			val:                  testEmbeddedStruct{&testBasicStruct{I: 10, S: "string"}},
+			expectedMap:          map[string]interface{}{"int": int64(10), "S": "string"},
+			expectedUnstructured: map[string]interface{}{"int": int64(10), "S": "string"},
 		},
 	}
 
