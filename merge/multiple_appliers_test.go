@@ -554,11 +554,10 @@ func testMultipleAppliersFieldUnsetting(t *testing.T, v1, v2, v3 fieldpath.APIVe
 					`,
 				},
 			},
-			Object: typed.YAMLObject(fmt.Sprintf(`
+			Object: typed.YAMLObject(`
 				struct:
 				  name: a
-				  complexField_%s: null
-			`, v3)),
+			`),
 			APIVersion: v3,
 			Managed: fieldpath.ManagedFields{
 				"apply-one": fieldpath.NewVersionedSet(
@@ -1072,6 +1071,13 @@ func TestMultipleAppliersNestedType(t *testing.T) {
 			`,
 			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
+				"apply-one": fieldpath.NewVersionedSet(
+					_NS(
+						_P("mapOfMapsRecursive"),
+					),
+					"v4",
+					false,
+				),
 				"apply-two": fieldpath.NewVersionedSet(
 					_NS(
 						_P("mapOfMapsRecursive", "a"),
@@ -1285,6 +1291,13 @@ func TestMultipleAppliersRealConversion(t *testing.T) {
 			`,
 			APIVersion: "v4",
 			Managed: fieldpath.ManagedFields{
+				"apply-one": fieldpath.NewVersionedSet(
+					_NS(
+						_P("mapOfMapsRecursive"),
+					),
+					"v4",
+					false,
+				),
 				"apply-two": fieldpath.NewVersionedSet(
 					_NS(
 						_P("mapOfMapsRecursive", "aa"),

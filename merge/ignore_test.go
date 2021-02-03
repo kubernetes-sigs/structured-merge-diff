@@ -190,6 +190,13 @@ func TestIgnoredFieldsUsesVersions(t *testing.T) {
 			`,
 			APIVersion: "v4",
 			Managed: fieldpath.ManagedFields{
+				"apply-one": fieldpath.NewVersionedSet(
+					_NS(
+						_P("mapOfMapsRecursive"),
+					),
+					"v4",
+					false,
+				),
 				"apply-two": fieldpath.NewVersionedSet(
 					_NS(
 						_P("mapOfMapsRecursive", "aa"),
