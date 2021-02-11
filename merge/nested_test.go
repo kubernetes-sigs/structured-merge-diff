@@ -44,6 +44,18 @@ var nestedTypeParser = func() Parser {
       - name: mapOfMapsRecursive
         type:
           namedType: mapOfMapsRecursive
+      - name: struct
+        type:
+          namedType: struct
+- name: struct
+  map:
+    fields:
+    - name: name
+      type:
+        scalar: string
+    - name: value
+      type:
+        scalar: number
 - name: listOfLists
   list:
     elementType:
@@ -499,6 +511,193 @@ func TestUpdateNestedType(t *testing.T) {
 					false,
 				),
 			},
+		},
+		"struct_apply_remove_all": {
+			Ops: []Operation{
+				Apply{
+					Manager: "default",
+					Object: `
+						struct:
+						  name: a
+						  value: 1
+					`,
+					APIVersion: "v1",
+				},
+				Apply{
+					Manager: "default",
+					Object: `
+					`,
+					APIVersion: "v1",
+				},
+			},
+			Object: `
+			`,
+			APIVersion: "v1",
+			Managed:    fieldpath.ManagedFields{},
+		},
+		"struct_apply_remove_dangling": {
+			Ops: []Operation{
+				Apply{
+					Manager: "default",
+					Object: `
+						struct:
+						  name: a
+					`,
+					APIVersion: "v1",
+				},
+				Apply{
+					Manager: "default",
+					Object: `
+						struct:
+					`,
+					APIVersion: "v1",
+				},
+			},
+			Object: `
+				struct:
+			`,
+			APIVersion: "v1",
+			Managed: fieldpath.ManagedFields{
+				"default": fieldpath.NewVersionedSet(
+					_NS(
+						_P("struct"),
+					),
+					"v1",
+					true,
+				),
+			},
+		},
+		"struct_apply_update_remove_all": {
+			Ops: []Operation{
+				Apply{
+					Manager: "default",
+					Object: `
+						struct:
+						  name: a
+					`,
+					APIVersion: "v1",
+				},
+				Update{
+					Manager: "controller",
+					Object: `
+						struct:
+						  name: a
+						  value: 1
+					`,
+					APIVersion: "v1",
+				},
+				Apply{
+					Manager: "default",
+					Object: `
+					`,
+					APIVersion: "v1",
+				},
+			},
+			Object: `
+				struct:
+				  value: 1
+			`,
+			APIVersion: "v1",
+		},
+		"struct_apply_update_dict_dangling": {
+			Ops: []Operation{
+				Apply{
+					Manager: "default",
+					Object: `
+						struct:
+						  name: a
+					`,
+					APIVersion: "v1",
+				},
+				Update{
+					Manager: "controller",
+					Object: `
+						struct:
+						  name: a
+						  value: 1
+					`,
+					APIVersion: "v1",
+				},
+				Apply{
+					Manager: "default",
+					Object: `
+						struct: {}
+					`,
+					APIVersion: "v1",
+				},
+			},
+			Object: `
+				struct:
+				  value: 1
+			`,
+			APIVersion: "v1",
+		},
+		"struct_apply_update_dict_null": {
+			Ops: []Operation{
+				Apply{
+					Manager: "default",
+					Object: `
+						struct:
+						  name: a
+					`,
+					APIVersion: "v1",
+				},
+				Update{
+					Manager: "controller",
+					Object: `
+						struct:
+						  name: a
+						  value: 1
+					`,
+					APIVersion: "v1",
+				},
+				Apply{
+					Manager: "default",
+					Object: `
+						struct:
+					`,
+					APIVersion: "v1",
+				},
+			},
+			Object: `
+				struct:
+				  value: 1
+			`,
+			APIVersion: "v1",
+		},
+		"struct_apply_update_took_over": {
+			Ops: []Operation{
+				Apply{
+					Manager: "default",
+					Object: `
+						struct:
+						  name: a
+					`,
+					APIVersion: "v1",
+				},
+				Update{
+					Manager: "controller",
+					Object: `
+						struct:
+						  name: b
+						  value: 1
+					`,
+					APIVersion: "v1",
+				},
+				Apply{
+					Manager: "default",
+					Object: `
+						struct:
+					`,
+					APIVersion: "v1",
+				},
+			},
+			Object: `
+				struct:
+				  name: b
+				  value: 1
+			`,
+			APIVersion: "v1",
 		},
 	}
 
