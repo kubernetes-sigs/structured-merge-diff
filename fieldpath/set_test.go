@@ -140,6 +140,12 @@ func BenchmarkFieldSet(b *testing.B) {
 				randOperand().RecursiveDifference(randOperand())
 			}
 		})
+		b.Run(fmt.Sprintf("leaves-%v", here.size), func(b *testing.B) {
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				randOperand().Leaves()
+			}
+		})
 	}
 }
 
@@ -454,6 +460,106 @@ func TestSetIntersectionDifference(t *testing.T) {
 			t.Errorf("expected: \n%v\n, got \n%v\n", i, got)
 		}
 	})
+}
+
+func TestSetLeaves(t *testing.T) {
+	table := []struct {
+		name     string
+		input    *Set
+		expected *Set
+	}{
+		{
+			name:     "empty set",
+			input:    NewSet(),
+			expected: NewSet(),
+		}, {
+			name: "all leaves",
+			input: NewSet(
+				_P("path1"),
+				_P("path2"),
+				_P("path3"),
+			),
+			expected: NewSet(
+				_P("path1"),
+				_P("path2"),
+				_P("path3"),
+			),
+		}, {
+			name: "only one leaf",
+			input: NewSet(
+				_P("root"),
+				_P("root", "l1"),
+				_P("root", "l1", "l2"),
+				_P("root", "l1", "l2", "l3"),
+			),
+			expected: NewSet(
+				_P("root", "l1", "l2", "l3"),
+			),
+		}, {
+			name: "multiple values, check for overwrite",
+			input: NewSet(
+				_P("root", KeyByFields("name", "a")),
+				_P("root", KeyByFields("name", "a"), "name"),
+				_P("root", KeyByFields("name", "a"), "value", "b"),
+				_P("root", KeyByFields("name", "a"), "value", "c"),
+			),
+			expected: NewSet(
+				_P("root", KeyByFields("name", "a"), "name"),
+				_P("root", KeyByFields("name", "a"), "value", "b"),
+				_P("root", KeyByFields("name", "a"), "value", "c"),
+			),
+		}, {
+			name: "multiple values and nested",
+			input: NewSet(
+				_P("root", KeyByFields("name", "a")),
+				_P("root", KeyByFields("name", "a"), "name"),
+				_P("root", KeyByFields("name", "a"), "value", "b"),
+				_P("root", KeyByFields("name", "a"), "value", "b", "d"),
+				_P("root", KeyByFields("name", "a"), "value", "c"),
+			),
+			expected: NewSet(
+				_P("root", KeyByFields("name", "a"), "name"),
+				_P("root", KeyByFields("name", "a"), "value", "b", "d"),
+				_P("root", KeyByFields("name", "a"), "value", "c"),
+			),
+		}, {
+			name: "all-in-one",
+			input: NewSet(
+				_P("root"),
+				_P("root", KeyByFields("name", "a")),
+				_P("root", KeyByFields("name", "a"), "name"),
+				_P("root", KeyByFields("name", "a"), "value", "b"),
+				_P("root", KeyByFields("name", "a"), "value", "b", "c"),
+				_P("root", KeyByFields("name", "a"), "value", "d"),
+				_P("root", KeyByFields("name", "a"), "value", "e"),
+				_P("root", "x"),
+				_P("root", "x", "y"),
+				_P("root", "x", "z"),
+				_P("root", KeyByFields("name", "p")),
+				_P("root", KeyByFields("name", "p"), "name"),
+				_P("root", KeyByFields("name", "p"), "value", "q"),
+			),
+			expected: NewSet(
+				_P("root", KeyByFields("name", "a"), "name"),
+				_P("root", KeyByFields("name", "a"), "value", "b", "c"),
+				_P("root", KeyByFields("name", "a"), "value", "d"),
+				_P("root", KeyByFields("name", "a"), "value", "e"),
+				_P("root", "x", "y"),
+				_P("root", "x", "z"),
+				_P("root", KeyByFields("name", "p"), "name"),
+				_P("root", KeyByFields("name", "p"), "value", "q"),
+			),
+		},
+	}
+
+	for _, tt := range table {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.input.Leaves(); !tt.expected.Equals(got) {
+				t.Errorf("expected %v, got %v for input %v", tt.expected, got, tt.input)
+			}
+		})
+	}
+
 }
 
 func TestSetDifference(t *testing.T) {
