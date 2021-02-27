@@ -341,6 +341,83 @@ func (f ForceApplyObject) preprocess(parser Parser) (Operation, error) {
 	return f, nil
 }
 
+// ExtractApply is a type of operation. It simulates extracting an object
+// the state based on the manager you have applied with, merging the
+// apply object with that extracted object and reapplying that.
+type ExtractApply struct {
+	Manager    string
+	APIVersion fieldpath.APIVersion
+	Object     typed.YAMLObject
+}
+
+var _ Operation = &ExtractApply{}
+
+func (e ExtractApply) run(state *State) error {
+	p, err := e.preprocess(state.Parser)
+	if err != nil {
+		return err
+	}
+	return p.run(state)
+}
+
+func (e ExtractApply) preprocess(parser Parser) (Operation, error) {
+
+	tv, err := parser.Type(string(e.APIVersion)).FromYAML(FixTabsOrDie(e.Object))
+	if err != nil {
+		return nil, err
+	}
+	return ExtractApplyObject{
+		Manager:    e.Manager,
+		APIVersion: e.APIVersion,
+		Object:     tv,
+	}, nil
+}
+
+type ExtractApplyObject struct {
+	Manager    string
+	APIVersion fieldpath.APIVersion
+	Object     *typed.TypedValue
+}
+
+var _ Operation = &ExtractApplyObject{}
+
+func (e ExtractApplyObject) run(state *State) error {
+	if state.Live == nil {
+		return state.ApplyObject(e.Object, e.APIVersion, e.Manager, true)
+	}
+	// Get object from state and convert it to current APIVersion
+	current, err := state.Updater.Converter.Convert(state.Live, e.APIVersion)
+	if err != nil {
+		return err
+	}
+	// Get set based on the manager you've applied with
+	set := fieldpath.NewSet()
+	mgr := state.Managers[e.Manager]
+	if mgr != nil {
+		// we cannot extract a set that is for a different version
+		if mgr.APIVersion() != e.APIVersion {
+			return fmt.Errorf("existing managed fieldpath set APIVersion (%s) differs from desired (%s), unable to extract", mgr.APIVersion(), e.APIVersion)
+		}
+		// trying to extract the fieldSet directly will return everything
+		// under the first path in the set, so we must filter out all
+		// the non-leaf nodes from the fieldSet
+		set = mgr.Set().Leaves()
+	}
+	// ExtractFields from the state object based on the set
+	extracted := current.ExtractItems(set)
+	// Merge ApplyObject on top of the extracted object
+	obj, err := extracted.Merge(e.Object)
+	if err != nil {
+		return err
+	}
+	// Reapply that to the state
+	return state.ApplyObject(obj, e.APIVersion, e.Manager, true)
+}
+
+func (e ExtractApplyObject) preprocess(parser Parser) (Operation, error) {
+	return e, nil
+}
+
 // Update is a type of operation. It is a controller type of
 // update. Errors are passed along.
 type Update struct {
