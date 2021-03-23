@@ -34,6 +34,12 @@ var setFieldsParser = func() Parser {
         list:
           elementType:
             scalar: string
+          elementRelationship: associative
+    - name: map
+      type:
+        map:
+          elementType:
+            scalar: string
           elementRelationship: associative`)
 	if err != nil {
 		panic(err)

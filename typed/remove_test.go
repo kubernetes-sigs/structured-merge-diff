@@ -670,6 +670,10 @@ var reversibleExtractCases = []reversibleExtractTestCase{{
 		`{"listOfLists": [{"name": "a", "value": ["b", "c"]}, {"name": "d"}]}`,
 		`{"listOfLists": [{"name": "a", "value": ["j", "k"]},]}`,
 	}, {
+		// apply empty structure
+		`{"listOfLists": [{"name": "a", "value": ["b", "c"]}, {"name": "d"}]}`,
+		`{"listOfLists": [{"name": "a", "value": null},]}`,
+	}, {
 		// add to top level element
 		`{"listOfMaps": [{"name": "a", "value": {"b":"x", "c":"y"}}, {"name": "d", "value": {"e":"z"}}]}`,
 		`{"listOfMaps": [{"name": "f", "value": {"q":"p"}}]}`,
@@ -682,6 +686,10 @@ var reversibleExtractCases = []reversibleExtractTestCase{{
 		`{"listOfMaps": [{"name": "a", "value": {"b":"x", "c":"y"}}, {"name": "d", "value": {"e":"z"}}]}`,
 		`{"listOfMaps": [{"name": "a", "value": {"b":"p"}}]}`,
 	}, {
+		// apply empty structure
+		`{"listOfMaps": [{"name": "a", "value": {"b":"x", "c":"y"}}, {"name": "d", "value": {"e":"z"}}]}`,
+		`{"listOfMaps": [{"name": "a", "value": null}]}`,
+	}, {
 		// add to top level element
 		`{"mapOfLists": {"b":["a","c"], "d":["e", "f"]}}`,
 		`{"mapOfLists": {"x":["y","z"]}}`,
@@ -689,6 +697,10 @@ var reversibleExtractCases = []reversibleExtractTestCase{{
 		// add to leaf element
 		`{"mapOfLists": {"b":["a","c"], "d":["e", "f"]}}`,
 		`{"mapOfLists": {"b":["y","z"]}}`,
+	}, {
+		// apply empty structure
+		`{"mapOfLists": {"b":["a","c"], "d":["e", "f"]}}`,
+		`{"mapOfLists": {"b":null}}`,
 	}, {
 		// add to top level element
 		`{"mapOfMaps": {"b":{"a":"x","c":"z"}, "d":{"e":"y", "f":"w"}}}`,
@@ -702,6 +714,10 @@ var reversibleExtractCases = []reversibleExtractTestCase{{
 		`{"mapOfMaps": {"b":{"a":"x","c":"z"}, "d":{"e":"y", "f":"w"}}}`,
 		`{"mapOfMaps": {"b":{"a":"k"}}}`,
 	}, {
+		// apply empty structure
+		`{"mapOfMaps": {"b":{"a":"x","c":"z"}, "d":{"e":"y", "f":"w"}}}`,
+		`{"mapOfMaps": {"b": null}}`,
+	}, {
 		// misc: add another root type
 		`{"listOfMaps": [{"name": "a", "value": {"b":"x", "c":"y"}}, {"name": "d", "value": {"e":"z"}}]}`,
 		`{"mapOfLists": {"b":["y","z"]}}`,
@@ -709,6 +725,10 @@ var reversibleExtractCases = []reversibleExtractTestCase{{
 		// misc: recursive deeply nested leaves
 		`{"mapOfMapsRecursive": {"a":{"b":{"c":null}, "d":{"e":{"f":null}, "g":null}}}}`,
 		`{"mapOfMapsRecursive": {"a":{"d":{"e":{"f":{"q":null}, "p":null}}}}}`,
+	}, {
+		// misc: recursive deeply nested empty structure
+		`{"mapOfMapsRecursive": {"a":{"b":{"c":{"d":{"e":{"f":null}}, "g":{"h":null}, "i":null}}}}}`,
+		`{"mapOfMapsRecursive": {"a":{"b":{"c":null}}}}`,
 	}},
 }}
 
