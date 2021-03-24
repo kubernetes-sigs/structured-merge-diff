@@ -156,8 +156,7 @@ func (tv TypedValue) RemoveItems(items *fieldpath.Set) *TypedValue {
 
 // ExtractItems returns a value with only the provided list or map items extracted from the value.
 func (tv TypedValue) ExtractItems(items *fieldpath.Set) *TypedValue {
-	tv.value = extractItemsWithSchema(tv.value, items, tv.schema, tv.typeRef, true)
-	//tv.value = removeItemsWithSchema(tv.value, items, tv.schema, tv.typeRef, true)
+	tv.value = removeItemsWithSchema(tv.value, items, tv.schema, tv.typeRef, true)
 	return &tv
 }
 

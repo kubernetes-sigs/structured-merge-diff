@@ -204,10 +204,8 @@ func keyedAssociativeListItemToPathElement(a value.Allocator, s *schema.Schema, 
 	}
 	keyMap := value.FieldList{}
 	m := child.AsMapUsing(a)
-	//fmt.Printf("m = %+v\n", m)
 	defer a.Free(m)
 	for _, fieldName := range list.Keys {
-		//fmt.Printf("fieldName = %+v\n", fieldName)
 		if val, ok := m.Get(fieldName); ok {
 			keyMap = append(keyMap, value.Field{Name: fieldName, Value: val})
 		} else if def, err := getAssociativeKeyDefault(s, list, fieldName); err != nil {
@@ -256,18 +254,12 @@ func setItemToPathElement(list *schema.List, index int, child value.Value) (fiel
 }
 
 func listItemToPathElement(a value.Allocator, s *schema.Schema, list *schema.List, index int, child value.Value) (fieldpath.PathElement, error) {
-	//fmt.Printf("index = %+v\n", index)
-	//fmt.Printf("list = %+v\n", list)
-	//fmt.Printf("list.Keys = %+v\n", list.Keys)
 	if list.ElementRelationship == schema.Associative {
-		//fmt.Println("assoc")
 		if len(list.Keys) > 0 {
-			//fmt.Println("keyedAssoc")
 			return keyedAssociativeListItemToPathElement(a, s, list, index, child)
 		}
 
 		// If there's no keys, then we must be a set of primitives.
-		//fmt.Println("setItem")
 		return setItemToPathElement(list, index, child)
 	}
 

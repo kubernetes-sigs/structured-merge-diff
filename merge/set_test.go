@@ -34,25 +34,7 @@ var setFieldsParser = func() Parser {
         list:
           elementType:
             scalar: string
-          elementRelationship: associative
-    - name: atomicList
-      type:
-        list:
-          elementType:
-            scalar: string
-          elementRelationship: atomic
-    - name: map
-      type:
-        map:
-          elementType:
-            scalar: string
-          elementRelationship: associative
-    - name: atomicMap
-      type:
-        map:
-          elementType:
-            scalar: string
-          elementRelationship: atomic`)
+          elementRelationship: associative`)
 	if err != nil {
 		panic(err)
 	}

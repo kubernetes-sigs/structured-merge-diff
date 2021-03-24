@@ -21,7 +21,43 @@ import (
 
 	"sigs.k8s.io/structured-merge-diff/v4/fieldpath"
 	. "sigs.k8s.io/structured-merge-diff/v4/internal/fixture"
+	"sigs.k8s.io/structured-merge-diff/v4/typed"
 )
+
+var extractParser = func() Parser {
+	parser, err := typed.NewParser(`types:
+- name: sets
+  map:
+    fields:
+    - name: list
+      type:
+        list:
+          elementType:
+            scalar: string
+          elementRelationship: associative
+    - name: atomicList
+      type:
+        list:
+          elementType:
+            scalar: string
+          elementRelationship: atomic
+    - name: map
+      type:
+        map:
+          elementType:
+            scalar: string
+          elementRelationship: associative
+    - name: atomicMap
+      type:
+        map:
+          elementType:
+            scalar: string
+          elementRelationship: atomic`)
+	if err != nil {
+		panic(err)
+	}
+	return SameVersionParser{T: parser.Type("sets")}
+}()
 
 func TestExtractApply(t *testing.T) {
 	tests := map[string]TestCase{
@@ -726,7 +762,7 @@ func TestExtractApply(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			if err := test.Test(setFieldsParser); err != nil {
+			if err := test.Test(extractParser); err != nil {
 				t.Fatal(err)
 			}
 		})

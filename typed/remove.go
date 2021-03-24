@@ -70,6 +70,13 @@ func (w *removingWalker) doList(t *schema.List) (errs ValidationErrors) {
 		// but ignore them when we are removing (i.e. !w.shouldExtract)
 		if w.toRemove.Has(path) {
 			if w.shouldExtract {
+				itemIsAtomic, err := isAtomic(item, w.schema, t.ElementType)
+				if err != nil {
+					return err
+				}
+				if !itemIsAtomic && item.IsMap() {
+					retainOnlyListKeys(t.Keys, item.AsMap())
+				}
 				newItems = append(newItems, item.Unstructured())
 			} else {
 				continue
@@ -107,6 +114,7 @@ func (w *removingWalker) doMap(t *schema.Map) ValidationErrors {
 	}
 
 	newMap := map[string]interface{}{}
+	var errors ValidationErrors
 	m.Iterate(func(k string, val value.Value) bool {
 		pe := fieldpath.PathElement{FieldName: &k}
 		path, _ := fieldpath.MakePath(pe)
@@ -118,7 +126,17 @@ func (w *removingWalker) doMap(t *schema.Map) ValidationErrors {
 		// but ignore them when we are removing (i.e. !w.shouldExtract)
 		if w.toRemove.Has(path) {
 			if w.shouldExtract {
-				newMap[k] = val.Unstructured()
+				valIsAtomic, err := isAtomic(val, w.schema, fieldType)
+				if err != nil {
+					errors = err
+					return false
+				}
+
+				if !valIsAtomic && (val.IsMap() || val.IsList()) {
+					newMap[k] = nil
+				} else {
+					newMap[k] = val.Unstructured()
+				}
 			}
 			return true
 		}
@@ -133,6 +151,9 @@ func (w *removingWalker) doMap(t *schema.Map) ValidationErrors {
 		newMap[k] = val.Unstructured()
 		return true
 	})
+	if errors != nil {
+		return errors
+	}
 	if len(newMap) > 0 {
 		w.out = newMap
 	}
