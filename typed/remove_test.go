@@ -276,7 +276,9 @@ var removeCases = []removeTestCase{{
 		`{"setBool":[true,false]}`,
 		_NS(_P("setBool")),
 		``,
-		`{"setBool":[true,false]}`,
+		// old
+		//`{"setBool":[true,false]}`,
+		`{"setBool":null}`,
 	}, {
 		`{"setNumeric":[1,2,3,4.5]}`,
 		_NS(_P("setNumeric", _V(1)), _P("setNumeric", _V(4.5))),
@@ -301,6 +303,8 @@ var removeCases = []removeTestCase{{
 		`{"atomicList":["a", "a", "a"]}`,
 		_NS(_P("atomicList")),
 		``,
+		// atomic lists should still return all
+		// but maybe it can be implemented at a higher level?
 		`{"atomicList":["a", "a", "a"]}`,
 	}},
 }, {
@@ -314,7 +318,9 @@ var removeCases = []removeTestCase{{
 			_P("listOfLists"),
 		),
 		``,
-		`{"listOfLists": [{"name": "a", "value": ["b", "c"]}, {"name": "d"}]}`,
+		// old
+		//`{"listOfLists": [{"name": "a", "value": ["b", "c"]}, {"name": "d"}]}`,
+		`{"listOfLists": null}`,
 	}, {
 		// path to a top-level element
 		`{"listOfLists": [{"name": "a", "value": ["b", "c"]}, {"name": "d"}]}`,
@@ -328,7 +334,9 @@ var removeCases = []removeTestCase{{
 			_P("listOfLists", _KBF("name", "a")),
 		),
 		`{"listOfLists": [{"name": "d"}]}`,
-		`{"listOfLists": [{"name": "a", "value": ["b", "c"]}]}`,
+		// old
+		//`{"listOfLists": [{"name": "a", "value": ["b", "c"]}]}`,
+		`{"listOfLists": [{"name": "a"}]}`,
 	}, {
 		// just one path to leaf element
 		`{"listOfLists": [{"name": "a", "value": ["b", "c"]}, {"name": "d"}]}`,
@@ -386,7 +394,9 @@ var removeCases = []removeTestCase{{
 			_P("listOfMaps"),
 		),
 		``,
-		`{"listOfMaps": [{"name": "a", "value": {"b":"x", "c":"y"}}, {"name": "d", "value": {"e":"z"}}]}`,
+		// old
+		//`{"listOfMaps": [{"name": "a", "value": {"b":"x", "c":"y"}}, {"name": "d", "value": {"e":"z"}}]}`,
+		`{"listOfMaps"}`,
 	}, {
 		// path to a top-level element
 		`{"listOfMaps": [{"name": "a", "value": {"b":"x", "c":"y"}}, {"name": "d", "value": {"e":"z"}}]}`,
@@ -394,7 +404,9 @@ var removeCases = []removeTestCase{{
 			_P("listOfMaps", _KBF("name", "a")),
 		),
 		`{"listOfMaps": [{"name": "d", "value": {"e":"z"}}]}`,
-		`{"listOfMaps": [{"name": "a", "value": {"b":"x", "c":"y"}}]}`,
+		// old
+		//`{"listOfMaps": [{"name": "a", "value": {"b":"x", "c":"y"}}]}`,
+		`{"listOfMaps": [{"name": "a"}]}`,
 	}, {
 		// just one path to leaf element
 		`{"listOfMaps": [{"name": "a", "value": {"b":"x", "c":"y"}}, {"name": "d", "value": {"e":"z"}}]}`,
@@ -445,7 +457,9 @@ var removeCases = []removeTestCase{{
 			_P("mapOfLists"),
 		),
 		``,
-		`{"mapOfLists": {"b":["a","c"], "d":["e", "f"]}}`,
+		// old
+		//`{"mapOfLists": {"b":["a","c"], "d":["e", "f"]}}`,
+		`{"mapOfLists"}`,
 	}, {
 		// path to a top-level element
 		`{"mapOfLists": {"b":["a","c"], "d":["e", "f"]}}`,
@@ -453,7 +467,9 @@ var removeCases = []removeTestCase{{
 			_P("mapOfLists", "b"),
 		),
 		`{"mapOfLists": {"d":["e", "f"]}}`,
-		`{"mapOfLists": {"b":["a","c"]}}`,
+		// old 17
+		//`{"mapOfLists": {"b":["a","c"]}}`,
+		`{"mapOfLists": {"b"}}`,
 	}, {
 		// just one path to leaf element
 		`{"mapOfLists": {"b":["a","c"], "d":["e", "f"]}}`,
@@ -501,7 +517,9 @@ var removeCases = []removeTestCase{{
 			_P("mapOfMaps"),
 		),
 		``,
-		`{"mapOfMaps": {"b":{"a":"x","c":"z"}, "d":{"e":"y", "f":"w"}}}`,
+		// old
+		//`{"mapOfMaps": {"b":{"a":"x","c":"z"}, "d":{"e":"y", "f":"w"}}}`,
+		`{"mapOfMaps"}`,
 	}, {
 		// path to a top-level element
 		`{"mapOfMaps": {"b":{"a":"x","c":"z"}, "d":{"e":"y", "f":"w"}}}`,
@@ -509,7 +527,9 @@ var removeCases = []removeTestCase{{
 			_P("mapOfMaps", "b"),
 		),
 		`{"mapOfMaps": {"d":{"e":"y", "f":"w"}}}`,
-		`{"mapOfMaps": {"b":{"a":"x","c":"z"}}}`,
+		// old
+		//`{"mapOfMaps": {"b":{"a":"x","c":"z"}}}`,
+		`{"mapOfMaps": {"b"}}`,
 	}, {
 		// just one path to leaf element
 		`{"mapOfMaps": {"b":{"a":"x","c":"z"}, "d":{"e":"y", "f":"w"}}}`,
@@ -557,7 +577,9 @@ var removeCases = []removeTestCase{{
 			_P("mapOfMapsRecursive"),
 		),
 		``,
-		`{"mapOfMapsRecursive": {"a":{"b":{"c":null}}}}`,
+		// old
+		//`{"mapOfMapsRecursive": {"a":{"b":{"c":null}}}}`,
+		`{"mapOfMapsRecursive"}`,
 	}, {
 		// top-level map
 		`{"mapOfMapsRecursive": {"a":{"b":{"c":null}}}}`,
@@ -565,7 +587,9 @@ var removeCases = []removeTestCase{{
 			_P("mapOfMapsRecursive", "a"),
 		),
 		`{"mapOfMapsRecursive"}`,
-		`{"mapOfMapsRecursive": {"a":{"b":{"c":null}}}}`,
+		// old
+		//`{"mapOfMapsRecursive": {"a":{"b":{"c":null}}}}`,
+		`{"mapOfMapsRecursive": {"a"}}`,
 	}, {
 		// second-level map
 		`{"mapOfMapsRecursive": {"a":{"b":{"c":null}}}}`,
@@ -573,7 +597,9 @@ var removeCases = []removeTestCase{{
 			_P("mapOfMapsRecursive", "a", "b"),
 		),
 		`{"mapOfMapsRecursive":{"a":null}}`,
-		`{"mapOfMapsRecursive": {"a":{"b":{"c":null}}}}`,
+		// old
+		//`{"mapOfMapsRecursive": {"a":{"b":{"c":null}}}}`,
+		`{"mapOfMapsRecursive": {"a":{"b"}}}`,
 	}, {
 		// third-level map
 		`{"mapOfMapsRecursive": {"a":{"b":{"c":null}}}}`,

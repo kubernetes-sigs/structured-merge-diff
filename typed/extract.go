@@ -48,13 +48,13 @@ func extractItemsWithSchema(val value.Value, toExtract *fieldpath.Set, schema *s
 }
 
 func (w *extractingWalker) doScalar(t *schema.Scalar) ValidationErrors {
-	fmt.Println("extract do scalar")
+	//fmt.Println("extract do scalar")
 	w.out = w.value.Unstructured()
 	return nil
 }
 
 func (w *extractingWalker) doList(t *schema.List) (errs ValidationErrors) {
-	fmt.Println("extract do list")
+	//fmt.Println("extract do list")
 	l := w.value.AsListUsing(w.allocator)
 	defer w.allocator.Free(l)
 	// If list is null, empty, or atomic just return
@@ -67,17 +67,46 @@ func (w *extractingWalker) doList(t *schema.List) (errs ValidationErrors) {
 	defer w.allocator.Free(iter)
 	for iter.Next() {
 		i, item := iter.Item()
+		//fmt.Printf("i = %+v\n", i)
+		//fmt.Printf("item = %+v\n", item)
+		//fmt.Printf("reflect.TypeOf(item) = %+v\n", reflect.TypeOf(item))
 		// Ignore error because we have already validated this list
 		pe, _ := listItemToPathElement(w.allocator, w.schema, t, i, item)
 		path, _ := fieldpath.MakePath(pe)
+		//fmt.Printf("pe = %+v\n", pe)
+		//fmt.Printf("path = %+v\n", path)
 		// save items on the path when we shouldExtract
 		// but ignore them when we are removing (i.e. !w.shouldExtract)
 		if w.toExtract.Has(path) {
+			//fmt.Printf("YES path = %+v\n", path)
 			if w.shouldExtract {
+				//fmt.Printf("t.ElementRelationship = %+v\n", t.ElementRelationship)
+				itemIsAtomic, err := isAtomic(item, w.schema, t.ElementType)
+				if err != nil {
+					return err
+				}
+				// TODO: untested codepaths
+				if item.IsList() {
+					fmt.Println("item.IsList() TESTED")
+				}
+				if item.IsMap() && !itemIsAtomic {
+					//fmt.Println("is map")
+					// zero out the value list, keep just the name
+					if val, ok := item.AsMap().Get("value"); ok {
+						//fmt.Printf("reflect.TypeOf(val) = %+v\n", reflect.TypeOf(val))
+						//fmt.Printf("val.IsList() = %+v\n", val.IsList())
+						item.AsMap().Delete("value")
+						_ = val
+					}
+				}
+				//} else {
 				newItems = append(newItems, item.Unstructured())
+				//}
 			} else {
 				continue
 			}
+		} else {
+			//fmt.Printf("NO path = %+v\n", path)
 		}
 		if subset := w.toExtract.WithPrefix(pe); !subset.Empty() {
 			item = extractItemsWithSchema(item, subset, w.schema, t.ElementType, w.shouldExtract)
@@ -96,7 +125,8 @@ func (w *extractingWalker) doList(t *schema.List) (errs ValidationErrors) {
 }
 
 func (w *extractingWalker) doMap(t *schema.Map) ValidationErrors {
-	fmt.Println("extract do map")
+	//fmt.Println("extract do map")
+	//fmt.Printf("t.ElementRelationship = %+v\n", t.ElementRelationship)
 	m := w.value.AsMapUsing(w.allocator)
 	if m != nil {
 		defer w.allocator.Free(m)
@@ -112,9 +142,11 @@ func (w *extractingWalker) doMap(t *schema.Map) ValidationErrors {
 	}
 
 	newMap := map[string]interface{}{}
+	//errors := []ValidationError{}
+	var errors ValidationErrors
 	m.Iterate(func(k string, val value.Value) bool {
-		fmt.Printf("k = %+v\n", k)
-		fmt.Printf("val = %+v\n", val)
+		//fmt.Printf("k = %+v\n", k)
+		//fmt.Printf("val = %+v\n", val)
 		pe := fieldpath.PathElement{FieldName: &k}
 		//fmt.Printf("pe = %+v\n", pe)
 		path, _ := fieldpath.MakePath(pe)
@@ -123,21 +155,31 @@ func (w *extractingWalker) doMap(t *schema.Map) ValidationErrors {
 		if ft, ok := fieldTypes[k]; ok {
 			fieldType = ft
 		}
+		//fmt.Printf("fieldType = %+v\n", fieldType)
 		// save values on the path when we shouldExtract
 		// but ignore them when we are removing (i.e. !w.shouldExtract)
 		if w.toExtract.Has(path) {
-			fmt.Printf("YES path = %+v\n", path)
+			//fmt.Printf("YES path = %+v\n", path)
 			if w.shouldExtract {
-				if val.IsMap() || val.IsList() {
+				//fmt.Printf("t.ElementRelationship = %+v\n", t.ElementRelationship)
+				valIsAtomic, err := isAtomic(val, w.schema, fieldType)
+				if err != nil {
+					errors = err
+					return false
+				}
+
+				// TODO: untest codepaths:
+				// ...
+				if !valIsAtomic && (val.IsMap() || val.IsList()) { // TODO: and not atomic
 					newMap[k] = nil
 				} else {
 					newMap[k] = val.Unstructured()
 				}
-				fmt.Printf("newMap[k] = %+v\n", newMap[k])
+				//fmt.Printf("newMap[k] = %+v\n", newMap[k])
 			}
 			return true
 		} else {
-			fmt.Printf("NO path = %+v\n", path)
+			//fmt.Printf("NO path = %+v\n", path)
 		}
 		if subset := w.toExtract.WithPrefix(pe); !subset.Empty() {
 			val = extractItemsWithSchema(val, subset, w.schema, fieldType, w.shouldExtract)
@@ -148,9 +190,12 @@ func (w *extractingWalker) doMap(t *schema.Map) ValidationErrors {
 			}
 		}
 		newMap[k] = val.Unstructured()
-		fmt.Printf("newMap[k] constructed = %+v\n", newMap[k])
+		//fmt.Printf("newMap[k] constructed = %+v\n", newMap[k])
 		return true
 	})
+	if errors != nil {
+		return errors
+	}
 	if len(newMap) > 0 {
 		w.out = newMap
 	}

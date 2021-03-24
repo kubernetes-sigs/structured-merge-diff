@@ -254,3 +254,22 @@ func listItemToPathElement(a value.Allocator, s *schema.Schema, list *schema.Lis
 	// Use the index as a key for atomic lists.
 	return fieldpath.PathElement{Index: &index}, nil
 }
+
+// isAtomic lets you determine the atomicity of a value without
+// recursing into another call of extractItemsWithSchema
+func isAtomic(val value.Value, s *schema.Schema, tr schema.TypeRef) (bool, ValidationErrors) {
+	a, ok := s.Resolve(tr)
+	if !ok {
+		return false, errorf("schema error: no type found matching: %v", *tr.NamedType)
+
+	}
+	a = deduceAtom(a, val)
+	switch {
+	case a.Map != nil:
+		return a.Map.ElementRelationship == schema.Atomic, nil
+	case a.List != nil:
+		return a.List.ElementRelationship == schema.Atomic, nil
+	default:
+		return true, nil
+	}
+}

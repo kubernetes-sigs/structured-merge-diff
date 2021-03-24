@@ -35,6 +35,12 @@ var setFieldsParser = func() Parser {
           elementType:
             scalar: string
           elementRelationship: associative
+    - name: atomicList
+      type:
+        list:
+          elementType:
+            scalar: string
+          elementRelationship: atomic
     - name: map
       type:
         map:
