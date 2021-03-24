@@ -463,6 +463,64 @@ func TestExtractApply(t *testing.T) {
 				),
 			},
 		},
+		"extract_apply_atomic_list": {
+			Ops: []Operation{
+				ExtractApply{
+					Manager: "apply-one",
+					Object: `
+						atomicList:
+						- a
+						- b
+						- c
+					`,
+					APIVersion: "v1",
+				},
+			},
+			Object: `
+				atomicList:
+				- a
+				- b
+				- c
+			`,
+			APIVersion: "v1",
+			Managed: fieldpath.ManagedFields{
+				"apply-one": fieldpath.NewVersionedSet(
+					_NS(
+						_P("atomicList"),
+					),
+					"v1",
+					false,
+				),
+			},
+		},
+		"extract_apply_atomic_map": {
+			Ops: []Operation{
+				ExtractApply{
+					Manager: "apply-one",
+					Object: `
+						atomicMap:
+						 a: c
+						 b: d
+					`,
+					APIVersion: "v1",
+				},
+			},
+			Object: `
+				atomicMap:
+				 a: c
+				 b: d
+			`,
+			APIVersion: "v1",
+			Managed: fieldpath.ManagedFields{
+				"apply-one": fieldpath.NewVersionedSet(
+					_NS(
+						_P("atomicMap"),
+					),
+					"v1",
+					false,
+				),
+			},
+		},
 	}
 
 	for name, test := range tests {

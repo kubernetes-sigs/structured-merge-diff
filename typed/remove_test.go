@@ -94,7 +94,7 @@ var structGrabBagSchema = `types:
           elementRelationship: associative
 `
 
-var associativeListSchema = `types:
+var associativeAndAtomicSchema = `types:
 - name: myRoot
   map:
     fields:
@@ -104,6 +104,9 @@ var associativeListSchema = `types:
     - name: atomicList
       type:
         namedType: mySequence
+    - name: atomicMap
+      type:
+        namedType: myAtomicMap
 - name: myList
   list:
     elementType:
@@ -112,6 +115,11 @@ var associativeListSchema = `types:
     keys:
     - key
     - id
+- name: myAtomicMap
+  map:
+    elementType:
+      scalar: string
+    elementRelationship: atomic
 - name: mySequence
   list:
     elementType:
@@ -139,6 +147,27 @@ var associativeListSchema = `types:
   map:
     elementType:
       scalar: string
+`
+var atomicTypesSchema = `types:
+- name: myRoot
+  map:
+    fields:
+    - name: atomicMap
+      type:
+        namedType: myAtomicMap
+    - name: atomicList
+      type:
+        namedType: mySequence
+- name: myAtomicMap
+  map:
+    elementType:
+      scalar: string
+    elementRelationship: atomic
+- name: mySequence
+  list:
+    elementType:
+      scalar: string
+    elementRelationship: atomic
 `
 
 var nestedTypesSchema = `types:
@@ -291,9 +320,9 @@ var removeCases = []removeTestCase{{
 		`{"setStr":["a"]}`,
 	}},
 }, {
-	name:         "associative list",
+	name:         "associative and atomic",
 	rootTypeName: "myRoot",
-	schema:       typed.YAMLObject(associativeListSchema),
+	schema:       typed.YAMLObject(associativeAndAtomicSchema),
 	quadruplets: []removeQuadruplet{{
 		`{"list":[{"key":"a","id":1},{"key":"a","id":2},{"key":"b","id":1}]}`,
 		_NS(_P("list", _KBF("key", "a", "id", 1))),
@@ -303,9 +332,14 @@ var removeCases = []removeTestCase{{
 		`{"atomicList":["a", "a", "a"]}`,
 		_NS(_P("atomicList")),
 		``,
-		// atomic lists should still return all
-		// but maybe it can be implemented at a higher level?
+		// atomic lists should still return everything in the list
 		`{"atomicList":["a", "a", "a"]}`,
+	}, {
+		`{"atomicMap":{"a": "c", "b": "d"}}`,
+		_NS(_P("atomicMap")),
+		``,
+		// atomic maps should still return everything in the map
+		`{"atomicMap":{"a": "c", "b": "d"}}`,
 	}},
 }, {
 	name:         "nested types",
