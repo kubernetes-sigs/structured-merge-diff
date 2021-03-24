@@ -14,8 +14,6 @@ limitations under the License.
 package typed
 
 import (
-	"fmt"
-
 	"sigs.k8s.io/structured-merge-diff/v4/fieldpath"
 	"sigs.k8s.io/structured-merge-diff/v4/schema"
 	"sigs.k8s.io/structured-merge-diff/v4/value"
@@ -81,23 +79,19 @@ func (w *extractingWalker) doList(t *schema.List) (errs ValidationErrors) {
 			//fmt.Printf("YES path = %+v\n", path)
 			if w.shouldExtract {
 				//fmt.Printf("t.ElementRelationship = %+v\n", t.ElementRelationship)
+				// TODO: untested codepaths
+				//if item.IsList() && !itemIsAtomic {
+				//	fmt.Println("item.IsList() TESTED")
+				//}
+				//if item.IsList() && itemIsAtomic {
+				//	fmt.Println("item.IsList() (atomic) TESTED")
+				//}
 				itemIsAtomic, err := isAtomic(item, w.schema, t.ElementType)
 				if err != nil {
 					return err
 				}
-				// TODO: untested codepaths
-				if item.IsList() {
-					fmt.Println("item.IsList() TESTED")
-				}
-				if item.IsMap() && !itemIsAtomic {
-					//fmt.Println("is map")
-					// zero out the value list, keep just the name
-					if val, ok := item.AsMap().Get("value"); ok {
-						//fmt.Printf("reflect.TypeOf(val) = %+v\n", reflect.TypeOf(val))
-						//fmt.Printf("val.IsList() = %+v\n", val.IsList())
-						item.AsMap().Delete("value")
-						_ = val
-					}
+				if !itemIsAtomic && item.IsMap() {
+					retainOnlyListKeys(t.Keys, item.AsMap())
 				}
 				//} else {
 				newItems = append(newItems, item.Unstructured())
@@ -168,8 +162,6 @@ func (w *extractingWalker) doMap(t *schema.Map) ValidationErrors {
 					return false
 				}
 
-				// TODO: untest codepaths:
-				// ...
 				if !valIsAtomic && (val.IsMap() || val.IsList()) { // TODO: and not atomic
 					newMap[k] = nil
 				} else {
