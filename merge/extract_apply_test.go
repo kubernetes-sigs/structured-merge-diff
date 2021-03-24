@@ -349,7 +349,7 @@ func TestExtractApply(t *testing.T) {
 				),
 			},
 		},
-		"extract_apply_empty_structure": {
+		"extract_apply_empty_structure_list": {
 			Ops: []Operation{
 				ExtractApply{
 					Manager: "apply-one",
@@ -367,21 +367,6 @@ func TestExtractApply(t *testing.T) {
 					`,
 					APIVersion: "v1",
 				},
-				//ExtractApply{
-				//	Manager: "apply-one",
-				//	Object: `
-				//		list:
-				//	`,
-				//	APIVersion: "v1",
-				//},
-				//Apply{
-				//	Manager: "apply-two",
-				//	Object: `
-				//		list:
-				//		 - b
-				//	`,
-				//	APIVersion: "v1",
-				//},
 			},
 			Object: `
 				list:
@@ -407,6 +392,128 @@ func TestExtractApply(t *testing.T) {
 				),
 			},
 		},
+		// BROKEN
+		"extract_apply_empty_structure_remove_list": {
+			Ops: []Operation{
+				ExtractApply{
+					Manager: "apply-one",
+					Object: `
+						list:
+					`,
+					APIVersion: "v1",
+				},
+				Apply{
+					Manager: "apply-two",
+					Object: `
+						list:
+						 - a
+						 - b
+					`,
+					APIVersion: "v1",
+				},
+				Apply{
+					Manager: "apply-two",
+					Object: `
+						list:
+						 - b
+					`,
+					APIVersion: "v1",
+				},
+			},
+			// BROKEN: expected:
+			//Object: `
+			//	list:
+			//	- b
+			//`,
+			// but actually got:
+			Object: `
+				list:
+				- a
+				- b
+			`,
+			APIVersion: "v1",
+			Managed: fieldpath.ManagedFields{
+				"apply-one": fieldpath.NewVersionedSet(
+					// BROKEN expected:
+					//_NS(
+					//	_P("list"),
+					//),
+					// but actually got:
+					_NS(
+						_P("list"),
+						_P("list", _V("a")),
+						_P("list", _V("b")),
+					),
+					"v1",
+					false,
+				),
+				"apply-two": fieldpath.NewVersionedSet(
+					_NS(
+						_P("list", _V("b")),
+					),
+					"v1",
+					false,
+				),
+			},
+		},
+		"extract_apply_empty_structure_add_later_list": {
+			Ops: []Operation{
+				ExtractApply{
+					Manager: "apply-one",
+					Object: `
+						list:
+					`,
+					APIVersion: "v1",
+				},
+				Apply{
+					Manager: "apply-two",
+					Object: `
+						list:
+						 - a
+						 - b
+					`,
+					APIVersion: "v1",
+				},
+				ExtractApply{
+					Manager: "apply-one",
+					Object: `
+						list:
+						- c
+					`,
+					APIVersion: "v1",
+				},
+				Apply{
+					Manager: "apply-two",
+					Object: `
+						list:
+						 - b
+					`,
+					APIVersion: "v1",
+				},
+			},
+			Object: `
+				list:
+				- b
+				- c
+			`,
+			APIVersion: "v1",
+			Managed: fieldpath.ManagedFields{
+				"apply-one": fieldpath.NewVersionedSet(
+					_NS(
+						_P("list", _V("c")),
+					),
+					"v1",
+					false,
+				),
+				"apply-two": fieldpath.NewVersionedSet(
+					_NS(
+						_P("list", _V("b")),
+					),
+					"v1",
+					false,
+				),
+			},
+		},
 		"extract_apply_empty_structure_map": {
 			Ops: []Operation{
 				ExtractApply{
@@ -425,13 +532,49 @@ func TestExtractApply(t *testing.T) {
 					`,
 					APIVersion: "v1",
 				},
-				//ExtractApply{
-				//	Manager: "apply-one",
-				//	Object: `
-				//		map:
-				//	`,
-				//	APIVersion: "v1",
-				//},
+			},
+			Object: `
+				map:
+				  a: c
+				  b: d
+			`,
+			APIVersion: "v1",
+			Managed: fieldpath.ManagedFields{
+				"apply-one": fieldpath.NewVersionedSet(
+					_NS(
+						_P("map"),
+					),
+					"v1",
+					false,
+				),
+				"apply-two": fieldpath.NewVersionedSet(
+					_NS(
+						_P("map", "a"),
+						_P("map", "b"),
+					),
+					"v1",
+					false,
+				),
+			},
+		},
+		"extract_apply_empty_structure_remove_map": {
+			Ops: []Operation{
+				ExtractApply{
+					Manager: "apply-one",
+					Object: `
+						map:
+					`,
+					APIVersion: "v1",
+				},
+				Apply{
+					Manager: "apply-two",
+					Object: `
+						map:
+						 a: c
+						 b: d
+					`,
+					APIVersion: "v1",
+				},
 				Apply{
 					Manager: "apply-two",
 					Object: `
@@ -450,6 +593,64 @@ func TestExtractApply(t *testing.T) {
 				"apply-one": fieldpath.NewVersionedSet(
 					_NS(
 						_P("map"),
+					),
+					"v1",
+					false,
+				),
+				"apply-two": fieldpath.NewVersionedSet(
+					_NS(
+						_P("map", "b"),
+					),
+					"v1",
+					false,
+				),
+			},
+		},
+		"extract_apply_empty_structure_add_later_map": {
+			Ops: []Operation{
+				ExtractApply{
+					Manager: "apply-one",
+					Object: `
+						map:
+					`,
+					APIVersion: "v1",
+				},
+				Apply{
+					Manager: "apply-two",
+					Object: `
+						map:
+						 a: c
+						 b: d
+					`,
+					APIVersion: "v1",
+				},
+				ExtractApply{
+					Manager: "apply-one",
+					Object: `
+						map:
+						  e: f
+					`,
+					APIVersion: "v1",
+				},
+				Apply{
+					Manager: "apply-two",
+					Object: `
+						map:
+						 b: d
+					`,
+					APIVersion: "v1",
+				},
+			},
+			Object: `
+				map:
+				  b: d
+				  e: f
+			`,
+			APIVersion: "v1",
+			Managed: fieldpath.ManagedFields{
+				"apply-one": fieldpath.NewVersionedSet(
+					_NS(
+						_P("map", "e"),
 					),
 					"v1",
 					false,
