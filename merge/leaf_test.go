@@ -345,7 +345,7 @@ func TestUpdateLeaf(t *testing.T) {
 				),
 			},
 		},
-		"apply_twice_dangling": {
+		"apply_twice_remove": {
 			Ops: []Operation{
 				Apply{
 					Manager:    "default",
@@ -365,9 +365,7 @@ func TestUpdateLeaf(t *testing.T) {
 				},
 			},
 			Object: `
-				numeric: 1
 				string: "new string"
-				bool: false
 			`,
 			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
@@ -380,7 +378,43 @@ func TestUpdateLeaf(t *testing.T) {
 				),
 			},
 		},
-		"apply_twice_dangling_different_version": {
+		"update_apply_omits": {
+			Ops: []Operation{
+				Apply{
+					Manager:    "default",
+					APIVersion: "v1",
+					Object: `
+						numeric: 2
+					`,
+				},
+				Update{
+					Manager:    "controller",
+					APIVersion: "v1",
+					Object: `
+						numeric: 1
+					`,
+				},
+				Apply{
+					Manager:    "default",
+					APIVersion: "v1",
+					Object:     ``,
+				},
+			},
+			Object: `
+						numeric: 1
+			`,
+			APIVersion: "v1",
+			Managed: fieldpath.ManagedFields{
+				"controller": fieldpath.NewVersionedSet(
+					_NS(
+						_P("numeric"),
+					),
+					"v1",
+					false,
+				),
+			},
+		},
+		"apply_twice_remove_different_version": {
 			Ops: []Operation{
 				Apply{
 					Manager:    "default",
@@ -400,9 +434,7 @@ func TestUpdateLeaf(t *testing.T) {
 				},
 			},
 			Object: `
-				numeric: 1
 				string: "new string"
-				bool: false
 			`,
 			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
@@ -462,7 +494,6 @@ func TestUpdateLeaf(t *testing.T) {
 				},
 			},
 			Object: `
-				string: "string"
 			`,
 			APIVersion: "v1",
 			Managed:    fieldpath.ManagedFields{},

@@ -21,6 +21,9 @@ import (
 	"fmt"
 	"math/rand"
 	"testing"
+
+	"gopkg.in/yaml.v2"
+	"sigs.k8s.io/structured-merge-diff/v3/schema"
 )
 
 type randomPathAlphabet []PathElement
@@ -445,6 +448,86 @@ func TestSetIntersectionDifference(t *testing.T) {
 			t.Errorf("expected: \n%v\n, got \n%v\n", i, got)
 		}
 	})
+}
+
+var nestedSchema = func() (*schema.Schema, schema.TypeRef) {
+	sc := &schema.Schema{}
+	name := "type"
+	err := yaml.Unmarshal([]byte(`types:
+- name: type
+  map:
+    elementType:
+      namedType: type
+    fields:
+      - name: named
+        type:
+          namedType: type
+      - name: list
+        type:
+          list:
+            elementRelationShip: associative
+            keys: ["name"]
+            elementType:
+              namedType: type
+      - name: value
+        type:
+          scalar: numeric
+`), &sc)
+	if err != nil {
+		panic(err)
+	}
+	return sc, schema.TypeRef{NamedType: &name}
+}
+
+var _P = MakePathOrDie
+
+func TestEnsureNamedFieldsAreMembers(t *testing.T) {
+	table := []struct {
+		set, expected *Set
+	}{
+		{
+			set: NewSet(_P("named", "named", "value")),
+			expected: NewSet(
+				_P("named", "named", "value"),
+				_P("named", "named"),
+				_P("named"),
+			),
+		},
+		{
+			set: NewSet(_P("named", "a", "named", "value"), _P("a", "named", "value"), _P("a", "b", "value")),
+			expected: NewSet(
+				_P("named", "a", "named", "value"),
+				_P("named", "a", "named"),
+				_P("named"),
+				_P("a", "named", "value"),
+				_P("a", "named"),
+				_P("a", "b", "value"),
+			),
+		},
+		{
+			set: NewSet(_P("named", "list", KeyByFields("name", "a"), "named", "a", "value")),
+			expected: NewSet(
+				_P("named", "list", KeyByFields("name", "a"), "named", "a", "value"),
+				_P("named", "list", KeyByFields("name", "a"), "named"),
+				_P("named", "list"),
+				_P("named"),
+			),
+		},
+	}
+
+	for _, test := range table {
+		t.Run(fmt.Sprintf("%v", test.set), func(t *testing.T) {
+			got := test.set.EnsureNamedFieldsAreMembers(nestedSchema())
+			if !got.Equals(test.expected) {
+				t.Errorf("expected %v, got %v (missing: %v/superfluous: %v)",
+					test.expected,
+					got,
+					test.expected.Difference(got),
+					got.Difference(test.expected),
+				)
+			}
+		})
+	}
 }
 
 func TestSetNodeMapIterate(t *testing.T) {
