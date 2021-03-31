@@ -288,7 +288,6 @@ var removeCases = []removeTestCase{{
 	quadruplets: []removeQuadruplet{{
 		`{"setBool":[false]}`,
 		_NS(_P("setBool", _V(false))),
-		// is this the right remove output?
 		`{"setBool":null}`,
 		`{"setBool":[false]}`,
 	}, {
@@ -305,8 +304,6 @@ var removeCases = []removeTestCase{{
 		`{"setBool":[true,false]}`,
 		_NS(_P("setBool")),
 		``,
-		// old
-		//`{"setBool":[true,false]}`,
 		`{"setBool":null}`,
 	}, {
 		`{"setNumeric":[1,2,3,4.5]}`,
@@ -324,10 +321,22 @@ var removeCases = []removeTestCase{{
 	rootTypeName: "myRoot",
 	schema:       typed.YAMLObject(associativeAndAtomicSchema),
 	quadruplets: []removeQuadruplet{{
+		// extract a struct from an associative list
 		`{"list":[{"key":"a","id":1},{"key":"a","id":2},{"key":"b","id":1}]}`,
-		_NS(_P("list", _KBF("key", "a", "id", 1))),
-		`{"list":[{"key":"a","id":2},{"key":"b","id":1}]}`,
+		_NS(
+			_P("list", _KBF("key", "a", "id", 1), "key"),
+			_P("list", _KBF("key", "a", "id", 1), "id"),
+		),
+		`unparseable`,
 		`{"list":[{"key":"a","id":1}]}`,
+	}, {
+		// remove structs from an associative list
+		`{"list":[{"key":"a","id":1},{"key":"a","id":2},{"key":"b","id":1}]}`,
+		_NS(
+			_P("list", _KBF("key", "a", "id", 1)),
+		),
+		`{"list":[{"key":"a","id":2},{"key":"b","id":1}]}`,
+		`unparseable`,
 	}, {
 		`{"atomicList":["a", "a", "a"]}`,
 		_NS(_P("atomicList")),
@@ -352,7 +361,7 @@ var removeCases = []removeTestCase{{
 			_P("listOfLists", _KBF("name", "a"), "name"),
 			_P("listOfLists", _KBF("name", "a"), "value", _V("b")),
 			_P("listOfLists", _KBF("name", "a"), "value", _V("c")),
-			_P("listOfLists", _KBF("name", "d")),
+			_P("listOfLists", _KBF("name", "d"), "name"),
 		),
 		`unparseable`,
 		`{"listOfLists": [{"name": "a", "value": ["b", "c"]}, {"name": "d"}]}`,
@@ -365,19 +374,34 @@ var removeCases = []removeTestCase{{
 		``,
 		`{"listOfLists": null}`,
 	}, {
-		// path to a top-level element
+		// path to a top-level element (extract)
+		`{"listOfLists": [{"name": "a", "value": ["b", "c"]}, {"name": "d"}]}`,
+		_NS(_P("listOfLists", _KBF("name", "d"), "name")),
+		//`{"listOfLists": [{"name": "a", "value": ["b", "c"]}, null]}`,
+		`unparseable`,
+		`{"listOfLists": [{"name": "d"}]}`,
+	}, {
+		// path to a top-level element (remove)
 		`{"listOfLists": [{"name": "a", "value": ["b", "c"]}, {"name": "d"}]}`,
 		_NS(_P("listOfLists", _KBF("name", "d"))),
 		`{"listOfLists": [{"name": "a", "value": ["b", "c"]}]}`,
-		`{"listOfLists": [{"name": "d"}]}`,
+		`unparseable`,
 	}, {
-		// same as previous with the other top-level element containing nested elements.
+		// same as previous with the other top-level element containing nested elements. (extract)
+		`{"listOfLists": [{"name": "a", "value": ["b", "c"]}, {"name": "d"}]}`,
+		_NS(
+			_P("listOfLists", _KBF("name", "a"), "name"),
+		),
+		`unparseable`,
+		`{"listOfLists": [{"name": "a"}]}`,
+	}, {
+		// same as previous with the other top-level element containing nested elements. (remove)
 		`{"listOfLists": [{"name": "a", "value": ["b", "c"]}, {"name": "d"}]}`,
 		_NS(
 			_P("listOfLists", _KBF("name", "a")),
 		),
 		`{"listOfLists": [{"name": "d"}]}`,
-		`{"listOfLists": [{"name": "a"}]}`,
+		`unparseable`,
 	}, {
 		// just one path to leaf element
 		`{"listOfLists": [{"name": "a", "value": ["b", "c"]}, {"name": "d"}]}`,
@@ -449,13 +473,21 @@ var removeCases = []removeTestCase{{
 		``,
 		`{"listOfMaps"}`,
 	}, {
-		// path to a top-level element
+		// path to a top-level element (extract)
+		`{"listOfMaps": [{"name": "a", "value": {"b":"x", "c":"y"}}, {"name": "d", "value": {"e":"z"}}]}`,
+		_NS(
+			_P("listOfMaps", _KBF("name", "a"), "name"),
+		),
+		`unparseable`,
+		`{"listOfMaps": [{"name": "a"}]}`,
+	}, {
+		// path to a top-level element (remove)
 		`{"listOfMaps": [{"name": "a", "value": {"b":"x", "c":"y"}}, {"name": "d", "value": {"e":"z"}}]}`,
 		_NS(
 			_P("listOfMaps", _KBF("name", "a")),
 		),
 		`{"listOfMaps": [{"name": "d", "value": {"e":"z"}}]}`,
-		`{"listOfMaps": [{"name": "a"}]}`,
+		`unparseable`,
 	}, {
 		// just one path to leaf element
 		`{"listOfMaps": [{"name": "a", "value": {"b":"x", "c":"y"}}, {"name": "d", "value": {"e":"z"}}]}`,
@@ -477,7 +509,7 @@ var removeCases = []removeTestCase{{
 		// path to non-existant top-level element
 		`{"listOfMaps": [{"name": "a", "value": {"b":"x", "c":"y"}}, {"name": "d", "value": {"e":"z"}}]}`,
 		_NS(
-			_P("listOfMaps", _KBF("name", "q")),
+			_P("listOfMaps", _KBF("name", "q"), "name"),
 		),
 		`{"listOfMaps": [{"name": "a", "value": {"b":"x", "c":"y"}}, {"name": "d", "value": {"e":"z"}}]}`, // doesn't remove anything
 		`{"listOfMaps":null}`, // extract only the root type
@@ -508,7 +540,6 @@ var removeCases = []removeTestCase{{
 			_P("mapOfLists", "d", _V("f")),
 		),
 		`unparseable`,
-		// old
 		`{"mapOfLists": {"b":["a","c"], "d":["e", "f"]}}`,
 	}, {
 		// path to root type
@@ -517,7 +548,7 @@ var removeCases = []removeTestCase{{
 			_P("mapOfLists"),
 		),
 		``,
-		`{"mapOfLists"}`,
+		`{"mapOfLists":null}`,
 	}, {
 		// path to a top-level element
 		`{"mapOfLists": {"b":["a","c"], "d":["e", "f"]}}`,
@@ -525,7 +556,7 @@ var removeCases = []removeTestCase{{
 			_P("mapOfLists", "b"),
 		),
 		`{"mapOfLists": {"d":["e", "f"]}}`,
-		`{"mapOfLists": {"b"}}`,
+		`{"mapOfLists": {"b":null}}`,
 	}, {
 		// just one path to leaf element
 		`{"mapOfLists": {"b":["a","c"], "d":["e", "f"]}}`,
@@ -584,7 +615,7 @@ var removeCases = []removeTestCase{{
 			_P("mapOfMaps"),
 		),
 		``,
-		`{"mapOfMaps"}`,
+		`{"mapOfMaps":null}`,
 	}, {
 		// path to a top-level element
 		`{"mapOfMaps": {"b":{"a":"x","c":"z"}, "d":{"e":"y", "f":"w"}}}`,
@@ -592,7 +623,7 @@ var removeCases = []removeTestCase{{
 			_P("mapOfMaps", "b"),
 		),
 		`{"mapOfMaps": {"d":{"e":"y", "f":"w"}}}`,
-		`{"mapOfMaps": {"b"}}`,
+		`{"mapOfMaps": {"b":null}}`,
 	}, {
 		// just one path to leaf element
 		`{"mapOfMaps": {"b":{"a":"x","c":"z"}, "d":{"e":"y", "f":"w"}}}`,
@@ -640,7 +671,7 @@ var removeCases = []removeTestCase{{
 			_P("mapOfMapsRecursive"),
 		),
 		``,
-		`{"mapOfMapsRecursive"}`,
+		`{"mapOfMapsRecursive":null}`,
 	}, {
 		// top-level map
 		`{"mapOfMapsRecursive": {"a":{"b":{"c":null}}}}`,
@@ -648,7 +679,7 @@ var removeCases = []removeTestCase{{
 			_P("mapOfMapsRecursive", "a"),
 		),
 		`{"mapOfMapsRecursive"}`,
-		`{"mapOfMapsRecursive": {"a"}}`,
+		`{"mapOfMapsRecursive": {"a":null}}`,
 	}, {
 		// second-level map
 		`{"mapOfMapsRecursive": {"a":{"b":{"c":null}}}}`,
@@ -656,7 +687,7 @@ var removeCases = []removeTestCase{{
 			_P("mapOfMapsRecursive", "a", "b"),
 		),
 		`{"mapOfMapsRecursive":{"a":null}}`,
-		`{"mapOfMapsRecursive": {"a":{"b"}}}`,
+		`{"mapOfMapsRecursive": {"a":{"b":null}}}`,
 	}, {
 		// third-level map
 		`{"mapOfMapsRecursive": {"a":{"b":{"c":null}}}}`,

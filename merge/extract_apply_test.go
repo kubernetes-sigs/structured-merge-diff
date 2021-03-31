@@ -46,7 +46,7 @@ var extractParser = func() Parser {
         map:
           elementType:
             scalar: string
-          elementRelationship: associative
+          elementRelationship: separable
     - name: atomicMap
       type:
         map:
@@ -428,7 +428,6 @@ func TestExtractApply(t *testing.T) {
 				),
 			},
 		},
-		// BROKEN
 		"extract_apply_empty_structure_remove_list": {
 			Ops: []Operation{
 				ExtractApply{
@@ -456,29 +455,15 @@ func TestExtractApply(t *testing.T) {
 					APIVersion: "v1",
 				},
 			},
-			// BROKEN: expected:
-			//Object: `
-			//	list:
-			//	- b
-			//`,
-			// but actually got:
 			Object: `
 				list:
-				- a
 				- b
 			`,
 			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"apply-one": fieldpath.NewVersionedSet(
-					// BROKEN expected:
-					//_NS(
-					//	_P("list"),
-					//),
-					// but actually got:
 					_NS(
 						_P("list"),
-						_P("list", _V("a")),
-						_P("list", _V("b")),
 					),
 					"v1",
 					false,
