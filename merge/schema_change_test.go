@@ -204,18 +204,8 @@ func TestAtomicToGranularSchemaChanges(t *testing.T) {
 					},
 				},
 				ChangeParser{Parser: structParser},
+				// No conflict after changing struct to a granular schema
 				Apply{
-					Manager: "two",
-					Object: `
-						struct:
-						  string: "b"
-					`,
-					APIVersion: "v1",
-					Conflicts: merge.Conflicts{
-						merge.Conflict{Manager: "one", Path: _P("struct", "string")},
-					},
-				},
-				ForceApply{
 					Manager: "two",
 					Object: `
 						struct:
@@ -231,9 +221,21 @@ func TestAtomicToGranularSchemaChanges(t *testing.T) {
 			`,
 			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
+				// Note that manager one previously owned
+				// the top level _P("struct")
+				// which included all of its subfields
+				// when the struct field was atomic.
+				//
+				// Upon changing the schema of struct from
+				// atomic to granular, manager one continues
+				// to own the same fieldset as before,
+				// but does not retain ownership of any of the subfields.
+				//
+				// This is a known limitation due to the inability
+				// to accurately determine whether an empty field
+				// was previously atomic or not.
 				"one": fieldpath.NewVersionedSet(_NS(
 					_P("struct"),
-					_P("struct", "numeric"),
 				), "v1", true),
 				"two": fieldpath.NewVersionedSet(_NS(
 					_P("struct", "string"),
