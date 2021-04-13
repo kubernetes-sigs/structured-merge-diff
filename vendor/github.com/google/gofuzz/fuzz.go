@@ -287,7 +287,7 @@ func (fc *fuzzerContext) doFuzz(v reflect.Value, flags uint64) {
 	}
 }
 
-// tryCustom searches for custom handlers, and returns true iff it finds a match
+// tryCustom searches for custom handlers, and returns true if it finds a match
 // and successfully randomizes v.
 func (fc *fuzzerContext) tryCustom(v reflect.Value) bool {
 	// First: see if we have a fuzz function for it.

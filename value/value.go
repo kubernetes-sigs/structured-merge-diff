@@ -128,12 +128,12 @@ func ToYAML(v Value) ([]byte, error) {
 	return yaml.Marshal(v.Unstructured())
 }
 
-// Equals returns true iff the two values are equal.
+// Equals returns true if the two values are equal.
 func Equals(lhs, rhs Value) bool {
 	return EqualsUsing(HeapAllocator, lhs, rhs)
 }
 
-// EqualsUsing uses the provided allocator and returns true iff the two values are equal.
+// EqualsUsing uses the provided allocator and returns true if the two values are equal.
 func EqualsUsing(a Allocator, lhs, rhs Value) bool {
 	if lhs.IsFloat() || rhs.IsFloat() {
 		var lf float64

@@ -18,7 +18,7 @@ package schema
 
 import "reflect"
 
-// Equals returns true iff the two Schemas are equal.
+// Equals returns true if the two Schemas are equal.
 func (a *Schema) Equals(b *Schema) bool {
 	if a == nil || b == nil {
 		return a == nil && b == nil
@@ -35,7 +35,7 @@ func (a *Schema) Equals(b *Schema) bool {
 	return true
 }
 
-// Equals returns true iff the two TypeRefs are equal.
+// Equals returns true if the two TypeRefs are equal.
 //
 // Note that two typerefs that have an equivalent type but where one is
 // inlined and the other is named, are not considered equal.
@@ -55,7 +55,7 @@ func (a *TypeRef) Equals(b *TypeRef) bool {
 	return a.Inlined.Equals(&b.Inlined)
 }
 
-// Equals returns true iff the two TypeDefs are equal.
+// Equals returns true if the two TypeDefs are equal.
 func (a *TypeDef) Equals(b *TypeDef) bool {
 	if a == nil || b == nil {
 		return a == nil && b == nil
@@ -66,7 +66,7 @@ func (a *TypeDef) Equals(b *TypeDef) bool {
 	return a.Atom.Equals(&b.Atom)
 }
 
-// Equals returns true iff the two Atoms are equal.
+// Equals returns true if the two Atoms are equal.
 func (a *Atom) Equals(b *Atom) bool {
 	if a == nil || b == nil {
 		return a == nil && b == nil
@@ -91,7 +91,7 @@ func (a *Atom) Equals(b *Atom) bool {
 	return true
 }
 
-// Equals returns true iff the two Maps are equal.
+// Equals returns true if the two Maps are equal.
 func (a *Map) Equals(b *Map) bool {
 	if a == nil || b == nil {
 		return a == nil && b == nil
@@ -121,7 +121,7 @@ func (a *Map) Equals(b *Map) bool {
 	return true
 }
 
-// Equals returns true iff the two Unions are equal.
+// Equals returns true if the two Unions are equal.
 func (a *Union) Equals(b *Union) bool {
 	if a == nil || b == nil {
 		return a == nil && b == nil
@@ -148,7 +148,7 @@ func (a *Union) Equals(b *Union) bool {
 	return true
 }
 
-// Equals returns true iff the two UnionFields are equal.
+// Equals returns true if the two UnionFields are equal.
 func (a *UnionField) Equals(b *UnionField) bool {
 	if a == nil || b == nil {
 		return a == nil && b == nil
@@ -162,7 +162,7 @@ func (a *UnionField) Equals(b *UnionField) bool {
 	return true
 }
 
-// Equals returns true iff the two StructFields are equal.
+// Equals returns true if the two StructFields are equal.
 func (a *StructField) Equals(b *StructField) bool {
 	if a == nil || b == nil {
 		return a == nil && b == nil
@@ -176,7 +176,7 @@ func (a *StructField) Equals(b *StructField) bool {
 	return a.Type.Equals(&b.Type)
 }
 
-// Equals returns true iff the two Lists are equal.
+// Equals returns true if the two Lists are equal.
 func (a *List) Equals(b *List) bool {
 	if a == nil || b == nil {
 		return a == nil && b == nil
