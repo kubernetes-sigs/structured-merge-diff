@@ -1,6 +1,6 @@
 module sigs.k8s.io/structured-merge-diff/v4
 
-require gopkg.in/yaml.v2 v2.2.1
+require gopkg.in/yaml.v2 v2.2.8
 
 require (
 	github.com/google/gofuzz v1.0.0
