@@ -98,6 +98,66 @@ func granularSchema(version string) typed.YAMLObject {
     - name: numeric
       type:
         scalar: numeric
+- name: empty
+  map:
+    elementType:
+      scalar: untyped
+      list:
+        elementType:
+          namedType: __untyped_atomic_
+        elementRelationship: atomic
+      map:
+        elementType:
+          namedType: __untyped_deduced_
+        elementRelationship: separable
+- name: emptyWithPreserveUnknown
+  map:
+    fields:
+    - name: preserveField
+      type:
+        map:
+          elementType:
+            scalar: untyped
+            list:
+              elementType:
+                namedType: __untyped_atomic_
+              elementRelationship: atomic
+            map:
+              elementType:
+                namedType: __untyped_deduced_
+              elementRelationship: separable
+- name: populatedWithPreserveUnknown
+  map:
+    fields:
+    - name: preserveField
+      type:
+        map:
+          fields:
+          - name: list
+            type:
+              namedType: list
+          elementType:
+            namedType: __untyped_deduced_
+- name: __untyped_atomic_
+  scalar: untyped
+  list:
+    elementType:
+      namedType: __untyped_atomic_
+    elementRelationship: atomic
+  map:
+    elementType:
+      namedType: __untyped_atomic_
+    elementRelationship: atomic
+- name: __untyped_deduced_
+  scalar: untyped
+  list:
+    elementType:
+      namedType: __untyped_atomic_
+    elementRelationship: atomic
+  map:
+    elementType:
+      namedType: __untyped_deduced_
+    elementRelationship: separable
 `, version))
 }
 
@@ -164,6 +224,66 @@ func atomicSchema(version string) typed.YAMLObject {
     - name: numeric
       type:
         scalar: numeric
+- name: empty
+  map:
+    elementType:
+      scalar: untyped
+      list:
+        elementType:
+          namedType: __untyped_atomic_
+        elementRelationship: atomic
+      map:
+        elementType:
+          namedType: __untyped_deduced_
+        elementRelationship: separable
+- name: emptyWithPreserveUnknown
+  map:
+    fields:
+    - name: preserveField
+      type:
+        map:
+          elementType:
+            scalar: untyped
+            list:
+              elementType:
+                namedType: __untyped_atomic_
+              elementRelationship: atomic
+            map:
+              elementType:
+                namedType: __untyped_deduced_
+              elementRelationship: separable
+- name: populatedWithPreserveUnknown
+  map:
+    fields:
+    - name: preserveField
+      type:
+        map:
+          fields:
+          - name: list
+            type:
+              namedType: list
+          elementType:
+            namedType: __untyped_deduced_
+- name: __untyped_atomic_
+  scalar: untyped
+  list:
+    elementType:
+      namedType: __untyped_atomic_
+    elementRelationship: atomic
+  map:
+    elementType:
+      namedType: __untyped_atomic_
+    elementRelationship: atomic
+- name: __untyped_deduced_
+  scalar: untyped
+  list:
+    elementType:
+      namedType: __untyped_atomic_
+    elementRelationship: atomic
+  map:
+    elementType:
+      namedType: __untyped_deduced_
+    elementRelationship: separable
 `, version))
 }
 
@@ -257,6 +377,55 @@ unchanged: {}
 		_P("unchanged"),
 	),
 	fixedFields: nil, // indicates no change
+}, {
+	name:         "deduced",
+	rootTypeName: "empty",
+	oldSchema:    atomicSchema("v1"),
+	newSchema:    granularSchema("v1"),
+	liveObject:   basicLiveObject,
+	oldFields: _NS(
+		_P("struct"),
+		_P("list"),
+		_P("objectList"),
+		_P("unchanged", "numeric"),
+	),
+	fixedFields: nil, // indicates no change
+}, {
+	name:         "empty-preserve-unknown",
+	rootTypeName: "emptyWithPreserveUnknown",
+	oldSchema:    atomicSchema("v1"),
+	newSchema:    granularSchema("v1"),
+	liveObject: typed.YAMLObject(`
+preserveField:
+  arbitrary: abc
+`),
+	oldFields: _NS(
+		_P("preserveField"),
+		_P("preserveField", "arbitrary"),
+	),
+	fixedFields: nil, // indicates no change
+}, {
+	name:         "populated-preserve-unknown",
+	rootTypeName: "populatedWithPreserveUnknown",
+	oldSchema:    granularSchema("v1"),
+	newSchema:    atomicSchema("v1"),
+	liveObject: typed.YAMLObject(`
+preserveField:
+  arbitrary: abc
+  list:
+  - one
+`),
+	oldFields: _NS(
+		_P("preserveField"),
+		_P("preserveField", "arbitrary"),
+		_P("preserveField", "list"),
+		_P("preserveField", "list", _V("one")),
+	),
+	fixedFields: _NS(
+		_P("preserveField"),
+		_P("preserveField", "arbitrary"),
+		_P("preserveField", "list"),
+	),
 }}
 
 func TestReconcileFieldSetWithSchema(t *testing.T) {
