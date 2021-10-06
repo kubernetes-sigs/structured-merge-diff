@@ -352,6 +352,10 @@ var mergeCases = []mergeTestCase{{
 		`{"list":[{"key":"a","id":1},{"key":"a","id":2}]}`,
 		`{"list":[{"key":"a","id":1},{"key":"b","id":1},{"key":"a","id":2}]}`,
 	}, {
+		`{"list":[{"key":"b","id":2}]}`,
+		`{"list":[{"key":"a","id":1},{"key":"b","id":2},{"key":"c","id":3}]}`,
+		`{"list":[{"key":"a","id":1},{"key":"b","id":2},{"key":"c","id":3}]}`,
+	}, {
 		`{"atomicList":["a","a","a"]}`,
 		`{"atomicList":null}`,
 		`{"atomicList":null}`,
