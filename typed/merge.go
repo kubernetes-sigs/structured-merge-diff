@@ -172,11 +172,10 @@ func (w *mergingWalker) visitListItems(t *schema.List, lhs, rhs value.List) (err
 	}
 	out := make([]interface{}, 0, int(math.Max(float64(rLen), float64(lLen))))
 
-	// TODO: ordering is totally wrong.
-	// TODO: might as well make the map order work the same way.
-
-	// This is a cheap hack to at least make the output order stable.
 	rhsOrder := make([]fieldpath.PathElement, 0, rLen)
+
+	// LHS children that were not in RHS, with their order preserved.
+	remaining := make([]fieldpath.PathElement, 0)
 
 	// First, collect all RHS children.
 	observedRHS := fieldpath.MakePathElementValueMap(rLen)
@@ -199,8 +198,8 @@ func (w *mergingWalker) visitListItems(t *schema.List, lhs, rhs value.List) (err
 		}
 	}
 
-	// Then merge with LHS children.
-	observedLHS := fieldpath.MakePathElementSet(lLen)
+	// Second, collect all LHS children.
+	observedLHS := fieldpath.MakePathElementValueMap(lLen)
 	if lhs != nil {
 		for i := 0; i < lhs.Length(); i++ {
 			child := lhs.At(i)
@@ -212,31 +211,37 @@ func (w *mergingWalker) visitListItems(t *schema.List, lhs, rhs value.List) (err
 				// this element.
 				continue
 			}
-			if observedLHS.Has(pe) {
+			if _, ok := observedLHS.Get(pe); ok {
 				errs = append(errs, errorf("lhs: duplicate entries for key %v", pe.String())...)
 				continue
 			}
-			observedLHS.Insert(pe)
-			w2 := w.prepareDescent(pe, t.ElementType)
-			w2.lhs = value.Value(child)
-			if rchild, ok := observedRHS.Get(pe); ok {
-				w2.rhs = rchild
+			observedLHS.Insert(pe, child)
+			if _, exists := observedRHS.Get(pe); !exists {
+				remaining = append(remaining, pe)
 			}
-			errs = append(errs, w2.merge(pe.String)...)
-			if w2.out != nil {
-				out = append(out, *w2.out)
-			}
-			w.finishDescent(w2)
 		}
 	}
 
+	// Everything in rhs goes first.
 	for _, pe := range rhsOrder {
-		if observedLHS.Has(pe) {
-			continue
-		}
 		value, _ := observedRHS.Get(pe)
 		w2 := w.prepareDescent(pe, t.ElementType)
 		w2.rhs = value
+		if lchild, ok := observedLHS.Get(pe); ok {
+			w2.lhs = lchild
+		}
+		errs = append(errs, w2.merge(pe.String)...)
+		if w2.out != nil {
+			out = append(out, *w2.out)
+		}
+		w.finishDescent(w2)
+	}
+
+	// Append each remaining lhs child.
+	for _, pe := range remaining {
+		value, _ := observedLHS.Get(pe)
+		w2 := w.prepareDescent(pe, t.ElementType)
+		w2.lhs = value // w2.rhs is still nil because no matching child in rhs
 		errs = append(errs, w2.merge(pe.String)...)
 		if w2.out != nil {
 			out = append(out, *w2.out)
