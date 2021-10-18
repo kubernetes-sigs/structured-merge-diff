@@ -172,7 +172,9 @@ func (w *mergingWalker) visitListItems(t *schema.List, lhs, rhs value.List) (err
 	}
 	out := make([]interface{}, 0, int(math.Max(float64(rLen), float64(lLen))))
 
-	// 1. collect all LHS children.
+	lhsOrder := make([]fieldpath.PathElement, 0, lLen)
+
+	// First, collect all LHS children.
 	observedLHS := fieldpath.MakePathElementValueMap(lLen)
 	if lhs != nil {
 		for i := 0; i < lhs.Length(); i++ {
@@ -187,14 +189,14 @@ func (w *mergingWalker) visitListItems(t *schema.List, lhs, rhs value.List) (err
 			}
 			if _, ok := observedLHS.Get(pe); ok {
 				errs = append(errs, errorf("lhs: duplicate entries for key %v", pe.String())...)
-				continue
 			}
 			observedLHS.Insert(pe, child)
+			lhsOrder = append(lhsOrder, pe)
 		}
 	}
 
-	// 2. collect all RHS children.
-	observedRHS := fieldpath.MakePathElementValueMap(rLen)
+	// Then merge with RHS children.
+	observedRHS := fieldpath.MakePathElementSet(rLen)
 	if rhs != nil {
 		for i := 0; i < rhs.Length(); i++ {
 			child := rhs.At(i)
@@ -206,17 +208,16 @@ func (w *mergingWalker) visitListItems(t *schema.List, lhs, rhs value.List) (err
 				// this element.
 				continue
 			}
-			if _, ok := observedRHS.Get(pe); ok {
+			if observedRHS.Has(pe) {
 				errs = append(errs, errorf("rhs: duplicate entries for key %v", pe.String())...)
+				continue
 			}
-			observedRHS.Insert(pe, child)
-
-			// add each of RHS directly to the result,
-			// merging with matching lChild if exist
-			lChild, _ := observedLHS.Get(pe)
+			observedRHS.Insert(pe)
 			w2 := w.prepareDescent(pe, t.ElementType)
-			w2.lhs = lChild // may be nil
 			w2.rhs = child
+			if lchild, ok := observedLHS.Get(pe); ok {
+				w2.lhs = lchild
+			}
 			errs = append(errs, w2.merge(pe.String)...)
 			if w2.out != nil {
 				out = append(out, *w2.out)
@@ -225,26 +226,18 @@ func (w *mergingWalker) visitListItems(t *schema.List, lhs, rhs value.List) (err
 		}
 	}
 
-	// 3. append each remaining child in LHS.
-	if lhs != nil {
-		for i := 0; i < lhs.Length(); i++ {
-			child := lhs.At(i)
-			pe, err := listItemToPathElement(w.allocator, w.schema, t, i, child)
-			if err != nil {
-				// err was already reported in step 1, just skipping here
-				continue
-			}
-			if _, ok := observedRHS.Get(pe); !ok {
-				lChild, _ := observedLHS.Get(pe)
-				w2 := w.prepareDescent(pe, t.ElementType)
-				w2.lhs = lChild // w2.rhs is still nil because no matching child in rhs
-				errs = append(errs, w2.merge(pe.String)...)
-				if w2.out != nil {
-					out = append(out, *w2.out)
-				}
-				w.finishDescent(w2)
-			}
+	for _, pe := range lhsOrder {
+		if observedRHS.Has(pe) {
+			continue
 		}
+		value, _ := observedLHS.Get(pe)
+		w2 := w.prepareDescent(pe, t.ElementType)
+		w2.lhs = value
+		errs = append(errs, w2.merge(pe.String)...)
+		if w2.out != nil {
+			out = append(out, *w2.out)
+		}
+		w.finishDescent(w2)
 	}
 
 	if len(out) > 0 {
