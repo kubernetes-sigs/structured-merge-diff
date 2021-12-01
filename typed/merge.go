@@ -172,72 +172,83 @@ func (w *mergingWalker) visitListItems(t *schema.List, lhs, rhs value.List) (err
 	}
 	out := make([]interface{}, 0, int(math.Max(float64(rLen), float64(lLen))))
 
-	lhsOrder := make([]fieldpath.PathElement, 0, lLen)
-
-	// First, collect all LHS children.
-	observedLHS := fieldpath.MakePathElementValueMap(lLen)
-	if lhs != nil {
-		for i := 0; i < lhs.Length(); i++ {
-			child := lhs.At(i)
+	createPathElementsValues := func(name string, list value.List) ([]fieldpath.PathElement, fieldpath.PathElementValueMap, ValidationErrors) {
+		var errs ValidationErrors
+		length := 0
+		if list != nil {
+			length = list.Length()
+		}
+		observed := fieldpath.MakePathElementValueMap(length)
+		pes := make([]fieldpath.PathElement, 0, length)
+		for i := 0; i < length; i++ {
+			child := list.At(i)
 			pe, err := listItemToPathElement(w.allocator, w.schema, t, i, child)
 			if err != nil {
-				errs = append(errs, errorf("lhs: element %v: %v", i, err.Error())...)
+				errs = append(errs, errorf("%s: element %v: %v", name, i, err.Error())...)
 				// If we can't construct the path element, we can't
 				// even report errors deeper in the schema, so bail on
 				// this element.
 				continue
 			}
-			if _, ok := observedLHS.Get(pe); ok {
-				errs = append(errs, errorf("lhs: duplicate entries for key %v", pe.String())...)
+			if _, _, found := observed.Get(pe); found {
+				errs = append(errs, errorf("%s: duplicate entries for key %v", name, pe.String())...)
+				continue
 			}
-			observedLHS.Insert(pe, child)
-			lhsOrder = append(lhsOrder, pe)
+			observed.Insert(pe, child, i)
+			pes = append(pes, pe)
 		}
+		return pes, observed, errs
 	}
 
-	// Then merge with RHS children.
-	observedRHS := fieldpath.MakePathElementSet(rLen)
-	if rhs != nil {
-		for i := 0; i < rhs.Length(); i++ {
-			child := rhs.At(i)
-			pe, err := listItemToPathElement(w.allocator, w.schema, t, i, child)
-			if err != nil {
-				errs = append(errs, errorf("rhs: element %v: %v", i, err.Error())...)
-				// If we can't construct the path element, we can't
-				// even report errors deeper in the schema, so bail on
-				// this element.
-				continue
-			}
-			if observedRHS.Has(pe) {
-				errs = append(errs, errorf("rhs: duplicate entries for key %v", pe.String())...)
-				continue
-			}
-			observedRHS.Insert(pe)
+	lhsOrder, observedLHS, lhsErrs := createPathElementsValues("lhs", lhs)
+	errs = append(errs, lhsErrs...)
+	rhsOrder, observedRHS, rhsErrs := createPathElementsValues("rhs", rhs)
+	errs = append(errs, rhsErrs...)
+
+	lLen, rLen = len(lhsOrder), len(rhsOrder)
+	for lI, rI := 0, 0; lI < lLen || rI < rLen; {
+		merge := func(pe fieldpath.PathElement, lChild, rChild value.Value) {
 			w2 := w.prepareDescent(pe, t.ElementType)
-			w2.rhs = child
-			if lchild, ok := observedLHS.Get(pe); ok {
-				w2.lhs = lchild
-			}
+			w2.lhs = lChild
+			w2.rhs = rChild
 			errs = append(errs, w2.merge(pe.String)...)
 			if w2.out != nil {
 				out = append(out, *w2.out)
 			}
 			w.finishDescent(w2)
 		}
-	}
-
-	for _, pe := range lhsOrder {
-		if observedRHS.Has(pe) {
+		if lI < lLen && rI < rLen && lhsOrder[lI].Equals(rhsOrder[rI]) {
+			// merge LHS & RHS items
+			pe := lhsOrder[lI]
+			lChild, _, _ := observedLHS.Get(pe)
+			rChild, _, _ := observedRHS.Get(pe)
+			merge(pe, lChild, rChild)
+			lI++
+			rI++
 			continue
 		}
-		value, _ := observedLHS.Get(pe)
-		w2 := w.prepareDescent(pe, t.ElementType)
-		w2.lhs = value
-		errs = append(errs, w2.merge(pe.String)...)
-		if w2.out != nil {
-			out = append(out, *w2.out)
+		if lI < lLen {
+			if _, index, ok := observedRHS.Get(lhsOrder[lI]); ok && index < rI {
+				// Skip the LHS item because it has already appeared
+				lI++
+				continue
+			} else if !ok {
+				// Take the LHS item, without a matching RHS item to merge with
+				pe := lhsOrder[lI]
+				lChild, _, _ := observedLHS.Get(pe)
+				merge(pe, lChild, nil)
+				lI++
+				continue
+			}
 		}
-		w.finishDescent(w2)
+		if rI < rLen {
+			// Take the RHS item, merge with matching LHS item if possible
+			pe := rhsOrder[rI]
+			rChild, _, _ := observedRHS.Get(pe)
+			lChild, _, _ := observedLHS.Get(pe) // may be nil
+			merge(pe, lChild, rChild)
+			rI++
+		}
 	}
 
 	if len(out) > 0 {

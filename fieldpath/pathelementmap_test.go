@@ -25,26 +25,30 @@ import (
 func TestPathElementValueMap(t *testing.T) {
 	m := PathElementValueMap{}
 
-	if _, ok := m.Get(PathElement{FieldName: strptr("onion")}); ok {
+	if _, _, ok := m.Get(PathElement{FieldName: strptr("onion")}); ok {
 		t.Fatal("Unexpected path-element found in empty map")
 	}
 
-	m.Insert(PathElement{FieldName: strptr("carrot")}, value.NewValueInterface("knife"))
-	m.Insert(PathElement{FieldName: strptr("chive")}, value.NewValueInterface(2))
+	m.Insert(PathElement{FieldName: strptr("carrot")}, value.NewValueInterface("knife"), 1)
+	m.Insert(PathElement{FieldName: strptr("chive")}, value.NewValueInterface(2), 2)
 
-	if _, ok := m.Get(PathElement{FieldName: strptr("onion")}); ok {
+	if _, _, ok := m.Get(PathElement{FieldName: strptr("onion")}); ok {
 		t.Fatal("Unexpected path-element in map")
 	}
 
-	if val, ok := m.Get(PathElement{FieldName: strptr("carrot")}); !ok {
+	if val, index, ok := m.Get(PathElement{FieldName: strptr("carrot")}); !ok {
 		t.Fatal("Missing path-element in map")
 	} else if !value.Equals(val, value.NewValueInterface("knife")) {
 		t.Fatalf("Unexpected value found: %#v", val)
+	} else if index != 1 {
+		t.Fatalf("Unexpected index found: %#v", index)
 	}
 
-	if val, ok := m.Get(PathElement{FieldName: strptr("chive")}); !ok {
+	if val, index, ok := m.Get(PathElement{FieldName: strptr("chive")}); !ok {
 		t.Fatal("Missing path-element in map")
 	} else if !value.Equals(val, value.NewValueInterface(2)) {
 		t.Fatalf("Unexpected value found: %#v", val)
+	} else if index != 2 {
+		t.Fatalf("Unexpected index found: %#v", index)
 	}
 }
