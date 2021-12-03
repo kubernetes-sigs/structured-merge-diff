@@ -17,8 +17,6 @@ limitations under the License.
 package typed
 
 import (
-	"math"
-
 	"sigs.k8s.io/structured-merge-diff/v4/fieldpath"
 	"sigs.k8s.io/structured-merge-diff/v4/schema"
 	"sigs.k8s.io/structured-merge-diff/v4/value"
@@ -170,7 +168,11 @@ func (w *mergingWalker) visitListItems(t *schema.List, lhs, rhs value.List) (err
 	if lhs != nil {
 		lLen = lhs.Length()
 	}
-	out := make([]interface{}, 0, int(math.Max(float64(rLen), float64(lLen))))
+	outLen := lLen
+	if outLen < rLen {
+		outLen = rLen
+	}
+	out := make([]interface{}, 0, outLen)
 
 	createPathElementsValues := func(name string, list value.List) ([]fieldpath.PathElement, fieldpath.PathElementValueMap, ValidationErrors) {
 		var errs ValidationErrors
@@ -190,11 +192,11 @@ func (w *mergingWalker) visitListItems(t *schema.List, lhs, rhs value.List) (err
 				// this element.
 				continue
 			}
-			if _, _, found := observed.Get(pe); found {
+			if _, found := observed.Get(pe); found {
 				errs = append(errs, errorf("%s: duplicate entries for key %v", name, pe.String())...)
 				continue
 			}
-			observed.Insert(pe, child, i)
+			observed.Insert(pe, child)
 			pes = append(pes, pe)
 		}
 		return pes, observed, errs
@@ -204,6 +206,7 @@ func (w *mergingWalker) visitListItems(t *schema.List, lhs, rhs value.List) (err
 	errs = append(errs, lhsErrs...)
 	rhsOrder, observedRHS, rhsErrs := createPathElementsValues("rhs", rhs)
 	errs = append(errs, rhsErrs...)
+	seen := fieldpath.MakePathElementSet(outLen)
 
 	lLen, rLen = len(lhsOrder), len(rhsOrder)
 	for lI, rI := 0, 0; lI < lLen || rI < rLen; {
@@ -216,26 +219,27 @@ func (w *mergingWalker) visitListItems(t *schema.List, lhs, rhs value.List) (err
 				out = append(out, *w2.out)
 			}
 			w.finishDescent(w2)
+			seen.Insert(pe)
 		}
 		if lI < lLen && rI < rLen && lhsOrder[lI].Equals(rhsOrder[rI]) {
 			// merge LHS & RHS items
 			pe := lhsOrder[lI]
-			lChild, _, _ := observedLHS.Get(pe)
-			rChild, _, _ := observedRHS.Get(pe)
+			lChild, _ := observedLHS.Get(pe)
+			rChild, _ := observedRHS.Get(pe)
 			merge(pe, lChild, rChild)
 			lI++
 			rI++
 			continue
 		}
 		if lI < lLen {
-			if _, index, ok := observedRHS.Get(lhsOrder[lI]); ok && index < rI {
+			pe := lhsOrder[lI]
+			if ok := seen.Has(pe); ok {
 				// Skip the LHS item because it has already appeared
 				lI++
 				continue
-			} else if !ok {
+			} else if _, ok := observedRHS.Get(pe); !ok {
 				// Take the LHS item, without a matching RHS item to merge with
-				pe := lhsOrder[lI]
-				lChild, _, _ := observedLHS.Get(pe)
+				lChild, _ := observedLHS.Get(pe)
 				merge(pe, lChild, nil)
 				lI++
 				continue
@@ -244,8 +248,8 @@ func (w *mergingWalker) visitListItems(t *schema.List, lhs, rhs value.List) (err
 		if rI < rLen {
 			// Take the RHS item, merge with matching LHS item if possible
 			pe := rhsOrder[rI]
-			rChild, _, _ := observedRHS.Get(pe)
-			lChild, _, _ := observedLHS.Get(pe) // may be nil
+			rChild, _ := observedRHS.Get(pe)
+			lChild, _ := observedLHS.Get(pe) // may be nil
 			merge(pe, lChild, rChild)
 			rI++
 		}

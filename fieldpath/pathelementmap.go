@@ -40,7 +40,6 @@ func MakePathElementValueMap(size int) PathElementValueMap {
 type pathElementValue struct {
 	PathElement PathElement
 	Value       value.Value
-	Index       int
 }
 
 type sortedPathElementValues []pathElementValue
@@ -49,21 +48,17 @@ type sortedPathElementValues []pathElementValue
 // be faster than doing it one at a time via Insert.
 func (spev sortedPathElementValues) Len() int { return len(spev) }
 func (spev sortedPathElementValues) Less(i, j int) bool {
-	cmp := spev[i].PathElement.Compare(spev[j].PathElement)
-	if cmp != 0 {
-		return cmp < 0
-	}
-	return spev[i].Index < spev[j].Index
+	return spev[i].PathElement.Less(spev[j].PathElement)
 }
 func (spev sortedPathElementValues) Swap(i, j int) { spev[i], spev[j] = spev[j], spev[i] }
 
 // Insert adds the pathelement and associated value in the map.
-func (s *PathElementValueMap) Insert(pe PathElement, v value.Value, index int) {
+func (s *PathElementValueMap) Insert(pe PathElement, v value.Value) {
 	loc := sort.Search(len(s.members), func(i int) bool {
 		return !s.members[i].PathElement.Less(pe)
 	})
 	if loc == len(s.members) {
-		s.members = append(s.members, pathElementValue{pe, v, index})
+		s.members = append(s.members, pathElementValue{pe, v})
 		return
 	}
 	if s.members[loc].PathElement.Equals(pe) {
@@ -71,20 +66,20 @@ func (s *PathElementValueMap) Insert(pe PathElement, v value.Value, index int) {
 	}
 	s.members = append(s.members, pathElementValue{})
 	copy(s.members[loc+1:], s.members[loc:])
-	s.members[loc] = pathElementValue{pe, v, index}
+	s.members[loc] = pathElementValue{pe, v}
 }
 
 // Get retrieves the value associated with the given PathElement from the map.
 // (nil, false) is returned if there is no such PathElement.
-func (s *PathElementValueMap) Get(pe PathElement) (value value.Value, index int, found bool) {
+func (s *PathElementValueMap) Get(pe PathElement) (value.Value, bool) {
 	loc := sort.Search(len(s.members), func(i int) bool {
 		return !s.members[i].PathElement.Less(pe)
 	})
 	if loc == len(s.members) {
-		return nil, 0, false
+		return nil, false
 	}
 	if s.members[loc].PathElement.Equals(pe) {
-		return s.members[loc].Value, s.members[loc].Index, true
+		return s.members[loc].Value, true
 	}
-	return nil, 0, false
+	return nil, false
 }
