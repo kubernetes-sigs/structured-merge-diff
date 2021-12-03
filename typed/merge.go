@@ -174,9 +174,9 @@ func (w *mergingWalker) visitListItems(t *schema.List, lhs, rhs value.List) (err
 	}
 	out := make([]interface{}, 0, outLen)
 
-	lhsOrder, observedLHS, lhsErrs := w.visitListOperand(t, lhs)
+	lhsOrder, observedLHS, lhsErrs := w.indexListPathElements(t, lhs)
 	errs = append(errs, lhsErrs...)
-	rhsOrder, observedRHS, rhsErrs := w.visitListOperand(t, rhs)
+	rhsOrder, observedRHS, rhsErrs := w.indexListPathElements(t, rhs)
 	errs = append(errs, rhsErrs...)
 	seen := fieldpath.MakePathElementSet(outLen)
 
@@ -240,7 +240,7 @@ func (w *mergingWalker) visitListItems(t *schema.List, lhs, rhs value.List) (err
 	return errs
 }
 
-func (w *mergingWalker) visitListOperand(t *schema.List, list value.List) ([]fieldpath.PathElement, fieldpath.PathElementValueMap, ValidationErrors) {
+func (w *mergingWalker) indexListPathElements(t *schema.List, list value.List) ([]fieldpath.PathElement, fieldpath.PathElementValueMap, ValidationErrors) {
 	var errs ValidationErrors
 	length := 0
 	if list != nil {
