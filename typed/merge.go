@@ -203,7 +203,8 @@ func (w *mergingWalker) visitListItems(t *schema.List, lhs, rhs value.List) (err
 				// Skip the LHS item because it has already appeared
 				lI++
 				continue
-			} else if _, ok := observedRHS.Get(pe); !ok {
+			}
+			if _, ok := observedRHS.Get(pe); !ok {
 				// Take the LHS item, without a matching RHS item to merge with
 				lChild, _ := observedLHS.Get(pe)
 				mergeOut, errs := w.mergeListItem(t, pe, lChild, nil)
