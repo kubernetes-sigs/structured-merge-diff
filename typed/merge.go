@@ -174,45 +174,64 @@ func (w *mergingWalker) visitListItems(t *schema.List, lhs, rhs value.List) (err
 	}
 	out := make([]interface{}, 0, outLen)
 
-	lhsOrder, observedLHS, lhsErrs := w.indexListPathElements(t, lhs)
-	errs = append(errs, lhsErrs...)
 	rhsOrder, observedRHS, rhsErrs := w.indexListPathElements(t, rhs)
 	errs = append(errs, rhsErrs...)
-	seen := fieldpath.MakePathElementSet(outLen)
+	lhsOrder, observedLHS, lhsErrs := w.indexListPathElements(t, lhs)
+	errs = append(errs, lhsErrs...)
+
+	sharedOrder := make([]*fieldpath.PathElement, 0, rLen)
+	for i := range rhsOrder {
+		pe := &rhsOrder[i]
+		if _, ok := observedLHS.Get(*pe); ok {
+			sharedOrder = append(sharedOrder, pe)
+		}
+	}
+
+	var nextShared *fieldpath.PathElement
+	if len(sharedOrder) > 0 {
+		nextShared = sharedOrder[0]
+		sharedOrder = sharedOrder[1:]
+	}
 
 	lLen, rLen = len(lhsOrder), len(rhsOrder)
 	for lI, rI := 0, 0; lI < lLen || rI < rLen; {
-		if lI < lLen && rI < rLen && lhsOrder[lI].Equals(rhsOrder[rI]) {
-			// merge LHS & RHS items
+		if lI < lLen && rI < rLen {
 			pe := lhsOrder[lI]
-			lChild, _ := observedLHS.Get(pe)
-			rChild, _ := observedRHS.Get(pe)
-			mergeOut, errs := w.mergeListItem(t, pe, lChild, rChild)
-			errs = append(errs, errs...)
-			if mergeOut != nil {
-				out = append(out, *mergeOut)
+			if pe.Equals(rhsOrder[rI]) {
+				// merge LHS & RHS items
+				lChild, _ := observedLHS.Get(pe)
+				rChild, _ := observedRHS.Get(pe)
+				mergeOut, errs := w.mergeListItem(t, pe, lChild, rChild)
+				errs = append(errs, errs...)
+				if mergeOut != nil {
+					out = append(out, *mergeOut)
+				}
+				lI++
+				rI++
+
+				nextShared = nil
+				if len(sharedOrder) > 0 {
+					nextShared = sharedOrder[0]
+					sharedOrder = sharedOrder[1:]
+				}
+				continue
 			}
-			seen.Insert(pe)
-			lI++
-			rI++
-			continue
-		}
-		if lI < lLen {
-			pe := lhsOrder[lI]
-			if ok := seen.Has(pe); ok {
-				// Skip the LHS item because it has already appeared
+			if _, ok := observedRHS.Get(pe); ok && nextShared != nil && !nextShared.Equals(lhsOrder[lI]) {
+				// shared item, but not the one we want in this round
 				lI++
 				continue
 			}
+		}
+		if lI < lLen {
+			pe := lhsOrder[lI]
 			if _, ok := observedRHS.Get(pe); !ok {
-				// Take the LHS item, without a matching RHS item to merge with
+				// take LHS item
 				lChild, _ := observedLHS.Get(pe)
 				mergeOut, errs := w.mergeListItem(t, pe, lChild, nil)
 				errs = append(errs, errs...)
 				if mergeOut != nil {
 					out = append(out, *mergeOut)
 				}
-				seen.Insert(pe)
 				lI++
 				continue
 			}
@@ -220,15 +239,22 @@ func (w *mergingWalker) visitListItems(t *schema.List, lhs, rhs value.List) (err
 		if rI < rLen {
 			// Take the RHS item, merge with matching LHS item if possible
 			pe := rhsOrder[rI]
-			rChild, _ := observedRHS.Get(pe)
 			lChild, _ := observedLHS.Get(pe) // may be nil
+			rChild, _ := observedRHS.Get(pe)
 			mergeOut, errs := w.mergeListItem(t, pe, lChild, rChild)
 			errs = append(errs, errs...)
 			if mergeOut != nil {
 				out = append(out, *mergeOut)
 			}
-			seen.Insert(pe)
 			rI++
+			// Advance nextShared, if we are merging nextShared.
+			if nextShared != nil && nextShared.Equals(pe) {
+				nextShared = nil
+				if len(sharedOrder) > 0 {
+					nextShared = sharedOrder[0]
+					sharedOrder = sharedOrder[1:]
+				}
+			}
 		}
 	}
 
