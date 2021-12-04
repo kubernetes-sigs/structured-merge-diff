@@ -101,6 +101,21 @@ func BenchmarkOperations(b *testing.B) {
 					},
 				},
 				{
+					name: "ApplyTwice",
+					ops: []Operation{
+						Apply{
+							Manager:    "controller",
+							APIVersion: "v1",
+							Object:     bench.obj,
+						},
+						Apply{
+							Manager:    "other-controller",
+							APIVersion: "v1",
+							Object:     bench.obj,
+						},
+					},
+				},
+				{
 					name: "Update",
 					ops: []Operation{
 						Update{
