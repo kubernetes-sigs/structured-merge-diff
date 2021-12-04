@@ -281,14 +281,63 @@ var mergeCases = []mergeTestCase{{
 		`{"setStr":["a","b","c"]}`,
 		`{"setStr":["a","b","c"]}`,
 	}, {
+		`{"setStr":["a","b"]}`,
+		`{"setStr":["b","a"]}`,
+		`{"setStr":["b","a"]}`,
+	}, {
+		`{"setStr":["a","b","c"]}`,
+		`{"setStr":["d","e","f"]}`,
+		`{"setStr":["a","b","c","d","e","f"]}`,
+	}, {
+		`{"setStr":["a","b","c"]}`,
+		`{"setStr":["c","d","e","f"]}`,
+		`{"setStr":["a","b","c","d","e","f"]}`,
+	}, {
+		`{"setStr":["a","b","c","g","f"]}`,
+		`{"setStr":["c","d","e","f"]}`,
+		`{"setStr":["a","b","c","g","d","e","f"]}`,
+	}, {
+		`{"setStr":["a","b","c"]}`,
+		`{"setStr":["d","e","f","x","y","z"]}`,
+		`{"setStr":["a","b","c","d","e","f","x","y","z"]}`,
+	}, {
+		`{"setStr":["c","d","e","f"]}`,
+		`{"setStr":["a","c","e"]}`,
+		`{"setStr":["a","c","d","e","f"]}`,
+	}, {
+		`{"setStr":["a","b","c","x","y","z"]}`,
+		`{"setStr":["d","e","f"]}`,
+		`{"setStr":["a","b","c","x","y","z","d","e","f"]}`,
+	}, {
+		`{"setStr":["a","b","c","x","y","z"]}`,
+		`{"setStr":["d","e","f","x","y","z"]}`,
+		`{"setStr":["a","b","c","d","e","f","x","y","z"]}`,
+	}, {
+		`{"setStr":["c","a","g","f"]}`,
+		`{"setStr":["c","f","a","g"]}`,
+		`{"setStr":["c","f","a","g"]}`,
+	}, {
+		`{"setStr":["a","b","c","d"]}`,
+		`{"setStr":["d","e","f","a"]}`,
+		`{"setStr":["b","c","d","e","f","a"]}`,
+	}, {
+		`{"setStr":["c","d","e","f","g","h","i","j"]}`,
+		`{"setStr":["2","h","3","e","4","k","l"]}`,
+		`{"setStr":["c","d","f","g","2","h","i","j","3","e","4","k","l"]}`,
+	}, {
+		`{"setStr":["a","b","c","d","e","f","g","h","i","j"]}`,
+		`{"setStr":["1","b","2","h","3","e","4","k","l"]}`,
+		`{"setStr":["a","1","b","c","d","f","g","2","h","i","j","3","e","4","k","l"]}`,
+	}, {
 		`{"setBool":[true]}`,
 		`{"setBool":[false]}`,
-		`{"setBool":[false,true]}`,
+		`{"setBool":[true, false]}`,
 	}, {
 		`{"setNumeric":[1,2,3.14159]}`,
 		`{"setNumeric":[1,2,3]}`,
-		`{"setNumeric":[1,2,3,3.14159]}`,
-	}},
+		`{"setNumeric":[1,2,3.14159,3]}`,
+	},
+	},
 }, {
 	name:         "associative list",
 	rootTypeName: "myRoot",
@@ -345,11 +394,11 @@ var mergeCases = []mergeTestCase{{
 	}, {
 		`{"list":[{"key":"a","id":1,"value":{"a":"a"}}]}`,
 		`{"list":[{"key":"a","id":2,"value":{"a":"a"}}]}`,
-		`{"list":[{"key":"a","id":2,"value":{"a":"a"}},{"key":"a","id":1,"value":{"a":"a"}}]}`,
+		`{"list":[{"key":"a","id":1,"value":{"a":"a"}},{"key":"a","id":2,"value":{"a":"a"}}]}`,
 	}, {
 		`{"list":[{"key":"a","id":1},{"key":"b","id":1}]}`,
 		`{"list":[{"key":"a","id":1},{"key":"a","id":2}]}`,
-		`{"list":[{"key":"a","id":1},{"key":"a","id":2},{"key":"b","id":1}]}`,
+		`{"list":[{"key":"a","id":1},{"key":"b","id":1},{"key":"a","id":2}]}`,
 	}, {
 		`{"list":[{"key":"b","id":2}]}`,
 		`{"list":[{"key":"a","id":1},{"key":"b","id":2},{"key":"c","id":3}]}`,
@@ -357,11 +406,11 @@ var mergeCases = []mergeTestCase{{
 	}, {
 		`{"list":[{"key":"a","id":1},{"key":"b","id":2},{"key":"c","id":3}]}`,
 		`{"list":[{"key":"c","id":3},{"key":"b","id":2}]}`,
-		`{"list":[{"key":"c","id":3},{"key":"b","id":2},{"key":"a","id":1}]}`,
+		`{"list":[{"key":"a","id":1},{"key":"c","id":3},{"key":"b","id":2}]}`,
 	}, {
 		`{"list":[{"key":"a","id":1},{"key":"b","id":2},{"key":"c","id":3}]}`,
 		`{"list":[{"key":"c","id":3},{"key":"a","id":1}]}`,
-		`{"list":[{"key":"c","id":3},{"key":"a","id":1},{"key":"b","id":2}]}`,
+		`{"list":[{"key":"b","id":2},{"key":"c","id":3},{"key":"a","id":1}]}`,
 	}, {
 		`{"atomicList":["a","a","a"]}`,
 		`{"atomicList":null}`,
