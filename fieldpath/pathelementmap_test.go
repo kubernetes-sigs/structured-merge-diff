@@ -23,7 +23,7 @@ import (
 )
 
 func TestPathElementValueMap(t *testing.T) {
-	m := PathElementValueMap{}
+	m := MakePathElementValueMap(0)
 
 	if _, ok := m.Get(PathElement{FieldName: strptr("onion")}); ok {
 		t.Fatal("Unexpected path-element found in empty map")

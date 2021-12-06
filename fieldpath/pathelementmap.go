@@ -17,8 +17,7 @@ limitations under the License.
 package fieldpath
 
 import (
-	"sort"
-
+	"sigs.k8s.io/structured-merge-diff/v4/treeset"
 	"sigs.k8s.io/structured-merge-diff/v4/value"
 )
 
@@ -28,13 +27,24 @@ import (
 // for PathElementSet and SetNodeMap, so we could probably share the
 // code.
 type PathElementValueMap struct {
-	members sortedPathElementValues
+	members []pathElementValue
+	set     *treeset.IntWithComparator
 }
 
-func MakePathElementValueMap(size int) PathElementValueMap {
-	return PathElementValueMap{
-		members: make(sortedPathElementValues, 0, size),
+func (s *PathElementValueMap) Compare(i, j int) int {
+	return s.members[i].PathElement.Compare(s.members[j].PathElement)
+}
+
+func (s *PathElementValueMap) CompareNew(k interface{}, i int) int {
+	return k.(*PathElement).Compare(s.members[i].PathElement)
+}
+
+func MakePathElementValueMap(size int) *PathElementValueMap {
+	r := &PathElementValueMap{
+		members: make([]pathElementValue, 0, size),
 	}
+	r.set = treeset.NewIntWithComparator(0, r)
+	return r
 }
 
 type pathElementValue struct {
@@ -42,44 +52,21 @@ type pathElementValue struct {
 	Value       value.Value
 }
 
-type sortedPathElementValues []pathElementValue
-
-// Implement the sort interface; this would permit bulk creation, which would
-// be faster than doing it one at a time via Insert.
-func (spev sortedPathElementValues) Len() int { return len(spev) }
-func (spev sortedPathElementValues) Less(i, j int) bool {
-	return spev[i].PathElement.Less(spev[j].PathElement)
-}
-func (spev sortedPathElementValues) Swap(i, j int) { spev[i], spev[j] = spev[j], spev[i] }
-
 // Insert adds the pathelement and associated value in the map.
 func (s *PathElementValueMap) Insert(pe PathElement, v value.Value) {
-	loc := sort.Search(len(s.members), func(i int) bool {
-		return !s.members[i].PathElement.Less(pe)
-	})
-	if loc == len(s.members) {
-		s.members = append(s.members, pathElementValue{pe, v})
-		return
+	s.members = append(s.members, pathElementValue{PathElement: pe, Value: v})
+	if created := s.set.Insert(len(s.members) - 1); !created {
+		// if nothing is created, undo the appending
+		s.members = s.members[:len(s.members)-1]
 	}
-	if s.members[loc].PathElement.Equals(pe) {
-		return
-	}
-	s.members = append(s.members, pathElementValue{})
-	copy(s.members[loc+1:], s.members[loc:])
-	s.members[loc] = pathElementValue{pe, v}
 }
 
 // Get retrieves the value associated with the given PathElement from the map.
 // (nil, false) is returned if there is no such PathElement.
 func (s *PathElementValueMap) Get(pe PathElement) (value.Value, bool) {
-	loc := sort.Search(len(s.members), func(i int) bool {
-		return !s.members[i].PathElement.Less(pe)
-	})
-	if loc == len(s.members) {
+	v, ok := s.set.Find(&pe)
+	if !ok {
 		return nil, false
 	}
-	if s.members[loc].PathElement.Equals(pe) {
-		return s.members[loc].Value, true
-	}
-	return nil, false
+	return s.members[v].Value, true
 }
