@@ -266,7 +266,7 @@ func (w *mergingWalker) visitListItems(t *schema.List, lhs, rhs value.List) (err
 	return errs
 }
 
-func (w *mergingWalker) indexListPathElements(t *schema.List, list value.List) ([]fieldpath.PathElement, fieldpath.PathElementValueMap, ValidationErrors) {
+func (w *mergingWalker) indexListPathElements(t *schema.List, list value.List) ([]fieldpath.PathElement, *fieldpath.PathElementValueMap, ValidationErrors) {
 	var errs ValidationErrors
 	length := 0
 	if list != nil {
