@@ -47,6 +47,37 @@ var leafFieldsParser = func() Parser {
 
 func TestUpdateLeaf(t *testing.T) {
 	tests := map[string]TestCase{
+		"update_apply": {
+			Ops: []Operation{
+				Update{
+					Manager: "default",
+					Object: `
+						numeric: 1
+					`,
+					APIVersion: "v1",
+				},
+				Apply{
+					Manager: "default",
+					Object: `
+						numeric: 2
+					`,
+					APIVersion: "v1",
+				},
+			},
+			Object: `
+				numeric: 2
+			`,
+			APIVersion: "v1",
+			Managed: fieldpath.ManagedFields{
+				"default": fieldpath.NewVersionedSet(
+					_NS(
+						_P("numeric"),
+					),
+					"v1",
+					true,
+				),
+			},
+		},
 		"apply_twice": {
 			Ops: []Operation{
 				Apply{
