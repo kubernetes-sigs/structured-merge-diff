@@ -126,8 +126,14 @@ func (tv TypedValue) Compare(rhs *TypedValue) (c *Comparison, err error) {
 	}
 	_, err = merge(&tv, rhs, func(w *mergingWalker) {
 		if w.lhs == nil {
+			if w.rhs == nil || w.rhs.IsNull() {
+				return
+			}
 			c.Added.Insert(w.path)
 		} else if w.rhs == nil {
+			if w.lhs == nil || w.lhs.IsNull() {
+				return
+			}
 			c.Removed.Insert(w.path)
 		} else if !value.Equals(w.rhs, w.lhs) {
 			// TODO: Equality is not sufficient for this.
