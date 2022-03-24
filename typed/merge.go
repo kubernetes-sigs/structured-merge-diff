@@ -337,7 +337,7 @@ func (w *mergingWalker) doList(t *schema.List) (errs ValidationErrors) {
 		return nil
 	}
 
-	if lhs == nil && rhs == nil {
+	if lhs == nil {
 		return nil
 	}
 
