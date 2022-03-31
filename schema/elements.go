@@ -259,3 +259,25 @@ func (s *Schema) Resolve(tr TypeRef) (Atom, bool) {
 	}
 	return tr.Inlined, true
 }
+
+// Clones this instance of Schema into the other
+// If other is nil this method does nothing.
+// If other is already initialized, overwrites it with this instance
+// Warning: Not thread safe
+func (s Schema) CopyInto(dst *Schema) {
+	if dst == nil {
+		return
+	}
+
+	// Schema type is considered immutable so sharing references
+	dst.Types = s.Types
+
+	if s.m != nil {
+		// If cache is non-nil then the once token had been consumed.
+		// Must reset token and use it again to ensure same semantics.
+		dst.once = sync.Once{}
+		dst.once.Do(func() {
+			dst.m = s.m
+		})
+	}
+}
