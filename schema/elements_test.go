@@ -120,3 +120,44 @@ func TestResolve(t *testing.T) {
 		})
 	}
 }
+
+func TestCopyInto(t *testing.T) {
+	existing := "existing"
+	notExisting := "not-existing"
+	a := Atom{List: &List{}}
+
+	tests := []struct {
+		testName       string
+		schemaTypeDefs []TypeDef
+		typeRef        TypeRef
+	}{
+		{"noNamedType", nil, TypeRef{Inlined: a}},
+		{"notExistingNamedType", nil, TypeRef{NamedType: &notExisting}},
+		{"existingNamedType", []TypeDef{{Name: existing, Atom: a}}, TypeRef{NamedType: &existing}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.testName, func(t *testing.T) {
+			t.Parallel()
+			s := Schema{
+				Types: tt.schemaTypeDefs,
+			}
+
+			theCopy := Schema{}
+			s.CopyInto(&theCopy)
+
+			if !reflect.DeepEqual(s, theCopy) {
+				t.Fatal("")
+			}
+
+			// test after resolve
+			_, _ = s.Resolve(tt.typeRef)
+			theCopy = Schema{}
+			s.CopyInto(&theCopy)
+
+			if !reflect.DeepEqual(s, theCopy) {
+				t.Fatal("")
+			}
+		})
+	}
+}
