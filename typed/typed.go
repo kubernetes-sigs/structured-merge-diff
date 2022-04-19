@@ -109,7 +109,7 @@ func (tv TypedValue) ToFieldSet() (*fieldpath.Set, error) {
 // match), or an error will be returned. Validation errors will be returned if
 // the objects don't conform to the schema.
 func (tv TypedValue) Merge(pso *TypedValue) (*TypedValue, error) {
-	return merge(&tv, pso, ruleKeepRHS, nil)
+	return merge(&tv, pso, ruleKeepRHS, nil, nil)
 }
 
 // Compare compares the two objects. See the comments on the `Comparison`
@@ -119,6 +119,10 @@ func (tv TypedValue) Merge(pso *TypedValue) (*TypedValue, error) {
 // match), or an error will be returned. Validation errors will be returned if
 // the objects don't conform to the schema.
 func (tv TypedValue) Compare(rhs *TypedValue) (c *Comparison, err error) {
+	return tv.CompareFields(rhs, nil)
+}
+
+func (tv TypedValue) CompareFields(rhs *TypedValue, callback func(prefix *fieldpath.Path) bool) (c *Comparison, err error) {
 	c = &Comparison{
 		Removed:  fieldpath.NewSet(),
 		Modified: fieldpath.NewSet(),
@@ -140,6 +144,11 @@ func (tv TypedValue) Compare(rhs *TypedValue) (c *Comparison, err error) {
 		} else if w.rhs == nil {
 			c.Removed.Insert(w.path)
 		}
+	}, func(w *mergingWalker) bool {
+		if callback != nil {
+			return callback(&w.path)
+		}
+		return true
 	})
 	if err != nil {
 		return nil, err
@@ -181,7 +190,7 @@ func (tv TypedValue) NormalizeUnions(new *TypedValue) (*TypedValue, error) {
 			errs = append(errs, errorf(err.Error())...)
 		}
 	}
-	out, mergeErrs := merge(&tv, new, func(w *mergingWalker) {}, normalizeFn)
+	out, mergeErrs := merge(&tv, new, func(w *mergingWalker) {}, normalizeFn, nil)
 	if mergeErrs != nil {
 		errs = append(errs, mergeErrs.(ValidationErrors)...)
 	}
@@ -207,7 +216,7 @@ func (tv TypedValue) NormalizeUnionsApply(new *TypedValue) (*TypedValue, error) 
 			errs = append(errs, errorf(err.Error())...)
 		}
 	}
-	out, mergeErrs := merge(&tv, new, func(w *mergingWalker) {}, normalizeFn)
+	out, mergeErrs := merge(&tv, new, func(w *mergingWalker) {}, normalizeFn, nil)
 	if mergeErrs != nil {
 		errs = append(errs, mergeErrs.(ValidationErrors)...)
 	}
@@ -226,7 +235,7 @@ var mwPool = sync.Pool{
 	New: func() interface{} { return &mergingWalker{} },
 }
 
-func merge(lhs, rhs *TypedValue, rule, postRule mergeRule) (*TypedValue, error) {
+func merge(lhs, rhs *TypedValue, rule, postRule mergeRule, preRule traversalRule) (*TypedValue, error) {
 	if lhs.schema != rhs.schema {
 		return nil, errorf("expected objects with types from the same schema")
 	}
@@ -241,6 +250,7 @@ func merge(lhs, rhs *TypedValue, rule, postRule mergeRule) (*TypedValue, error) 
 		mw.schema = nil
 		mw.typeRef = schema.TypeRef{}
 		mw.rule = nil
+		mw.preItemHook = nil
 		mw.postItemHook = nil
 		mw.out = nil
 		mw.inLeaf = false
@@ -253,6 +263,7 @@ func merge(lhs, rhs *TypedValue, rule, postRule mergeRule) (*TypedValue, error) 
 	mw.schema = lhs.schema
 	mw.typeRef = lhs.typeRef
 	mw.rule = rule
+	mw.preItemHook = preRule
 	mw.postItemHook = postRule
 	if mw.allocator == nil {
 		mw.allocator = value.NewFreelistAllocator()

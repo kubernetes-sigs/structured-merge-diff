@@ -34,6 +34,11 @@ type mergingWalker struct {
 	// How to merge. Called after schema validation for all leaf fields.
 	rule mergeRule
 
+	// If set, called before both non-leaf and leaf items are merged.
+	// Return `true` if the items should be merged
+	// and `false` if they should not merged or children be traversed
+	preItemHook traversalRule
+
 	// If set, called after non-leaf items have been merged. (`out` is
 	// probably already set.)
 	postItemHook mergeRule
@@ -54,6 +59,10 @@ type mergingWalker struct {
 // optionally set w.out. If lhs and rhs are both set, they will be of
 // comparable type.
 type mergeRule func(w *mergingWalker)
+
+// Same as mergeRule but returns a boolean to decide whether the merge/traversal
+// will proceed
+type traversalRule func(w *mergingWalker) bool
 
 var (
 	ruleKeepRHS = mergeRule(func(w *mergingWalker) {
@@ -78,18 +87,20 @@ func (w *mergingWalker) merge(prefixFn func() string) (errs ValidationErrors) {
 		return errorf("schema error: no type found matching: %v", *w.typeRef.NamedType)
 	}
 
-	alhs := deduceAtom(a, w.lhs)
-	arhs := deduceAtom(a, w.rhs)
-	if alhs.Equals(&arhs) {
-		errs = append(errs, handleAtom(arhs, w.typeRef, w)...)
-	} else {
-		w2 := *w
-		errs = append(errs, handleAtom(alhs, w.typeRef, &w2)...)
-		errs = append(errs, handleAtom(arhs, w.typeRef, w)...)
-	}
+	if w.preItemHook == nil || w.preItemHook(w) {
+		alhs := deduceAtom(a, w.lhs)
+		arhs := deduceAtom(a, w.rhs)
+		if alhs.Equals(&arhs) {
+			errs = append(errs, handleAtom(arhs, w.typeRef, w)...)
+		} else {
+			w2 := *w
+			errs = append(errs, handleAtom(alhs, w.typeRef, &w2)...)
+			errs = append(errs, handleAtom(arhs, w.typeRef, w)...)
+		}
 
-	if !w.inLeaf && w.postItemHook != nil {
-		w.postItemHook(w)
+		if !w.inLeaf && w.postItemHook != nil {
+			w.postItemHook(w)
+		}
 	}
 	return errs.WithLazyPrefix(prefixFn)
 }
