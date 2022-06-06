@@ -1814,3 +1814,134 @@ func BenchmarkMultipleApplierRecursiveRealConversion(b *testing.B) {
 		}
 	}
 }
+
+var multiversionWithReliantFieldsParser = func() Parser {
+	parser, err := typed.NewParser(`types:
+- name: v1
+  map:
+    fields:
+      - name: field_foo_rely_on_bar
+        type:
+          scalar: string
+      - name: common_field
+        type:
+          scalar: string
+- name: v2
+  map:
+    fields:
+      - name: required_field_bar
+        type:
+          scalar: string
+      - name: common_field
+        type:
+          scalar: string
+`)
+	if err != nil {
+		panic(err)
+	}
+	return parser
+}()
+
+// reliantFieldsConverter converts v2 obj to v1 relying on the required_field_bar,
+// if required_field_bar is empty, the conversion shall fail.
+// This converter can only be used with multiversionWithReliantFieldsParser.
+type reliantFieldsConverter struct {
+}
+
+var _ merge.Converter = reliantFieldsConverter{}
+
+func (r reliantFieldsConverter) Convert(v *typed.TypedValue, version fieldpath.APIVersion) (*typed.TypedValue, error) {
+	inVersion := fieldpath.APIVersion(*v.TypeRef().NamedType)
+	if inVersion == version {
+		return v, nil
+	}
+	y, err := yaml.Marshal(v.AsValue().Unstructured())
+	if err != nil {
+		return nil, err
+	}
+	inStr := string(y)
+	var outStr string
+	switch version {
+	case "v1":
+		if !strings.Contains(inStr, "required_field_bar") {
+			return v, fmt.Errorf("missing requried field bar")
+		}
+		outStr = strings.Replace(inStr, "required_field_bar", "field_foo_rely_on_bar", -1)
+	case "v2":
+		outStr = strings.Replace(inStr, "field_foo_rely_on_bar", "required_field_bar", -1)
+	default:
+		return nil, missingVersionError
+	}
+	return multiversionWithReliantFieldsParser.Type(string(version)).FromYAML(typed.YAMLObject(outStr))
+}
+
+func (r reliantFieldsConverter) IsMissingVersionError(err error) bool {
+	return err == missingVersionError
+}
+
+func TestMultipleAppliersReliantFieldsConversions(t *testing.T) {
+	tests := map[string]TestCase{
+		"multiple_versions_with_reliant_fields": {
+			Ops: []Operation{
+				Apply{
+					Manager:    "v2_applier",
+					APIVersion: "v2",
+					Object: typed.YAMLObject(`
+						required_field_bar: a
+					`),
+				},
+				Apply{
+					Manager:    "v1_applier",
+					APIVersion: "v1",
+					Object: typed.YAMLObject(`
+						common_field: b
+					`),
+				},
+				Apply{
+					Manager:    "v2_applier",
+					APIVersion: "v2",
+					Object: typed.YAMLObject(`
+						required_field_bar: b
+					`),
+				},
+			},
+			Object: typed.YAMLObject(`
+				required_field_bar: b
+				common_field: b
+			`),
+			APIVersion: "v2",
+			Managed: fieldpath.ManagedFields{
+				"v2_applier": fieldpath.NewVersionedSet(
+					_NS(
+						_P("required_field_bar"),
+					),
+					"v2",
+					true,
+				),
+				"v1_applier": fieldpath.NewVersionedSet(
+					_NS(
+						_P("common_field"),
+					),
+					"v1",
+					true,
+				),
+			},
+		},
+	}
+
+	converter := reliantFieldsConverter{}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			runTimes := 1
+			if name == "multiple_versions_with_reliant_fields" {
+				// run this test for enough times to get as consistent results as possible
+				runTimes = 100
+			}
+			for i := 0; i < runTimes; i++ {
+				if err := test.TestWithConverter(multiversionWithReliantFieldsParser, converter); err != nil {
+					t.Fatal(err)
+				}
+			}
+		})
+	}
+}
