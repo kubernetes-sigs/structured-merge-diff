@@ -2028,75 +2028,77 @@ func TestVersionDoesntMatchTypename(t *testing.T) {
 	converter := versionDoesntMatchTypenameConverter{}
 	updater := &merge.Updater{Converter: converter}
 
-	// Apply in one version, apply in another, apply in a third.
-	live, err := versionDoesntMatchTypeName.Type("TypeV2").FromYAML(`{}`)
-	if err != nil {
-		t.Fatalf("Failed to parse empty object: %v", err)
-	}
-	managers := fieldpath.ManagedFields{}
-	config, err := versionDoesntMatchTypeName.Type("TypeV2").FromYAML(`{"required_field_bar": "a"}`)
-	if err != nil {
-		t.Fatalf("Failed to parse object: %v", err)
-	}
-	live, managers, err = updater.Apply(live, config, "v2", managers, "v2_applier", false)
-	if err != nil {
-		t.Fatalf("Failed to apply: %v", err)
-	}
+	for i := 0; i < 10; i++ {
+		// Apply in one version, apply in another, apply in a third.
+		live, err := versionDoesntMatchTypeName.Type("TypeV2").FromYAML(`{}`)
+		if err != nil {
+			t.Fatalf("Failed to parse empty object: %v", err)
+		}
+		managers := fieldpath.ManagedFields{}
+		config, err := versionDoesntMatchTypeName.Type("TypeV2").FromYAML(`{"required_field_bar": "a"}`)
+		if err != nil {
+			t.Fatalf("Failed to parse object: %v", err)
+		}
+		live, managers, err = updater.Apply(live, config, "v2", managers, "v2_applier", false)
+		if err != nil {
+			t.Fatalf("Failed to apply: %v", err)
+		}
 
-	live, err = converter.Convert(live, "v1")
-	if err != nil {
-		t.Fatalf("Failed to convert object to v1: %v", err)
-	}
-	config, err = versionDoesntMatchTypeName.Type("TypeV1").FromYAML(`{"common_field": "b"}`)
-	if err != nil {
-		t.Fatalf("Failed to parse object: %v", err)
-	}
+		live, err = converter.Convert(live, "v1")
+		if err != nil {
+			t.Fatalf("Failed to convert object to v1: %v", err)
+		}
+		config, err = versionDoesntMatchTypeName.Type("TypeV1").FromYAML(`{"common_field": "b"}`)
+		if err != nil {
+			t.Fatalf("Failed to parse object: %v", err)
+		}
 
-	live, managers, err = updater.Apply(live, config, "v1", managers, "v1_applier", false)
-	if err != nil {
-		t.Fatalf("Failed to apply: %v", err)
-	}
+		live, managers, err = updater.Apply(live, config, "v1", managers, "v1_applier", false)
+		if err != nil {
+			t.Fatalf("Failed to apply: %v", err)
+		}
 
-	live, err = converter.Convert(live, "v2")
-	if err != nil {
-		t.Fatalf("Failed to convert object to v1: %v", err)
-	}
-	config, err = versionDoesntMatchTypeName.Type("TypeV2").FromYAML(`{"required_field_bar": "b"}`)
-	if err != nil {
-		t.Fatalf("Failed to parse object: %v", err)
-	}
-	live, managers, err = updater.Apply(live, config, "v2", managers, "v2_applier", false)
-	if err != nil {
-		t.Fatalf("Failed to apply: %v", err)
-	}
+		live, err = converter.Convert(live, "v2")
+		if err != nil {
+			t.Fatalf("Failed to convert object to v1: %v", err)
+		}
+		config, err = versionDoesntMatchTypeName.Type("TypeV2").FromYAML(`{"required_field_bar": "b"}`)
+		if err != nil {
+			t.Fatalf("Failed to parse object: %v", err)
+		}
+		live, managers, err = updater.Apply(live, config, "v2", managers, "v2_applier", false)
+		if err != nil {
+			t.Fatalf("Failed to apply: %v", err)
+		}
 
-	expectedObject, err := versionDoesntMatchTypeName.Type("TypeV2").FromYAML(`{"required_field_bar": "b", "common_field": "b"}`)
-	if err != nil {
-		t.Fatalf("Failed to parse object: %v", err)
-	}
-	if comparison, err := live.Compare(expectedObject); err != nil {
-		t.Fatalf("Failed to compare live with expected: %v", err)
-	} else if !comparison.IsSame() {
-		t.Fatalf("Live is different from expected:\n%v", comparison)
-	}
+		expectedObject, err := versionDoesntMatchTypeName.Type("TypeV2").FromYAML(`{"required_field_bar": "b", "common_field": "b"}`)
+		if err != nil {
+			t.Fatalf("Failed to parse object: %v", err)
+		}
+		if comparison, err := live.Compare(expectedObject); err != nil {
+			t.Fatalf("Failed to compare live with expected: %v", err)
+		} else if !comparison.IsSame() {
+			t.Fatalf("Live is different from expected:\n%v", comparison)
+		}
 
-	expectedManagers := fieldpath.ManagedFields{
-		"v2_applier": fieldpath.NewVersionedSet(
-			_NS(
-				_P("required_field_bar"),
+		expectedManagers := fieldpath.ManagedFields{
+			"v2_applier": fieldpath.NewVersionedSet(
+				_NS(
+					_P("required_field_bar"),
+				),
+				"v2",
+				true,
 			),
-			"v2",
-			true,
-		),
-		"v1_applier": fieldpath.NewVersionedSet(
-			_NS(
-				_P("common_field"),
+			"v1_applier": fieldpath.NewVersionedSet(
+				_NS(
+					_P("common_field"),
+				),
+				"v1",
+				true,
 			),
-			"v1",
-			true,
-		),
-	}
-	if !expectedManagers.Equals(managers) {
-		t.Fatalf("ManagedFields not as expected:\n%v", managers)
+		}
+		if !expectedManagers.Equals(managers) {
+			t.Fatalf("ManagedFields not as expected:\n%v", managers)
+		}
 	}
 }
