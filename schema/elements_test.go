@@ -90,7 +90,18 @@ func TestFindField(t *testing.T) {
 func TestResolve(t *testing.T) {
 	existing := "existing"
 	notExisting := "not-existing"
+	numeric := Numeric
+	granular := Separable
+	atomic := Atomic
+
 	a := Atom{List: &List{}}
+	b := Atom{Scalar: &numeric}
+
+	emptyMap := Map{}
+	atomicMap := Map{ElementRelationship: Atomic}
+
+	emptyList := List{}
+	atomicList := List{ElementRelationship: Atomic}
 
 	tests := []struct {
 		testName       string
@@ -102,6 +113,10 @@ func TestResolve(t *testing.T) {
 		{"noNamedType", nil, TypeRef{Inlined: a}, a, true},
 		{"notExistingNamedType", nil, TypeRef{NamedType: &notExisting}, Atom{}, false},
 		{"existingNamedType", []TypeDef{{Name: existing, Atom: a}}, TypeRef{NamedType: &existing}, a, true},
+		{"invalidRelationshipOnScalarType", []TypeDef{{Name: existing, Atom: b}}, TypeRef{NamedType: &existing, ElementRelationship: &granular}, Atom{}, false},
+		{"mapElementRelationshipNamed", []TypeDef{{Name: existing, Atom: Atom{Map: &emptyMap}}}, TypeRef{NamedType: &existing, ElementRelationship: &atomic}, Atom{Map: &atomicMap}, true},
+		{"mapElementRelationshipInlined", nil, TypeRef{Inlined: Atom{Map: &emptyMap}, ElementRelationship: &atomic}, Atom{Map: &atomicMap}, true},
+		{"listElementRelationshipInlined", nil, TypeRef{Inlined: Atom{List: &emptyList}, ElementRelationship: &atomic}, Atom{List: &atomicList}, true},
 	}
 	for _, tt := range tests {
 		tt := tt
