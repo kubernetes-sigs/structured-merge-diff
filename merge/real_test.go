@@ -46,6 +46,15 @@ var k8s = func() Parser {
 	return parser
 }()
 
+var apiresourceimport = func() Parser {
+	s := read(testdata("apiresourceimport.yaml"))
+	parser, err := typed.NewParser(typed.YAMLObject(s))
+	if err != nil {
+		panic(err)
+	}
+	return parser
+}()
+
 func BenchmarkOperations(b *testing.B) {
 	benches := []struct {
 		parseType typed.ParseableType
@@ -66,6 +75,10 @@ func BenchmarkOperations(b *testing.B) {
 		{
 			parseType: k8s.Type("io.k8s.apiextensions-apiserver.pkg.apis.apiextensions.v1beta1.CustomResourceDefinition"),
 			filename:  "prometheus-crd.yaml",
+		},
+		{
+			parseType: apiresourceimport.Type("apiresourceimport"),
+			filename:  "apiresourceimport-cr.yaml",
 		},
 	}
 
