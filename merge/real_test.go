@@ -37,7 +37,7 @@ func read(file string) []byte {
 	return s
 }
 
-var parser = func() Parser {
+var k8s = func() Parser {
 	s := read(testdata("k8s-schema.yaml"))
 	parser, err := typed.NewParser(typed.YAMLObject(s))
 	if err != nil {
@@ -48,24 +48,24 @@ var parser = func() Parser {
 
 func BenchmarkOperations(b *testing.B) {
 	benches := []struct {
-		typename string
-		filename string
+		parseType typed.ParseableType
+		filename  string
 	}{
 		{
-			typename: "io.k8s.api.core.v1.Pod",
-			filename: "pod.yaml",
+			parseType: k8s.Type("io.k8s.api.core.v1.Pod"),
+			filename:  "pod.yaml",
 		},
 		{
-			typename: "io.k8s.api.core.v1.Node",
-			filename: "node.yaml",
+			parseType: k8s.Type("io.k8s.api.core.v1.Node"),
+			filename:  "node.yaml",
 		},
 		{
-			typename: "io.k8s.api.core.v1.Endpoints",
-			filename: "endpoints.yaml",
+			parseType: k8s.Type("io.k8s.api.core.v1.Endpoints"),
+			filename:  "endpoints.yaml",
 		},
 		{
-			typename: "io.k8s.apiextensions-apiserver.pkg.apis.apiextensions.v1beta1.CustomResourceDefinition",
-			filename: "prometheus-crd.yaml",
+			parseType: k8s.Type("io.k8s.apiextensions-apiserver.pkg.apis.apiextensions.v1beta1.CustomResourceDefinition"),
+			filename:  "prometheus-crd.yaml",
 		},
 	}
 
@@ -147,7 +147,7 @@ func BenchmarkOperations(b *testing.B) {
 					tc := TestCase{
 						Ops: test.ops,
 					}
-					p := SameVersionParser{T: parser.Type(bench.typename)}
+					p := SameVersionParser{T: bench.parseType}
 					tc.PreprocessOperations(p)
 
 					b.ReportAllocs()
