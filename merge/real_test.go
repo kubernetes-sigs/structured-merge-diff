@@ -19,7 +19,6 @@ package merge_test
 import (
 	"io/ioutil"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	. "sigs.k8s.io/structured-merge-diff/v4/internal/fixture"
@@ -38,10 +37,6 @@ func read(file string) []byte {
 	return s
 }
 
-func lastPart(s string) string {
-	return s[strings.LastIndex(s, ".")+1:]
-}
-
 var parser = func() Parser {
 	s := read(testdata("k8s-schema.yaml"))
 	parser, err := typed.NewParser(typed.YAMLObject(s))
@@ -54,28 +49,29 @@ var parser = func() Parser {
 func BenchmarkOperations(b *testing.B) {
 	benches := []struct {
 		typename string
-		obj      typed.YAMLObject
+		filename string
 	}{
 		{
 			typename: "io.k8s.api.core.v1.Pod",
-			obj:      typed.YAMLObject(read(testdata("pod.yaml"))),
+			filename: "pod.yaml",
 		},
 		{
 			typename: "io.k8s.api.core.v1.Node",
-			obj:      typed.YAMLObject(read(testdata("node.yaml"))),
+			filename: "node.yaml",
 		},
 		{
 			typename: "io.k8s.api.core.v1.Endpoints",
-			obj:      typed.YAMLObject(read(testdata("endpoints.yaml"))),
+			filename: "endpoints.yaml",
 		},
 		{
 			typename: "io.k8s.apiextensions-apiserver.pkg.apis.apiextensions.v1beta1.CustomResourceDefinition",
-			obj:      typed.YAMLObject(read(testdata("prometheus-crd.yaml"))),
+			filename: "prometheus-crd.yaml",
 		},
 	}
 
 	for _, bench := range benches {
-		b.Run(lastPart(bench.typename), func(b *testing.B) {
+		b.Run(bench.filename, func(b *testing.B) {
+			obj := typed.YAMLObject(read(testdata(bench.filename)))
 			tests := []struct {
 				name string
 				ops  []Operation
@@ -86,7 +82,7 @@ func BenchmarkOperations(b *testing.B) {
 						Update{
 							Manager:    "controller",
 							APIVersion: "v1",
-							Object:     bench.obj,
+							Object:     obj,
 						},
 					},
 				},
@@ -96,7 +92,7 @@ func BenchmarkOperations(b *testing.B) {
 						Apply{
 							Manager:    "controller",
 							APIVersion: "v1",
-							Object:     bench.obj,
+							Object:     obj,
 						},
 					},
 				},
@@ -106,12 +102,12 @@ func BenchmarkOperations(b *testing.B) {
 						Apply{
 							Manager:    "controller",
 							APIVersion: "v1",
-							Object:     bench.obj,
+							Object:     obj,
 						},
 						Apply{
 							Manager:    "other-controller",
 							APIVersion: "v1",
-							Object:     bench.obj,
+							Object:     obj,
 						},
 					},
 				},
@@ -121,12 +117,12 @@ func BenchmarkOperations(b *testing.B) {
 						Update{
 							Manager:    "controller",
 							APIVersion: "v1",
-							Object:     bench.obj,
+							Object:     obj,
 						},
 						Update{
 							Manager:    "other-controller",
 							APIVersion: "v1",
-							Object:     bench.obj,
+							Object:     obj,
 						},
 					},
 				},
@@ -136,12 +132,12 @@ func BenchmarkOperations(b *testing.B) {
 						Update{
 							Manager:    "controller",
 							APIVersion: "v1",
-							Object:     bench.obj,
+							Object:     obj,
 						},
 						Update{
 							Manager:    "other-controller",
 							APIVersion: "v2",
-							Object:     bench.obj,
+							Object:     obj,
 						},
 					},
 				},
