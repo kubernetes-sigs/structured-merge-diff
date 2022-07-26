@@ -37,53 +37,75 @@ func read(file string) []byte {
 	return s
 }
 
-var k8s = func() Parser {
-	s := read(testdata("k8s-schema.yaml"))
+func loadParser(name string) Parser {
+	s := read(testdata(name))
 	parser, err := typed.NewParser(typed.YAMLObject(s))
 	if err != nil {
 		panic(err)
 	}
 	return parser
-}()
+}
 
-var apiresourceimport = func() Parser {
-	s := read(testdata("apiresourceimport.yaml"))
-	parser, err := typed.NewParser(typed.YAMLObject(s))
-	if err != nil {
-		panic(err)
-	}
-	return parser
-}()
+var k8s = loadParser("k8s-schema.yaml")
+var apiresourceimport = loadParser("apiresourceimport.yaml")
+var k8s100pctOverrides = loadParser("k8s-schema-100pct-fieldoverride.yaml")
+var k8s10pctOverrides = loadParser("k8s-schema-10pct-fieldoverride.yaml")
 
 func BenchmarkOperations(b *testing.B) {
 	benches := []struct {
+		name      string
 		parseType typed.ParseableType
 		filename  string
 	}{
 		{
+			name:      "Pod",
 			parseType: k8s.Type("io.k8s.api.core.v1.Pod"),
 			filename:  "pod.yaml",
 		},
 		{
+			name:      "Node",
 			parseType: k8s.Type("io.k8s.api.core.v1.Node"),
 			filename:  "node.yaml",
 		},
 		{
+			name:      "Endpoints",
 			parseType: k8s.Type("io.k8s.api.core.v1.Endpoints"),
 			filename:  "endpoints.yaml",
 		},
 		{
+			name:      "Node100%override",
+			parseType: k8s100pctOverrides.Type("io.k8s.api.core.v1.Node"),
+			filename:  "node.yaml",
+		},
+		{
+			name:      "Node10%override",
+			parseType: k8s10pctOverrides.Type("io.k8s.api.core.v1.Node"),
+			filename:  "node.yaml",
+		},
+		{
+			name:      "Endpoints100%override",
+			parseType: k8s100pctOverrides.Type("io.k8s.api.core.v1.Endpoints"),
+			filename:  "endpoints.yaml",
+		},
+		{
+			name:      "Endpoints10%override",
+			parseType: k8s10pctOverrides.Type("io.k8s.api.core.v1.Endpoints"),
+			filename:  "endpoints.yaml",
+		},
+		{
+			name:      "PrometheusCRD",
 			parseType: k8s.Type("io.k8s.apiextensions-apiserver.pkg.apis.apiextensions.v1beta1.CustomResourceDefinition"),
 			filename:  "prometheus-crd.yaml",
 		},
 		{
+			name:      "apiresourceimport",
 			parseType: apiresourceimport.Type("apiresourceimport"),
 			filename:  "apiresourceimport-cr.yaml",
 		},
 	}
 
 	for _, bench := range benches {
-		b.Run(bench.filename, func(b *testing.B) {
+		b.Run(bench.name, func(b *testing.B) {
 			obj := typed.YAMLObject(read(testdata(bench.filename)))
 			tests := []struct {
 				name string
