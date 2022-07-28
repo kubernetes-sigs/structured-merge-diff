@@ -101,11 +101,11 @@ const (
 
 // Map is a key-value pair. Its default semantics are the same as an
 // associative list, but:
-// * It is serialized differently:
+//   - It is serialized differently:
 //     map:  {"k": {"value": "v"}}
 //     list: [{"key": "k", "value": "v"}]
-// * Keys must be string typed.
-// * Keys can't have multiple components.
+//   - Keys must be string typed.
+//   - Keys can't have multiple components.
 //
 // Optionally, maps may be atomic (for example, imagine representing an RGB
 // color value--it doesn't make sense to have different actors own the R and G
