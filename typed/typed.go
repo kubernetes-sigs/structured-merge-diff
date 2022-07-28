@@ -103,8 +103,8 @@ func (tv TypedValue) ToFieldSet() (*fieldpath.Set, error) {
 //   - If both tv and pso specify a given leaf field, the result will keep pso's
 //     value.
 //   - Container typed elements will have their items ordered:
-//   - like tv, if pso doesn't change anything in the container
-//   - like pso, if pso does change something in the container.
+//     1. like tv, if pso doesn't change anything in the container
+//     2. like pso, if pso does change something in the container.
 //
 // tv and pso must both be of the same type (their Schema and TypeRef must
 // match), or an error will be returned. Validation errors will be returned if
