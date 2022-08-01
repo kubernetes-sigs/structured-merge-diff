@@ -30,7 +30,11 @@ type Schema struct {
 	once sync.Once
 	m    map[string]TypeDef
 
-	lock sync.Mutex
+	// Once used to protect the initialization of `lock` field.
+	lockOnce sync.Once
+	// Lock which protects writes to resolvedTypes. Used as pointer so that
+	// schema may be used as a value type
+	lock *sync.Mutex
 	// Cached results of resolving type references to atoms. Only stores
 	// type references which require fields of Atom to be overriden.
 	resolvedTypes map[TypeRef]Atom
@@ -39,7 +43,7 @@ type Schema struct {
 // A TypeSpecifier references a particular type in a schema.
 type TypeSpecifier struct {
 	Type   TypeRef `yaml:"type,omitempty"`
-	Schema *Schema `yaml:"schema,omitempty"`
+	Schema Schema  `yaml:"schema,omitempty"`
 }
 
 // TypeDef represents a named type in a schema.
@@ -286,9 +290,13 @@ func (s *Schema) Resolve(tr TypeRef) (Atom, bool) {
 	}
 
 	// Check to see if we have a cached version of this type
+	s.lockOnce.Do(func() {
+		s.lock = &sync.Mutex{}
+		s.resolvedTypes = make(map[TypeRef]Atom)
+	})
+
 	s.lock.Lock()
 	defer s.lock.Unlock()
-	s.resolvedTypes = make(map[TypeRef]Atom)
 
 	var result Atom
 	var exists bool
@@ -327,7 +335,7 @@ func (s *Schema) Resolve(tr TypeRef) (Atom, bool) {
 // If other is nil this method does nothing.
 // If other is already initialized, overwrites it with this instance
 // Warning: Not thread safe
-func (s *Schema) CopyInto(dst *Schema) {
+func (s Schema) CopyInto(dst *Schema) {
 	if dst == nil {
 		return
 	}

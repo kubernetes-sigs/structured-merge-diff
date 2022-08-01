@@ -477,7 +477,7 @@ func (cs ChangeParser) run(state *State) error {
 	// Swap the schema in for use with the live object so it merges.
 	// If the schema is incompatible, this will fail validation.
 
-	liveWithNewSchema, err := typed.AsTyped(state.Live.AsValue(), cs.Parser.Schema, state.Live.TypeRef())
+	liveWithNewSchema, err := typed.AsTyped(state.Live.AsValue(), &cs.Parser.Schema, state.Live.TypeRef())
 	if err != nil {
 		return err
 	}

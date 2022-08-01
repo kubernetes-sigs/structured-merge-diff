@@ -31,10 +31,10 @@ func fuzzInterface(i *interface{}, c fuzz.Continue) {
 	*i = &m
 }
 
-func (*Schema) Generate(rand *rand.Rand, size int) reflect.Value {
-	s := &Schema{}
+func (Schema) Generate(rand *rand.Rand, size int) reflect.Value {
+	s := Schema{}
 	f := fuzz.New().RandSource(rand).MaxDepth(4)
-	f.Fuzz(s)
+	f.Fuzz(&s)
 	return reflect.ValueOf(s)
 }
 
@@ -73,13 +73,13 @@ func TestEquals(t *testing.T) {
 	// The "copy known fields" section of these function is to break if folks
 	// add new fields without fixing the Equals function and this test.
 	funcs := []interface{}{
-		func(x *Schema) bool {
-			if !x.Equals(x) {
+		func(x Schema) bool {
+			if !x.Equals(&x) {
 				return false
 			}
 			var y Schema
 			y.Types = x.Types
-			return x.Equals(&y) == reflect.DeepEqual(x, &y)
+			return x.Equals(&y) == reflect.DeepEqual(&x, &y)
 		},
 		func(x TypeDef) bool {
 			if !x.Equals(&x) {
