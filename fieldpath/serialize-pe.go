@@ -24,7 +24,7 @@ import (
 	"strings"
 
 	jsoniter "github.com/json-iterator/go"
-	"sigs.k8s.io/structured-merge-diff/v4/value"
+	"sigs.k8s.io/structured-merge-diff/v5/value"
 )
 
 var ErrUnknownPathElementType = errors.New("unknown path element type")
