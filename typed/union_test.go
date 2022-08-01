@@ -19,7 +19,7 @@ package typed_test
 import (
 	"testing"
 
-	"sigs.k8s.io/structured-merge-diff/v5/typed"
+	"sigs.k8s.io/structured-merge-diff/v4/typed"
 )
 
 var unionParser = func() typed.ParseableType {

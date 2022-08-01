@@ -23,7 +23,7 @@ import (
 	"testing"
 
 	"gopkg.in/yaml.v2"
-	"sigs.k8s.io/structured-merge-diff/v5/schema"
+	"sigs.k8s.io/structured-merge-diff/v4/schema"
 )
 
 type randomPathAlphabet []PathElement

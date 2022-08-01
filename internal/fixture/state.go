@@ -20,10 +20,10 @@ import (
 	"bytes"
 	"fmt"
 
-	"sigs.k8s.io/structured-merge-diff/v5/fieldpath"
-	"sigs.k8s.io/structured-merge-diff/v5/merge"
-	"sigs.k8s.io/structured-merge-diff/v5/typed"
-	"sigs.k8s.io/structured-merge-diff/v5/value"
+	"sigs.k8s.io/structured-merge-diff/v4/fieldpath"
+	"sigs.k8s.io/structured-merge-diff/v4/merge"
+	"sigs.k8s.io/structured-merge-diff/v4/typed"
+	"sigs.k8s.io/structured-merge-diff/v4/value"
 )
 
 // For the sake of tests, a parser is something that can retrieve a
