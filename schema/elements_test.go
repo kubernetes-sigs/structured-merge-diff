@@ -161,7 +161,7 @@ func TestCopyInto(t *testing.T) {
 			theCopy := Schema{}
 			s.CopyInto(&theCopy)
 
-			if !reflect.DeepEqual(s, theCopy) {
+			if !reflect.DeepEqual(&s, &theCopy) {
 				t.Fatal("")
 			}
 
@@ -170,7 +170,7 @@ func TestCopyInto(t *testing.T) {
 			theCopy = Schema{}
 			s.CopyInto(&theCopy)
 
-			if !reflect.DeepEqual(s, theCopy) {
+			if !reflect.DeepEqual(&s, &theCopy) {
 				t.Fatal("")
 			}
 		})

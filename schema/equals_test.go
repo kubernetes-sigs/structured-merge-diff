@@ -31,18 +31,18 @@ func fuzzInterface(i *interface{}, c fuzz.Continue) {
 	*i = &m
 }
 
-func (Schema) Generate(rand *rand.Rand, size int) reflect.Value {
+func (*Schema) Generate(rand *rand.Rand, size int) reflect.Value {
 	s := Schema{}
 	f := fuzz.New().RandSource(rand).MaxDepth(4)
 	f.Fuzz(&s)
-	return reflect.ValueOf(s)
+	return reflect.ValueOf(&s)
 }
 
-func (Map) Generate(rand *rand.Rand, size int) reflect.Value {
+func (*Map) Generate(rand *rand.Rand, size int) reflect.Value {
 	m := Map{}
 	f := fuzz.New().RandSource(rand).MaxDepth(4).Funcs(fuzzInterface)
 	f.Fuzz(&m)
-	return reflect.ValueOf(m)
+	return reflect.ValueOf(&m)
 }
 
 func (TypeDef) Generate(rand *rand.Rand, size int) reflect.Value {
@@ -73,13 +73,13 @@ func TestEquals(t *testing.T) {
 	// The "copy known fields" section of these function is to break if folks
 	// add new fields without fixing the Equals function and this test.
 	funcs := []interface{}{
-		func(x Schema) bool {
-			if !x.Equals(&x) {
+		func(x *Schema) bool {
+			if !x.Equals(x) {
 				return false
 			}
 			var y Schema
 			y.Types = x.Types
-			return x.Equals(&y) == reflect.DeepEqual(&x, &y)
+			return x.Equals(&y) == reflect.DeepEqual(x, &y)
 		},
 		func(x TypeDef) bool {
 			if !x.Equals(&x) {
@@ -109,8 +109,8 @@ func TestEquals(t *testing.T) {
 			y.Map = x.Map
 			return x.Equals(&y) == reflect.DeepEqual(x, y)
 		},
-		func(x Map) bool {
-			if !x.Equals(&x) {
+		func(x *Map) bool {
+			if !x.Equals(x) {
 				return false
 			}
 			var y Map
@@ -118,7 +118,7 @@ func TestEquals(t *testing.T) {
 			y.ElementRelationship = x.ElementRelationship
 			y.Fields = x.Fields
 			y.Unions = x.Unions
-			return x.Equals(&y) == reflect.DeepEqual(&x, &y)
+			return x.Equals(&y) == reflect.DeepEqual(x, &y)
 		},
 		func(x Union) bool {
 			if !x.Equals(&x) {
