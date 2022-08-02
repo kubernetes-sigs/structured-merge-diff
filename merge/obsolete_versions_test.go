@@ -20,10 +20,10 @@ import (
 	"fmt"
 	"testing"
 
-	"sigs.k8s.io/structured-merge-diff/v5/fieldpath"
-	. "sigs.k8s.io/structured-merge-diff/v5/internal/fixture"
-	"sigs.k8s.io/structured-merge-diff/v5/merge"
-	"sigs.k8s.io/structured-merge-diff/v5/typed"
+	"sigs.k8s.io/structured-merge-diff/v4/fieldpath"
+	. "sigs.k8s.io/structured-merge-diff/v4/internal/fixture"
+	"sigs.k8s.io/structured-merge-diff/v4/merge"
+	"sigs.k8s.io/structured-merge-diff/v4/typed"
 )
 
 // specificVersionConverter doesn't convert and return the exact same

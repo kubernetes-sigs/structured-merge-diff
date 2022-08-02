@@ -39,7 +39,7 @@ type Schema struct {
 // A TypeSpecifier references a particular type in a schema.
 type TypeSpecifier struct {
 	Type   TypeRef `yaml:"type,omitempty"`
-	Schema *Schema `yaml:"schema,omitempty"`
+	Schema Schema  `yaml:"schema,omitempty"`
 }
 
 // TypeDef represents a named type in a schema.
@@ -157,6 +157,31 @@ func (m *Map) FindField(name string) (StructField, bool) {
 	})
 	sf, ok := m.m[name]
 	return sf, ok
+}
+
+// CopyInto this instance of Map into the other
+// If other is nil this method does nothing.
+// If other is already initialized, overwrites it with this instance
+// Warning: Not thread safe
+func (m *Map) CopyInto(dst *Map) {
+	if dst == nil {
+		return
+	}
+
+	// Map type is considered immutable so sharing references
+	dst.Fields = m.Fields
+	dst.ElementType = m.ElementType
+	dst.Unions = m.Unions
+	dst.ElementRelationship = m.ElementRelationship
+
+	if m.m != nil {
+		// If cache is non-nil then the once token had been consumed.
+		// Must reset token and use it again to ensure same semantics.
+		dst.once = sync.Once{}
+		dst.once.Do(func() {
+			dst.m = m.m
+		})
+	}
 }
 
 // UnionFields are mapping between the fields that are part of the union and
@@ -285,10 +310,12 @@ func (s *Schema) Resolve(tr TypeRef) (Atom, bool) {
 		return s.resolveNoOverrides(tr)
 	}
 
-	// Check to see if we have a cached version of this type
 	s.lock.Lock()
 	defer s.lock.Unlock()
-	s.resolvedTypes = make(map[TypeRef]Atom)
+
+	if s.resolvedTypes == nil {
+		s.resolvedTypes = make(map[TypeRef]Atom)
+	}
 
 	var result Atom
 	var exists bool
@@ -300,7 +327,8 @@ func (s *Schema) Resolve(tr TypeRef) (Atom, bool) {
 			// Allow field-level electives to override the referred type's modifiers
 			switch {
 			case result.Map != nil:
-				mapCopy := *result.Map
+				mapCopy := Map{}
+				result.Map.CopyInto(&mapCopy)
 				mapCopy.ElementRelationship = *tr.ElementRelationship
 				result.Map = &mapCopy
 			case result.List != nil:

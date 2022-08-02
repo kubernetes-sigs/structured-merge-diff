@@ -17,9 +17,9 @@ limitations under the License.
 package typed
 
 import (
-	"sigs.k8s.io/structured-merge-diff/v5/fieldpath"
-	"sigs.k8s.io/structured-merge-diff/v5/schema"
-	"sigs.k8s.io/structured-merge-diff/v5/value"
+	"sigs.k8s.io/structured-merge-diff/v4/fieldpath"
+	"sigs.k8s.io/structured-merge-diff/v4/schema"
+	"sigs.k8s.io/structured-merge-diff/v4/value"
 )
 
 type mergingWalker struct {

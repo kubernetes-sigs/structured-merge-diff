@@ -20,7 +20,7 @@ import (
 	"sort"
 	"strings"
 
-	"sigs.k8s.io/structured-merge-diff/v5/schema"
+	"sigs.k8s.io/structured-merge-diff/v4/schema"
 )
 
 // Set identifies a set of fields.

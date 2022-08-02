@@ -20,8 +20,8 @@ import (
 	"fmt"
 
 	yaml "gopkg.in/yaml.v2"
-	"sigs.k8s.io/structured-merge-diff/v5/schema"
-	"sigs.k8s.io/structured-merge-diff/v5/value"
+	"sigs.k8s.io/structured-merge-diff/v4/schema"
+	"sigs.k8s.io/structured-merge-diff/v4/value"
 )
 
 // YAMLObject is an object encoded in YAML.
@@ -29,14 +29,12 @@ type YAMLObject string
 
 // Parser implements YAMLParser and allows introspecting the schema.
 type Parser struct {
-	Schema *schema.Schema
+	Schema schema.Schema
 }
 
 // create builds an unvalidated parser.
 func create(s YAMLObject) (*Parser, error) {
-	p := Parser{
-		Schema: &schema.Schema{},
-	}
+	p := Parser{}
 	err := yaml.Unmarshal([]byte(s), &p.Schema)
 	return &p, err
 }
@@ -76,7 +74,7 @@ func (p *Parser) TypeNames() (names []string) {
 // errors are deferred until a further function is called.
 func (p *Parser) Type(name string) ParseableType {
 	return ParseableType{
-		Schema:  p.Schema,
+		Schema:  &p.Schema,
 		TypeRef: schema.TypeRef{NamedType: &name},
 	}
 }
