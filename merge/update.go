@@ -218,7 +218,8 @@ func (s *Updater) prune(merged *typed.TypedValue, managers fieldpath.ManagedFiel
 	if lastSet == nil || lastSet.Set().Empty() {
 		return merged, nil
 	}
-	convertedMerged, err := s.Converter.Convert(merged, lastSet.APIVersion())
+	version := lastSet.APIVersion()
+	convertedMerged, err := s.Converter.Convert(merged, version)
 	if err != nil {
 		if s.Converter.IsMissingVersionError(err) {
 			return merged, nil
@@ -228,7 +229,7 @@ func (s *Updater) prune(merged *typed.TypedValue, managers fieldpath.ManagedFiel
 
 	sc, tr := convertedMerged.Schema(), convertedMerged.TypeRef()
 	pruned := convertedMerged.RemoveItems(lastSet.Set().EnsureNamedFieldsAreMembers(sc, tr))
-	pruned, err = s.addBackOwnedItems(convertedMerged, pruned, managers, applyingManager)
+	pruned, err = s.addBackOwnedItems(convertedMerged, pruned, version, managers, applyingManager)
 	if err != nil {
 		return nil, fmt.Errorf("failed add back owned items: %v", err)
 	}
@@ -241,7 +242,7 @@ func (s *Updater) prune(merged *typed.TypedValue, managers fieldpath.ManagedFiel
 
 // addBackOwnedItems adds back any fields, list and map items that were removed by prune,
 // but other appliers or updaters (or the current applier's new config) claim to own.
-func (s *Updater) addBackOwnedItems(merged, pruned *typed.TypedValue, managedFields fieldpath.ManagedFields, applyingManager string) (*typed.TypedValue, error) {
+func (s *Updater) addBackOwnedItems(merged, pruned *typed.TypedValue, prunedVersion fieldpath.APIVersion, managedFields fieldpath.ManagedFields, applyingManager string) (*typed.TypedValue, error) {
 	var err error
 	managedAtVersion := map[fieldpath.APIVersion]*fieldpath.Set{}
 	for _, managerSet := range managedFields {
@@ -252,7 +253,6 @@ func (s *Updater) addBackOwnedItems(merged, pruned *typed.TypedValue, managedFie
 	}
 	// Add back owned items at pruned version first to avoid conversion failure
 	// caused by pruned fields which are required for conversion.
-	prunedVersion := fieldpath.APIVersion(*pruned.TypeRef().NamedType)
 	if managed, ok := managedAtVersion[prunedVersion]; ok {
 		merged, pruned, err = s.addBackOwnedItemsForVersion(merged, pruned, prunedVersion, managed)
 		if err != nil {
