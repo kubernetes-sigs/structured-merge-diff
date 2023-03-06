@@ -151,7 +151,8 @@ func TestCopyInto(t *testing.T) {
 		{"existingNamedType", []TypeDef{{Name: existing, Atom: a}}, TypeRef{NamedType: &existing}},
 	}
 
-	for _, tt := range tests {
+	for i := range tests {
+		tt := tests[i]
 		t.Run(tt.testName, func(t *testing.T) {
 			t.Parallel()
 			s := Schema{
