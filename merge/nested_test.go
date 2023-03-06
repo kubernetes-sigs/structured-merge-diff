@@ -55,7 +55,7 @@ var nestedTypeParser = func() Parser {
         scalar: string
     - name: value
       type:
-        scalar: number
+        scalar: numeric
 - name: listOfLists
   list:
     elementType:
