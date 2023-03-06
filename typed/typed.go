@@ -45,6 +45,10 @@ func AsTyped(v value.Value, s *schema.Schema, typeRef schema.TypeRef) (*TypedVal
 // conforms to the schema, for cases where that has already been checked or
 // where you're going to call a method that validates as a side-effect (like
 // ToFieldSet).
+//
+// Deprecated: This function was initially created because validation
+// was expensive. Now that this has been solved, objects should always
+// be created as validated, using `AsTyped`.
 func AsTypedUnvalidated(v value.Value, s *schema.Schema, typeRef schema.TypeRef) *TypedValue {
 	tv := &TypedValue{
 		value:   v,
