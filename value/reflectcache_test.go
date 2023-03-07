@@ -77,3 +77,76 @@ func TestToUnstructured(t *testing.T) {
 		})
 	}
 }
+
+func TestTypeReflectEntryOf(t *testing.T) {
+	testString := ""
+	tests := map[string]struct {
+		arg  interface{}
+		want *TypeReflectCacheEntry
+	}{
+		"StructWithStringField": {
+			arg: struct {
+				F1 string `json:"f1"`
+			}{},
+			want: &TypeReflectCacheEntry{
+				structFields: map[string]*FieldCacheEntry{
+					"f1": {
+						JsonName:  "f1",
+						fieldPath: [][]int{{0}},
+						fieldType: reflect.TypeOf(testString),
+						TypeEntry: &TypeReflectCacheEntry{},
+					},
+				},
+				orderedStructFields: []*FieldCacheEntry{
+					{
+						JsonName:  "f1",
+						fieldPath: [][]int{{0}},
+						fieldType: reflect.TypeOf(testString),
+						TypeEntry: &TypeReflectCacheEntry{},
+					},
+				},
+			},
+		},
+		"StructWith*StringFieldOmitempty": {
+			arg: struct {
+				F1 *string `json:"f1,omitempty"`
+			}{},
+			want: &TypeReflectCacheEntry{
+				structFields: map[string]*FieldCacheEntry{
+					"f1": {
+						JsonName:    "f1",
+						isOmitEmpty: true,
+						fieldPath:   [][]int{{0}},
+						fieldType:   reflect.TypeOf(&testString),
+						TypeEntry:   &TypeReflectCacheEntry{},
+					},
+				},
+				orderedStructFields: []*FieldCacheEntry{
+					{
+						JsonName:    "f1",
+						isOmitEmpty: true,
+						fieldPath:   [][]int{{0}},
+						fieldType:   reflect.TypeOf(&testString),
+						TypeEntry:   &TypeReflectCacheEntry{},
+					},
+				},
+			},
+		},
+		"StructWithInlinedField": {
+			arg: struct {
+				F1 string `json:",inline"`
+			}{},
+			want: &TypeReflectCacheEntry{
+				structFields:        map[string]*FieldCacheEntry{},
+				orderedStructFields: []*FieldCacheEntry{},
+			},
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			if got := TypeReflectEntryOf(reflect.TypeOf(tt.arg)); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("TypeReflectEntryOf() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
