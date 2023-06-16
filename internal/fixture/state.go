@@ -131,7 +131,7 @@ func (s *State) UpdateObject(tv *typed.TypedValue, version fieldpath.APIVersion,
 
 // Update the current state with the passed in object
 func (s *State) Update(obj typed.YAMLObject, version fieldpath.APIVersion, manager string) error {
-	tv, err := s.Parser.Type(string(version)).FromYAML(FixTabsOrDie(obj))
+	tv, err := s.Parser.Type(string(version)).FromYAML(FixTabsOrDie(obj), typed.AllowDuplicates)
 	if err != nil {
 		return err
 	}
@@ -174,7 +174,7 @@ func (s *State) CompareLive(obj typed.YAMLObject, version fieldpath.APIVersion) 
 	if err := s.checkInit(version); err != nil {
 		return "", err
 	}
-	tv, err := s.Parser.Type(string(version)).FromYAML(obj)
+	tv, err := s.Parser.Type(string(version)).FromYAML(obj, typed.AllowDuplicates)
 	if err != nil {
 		return "", err
 	}
@@ -461,7 +461,7 @@ func (u Update) run(state *State) error {
 }
 
 func (u Update) preprocess(parser Parser) (Operation, error) {
-	tv, err := parser.Type(string(u.APIVersion)).FromYAML(FixTabsOrDie(u.Object))
+	tv, err := parser.Type(string(u.APIVersion)).FromYAML(FixTabsOrDie(u.Object), typed.AllowDuplicates)
 	if err != nil {
 		return nil, err
 	}
