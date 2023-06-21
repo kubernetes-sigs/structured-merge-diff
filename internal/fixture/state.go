@@ -588,7 +588,7 @@ func (tc TestCase) TestWithConverter(parser Parser, converter merge.Converter) e
 
 	if tc.Managed != nil {
 		if diff := state.Managers.Difference(tc.Managed); len(diff) != 0 {
-			return fmt.Errorf("expected Managers to be:\n%v\ngot:\n%v", tc.Managed, state.Managers)
+			return fmt.Errorf("expected Managers to be:\n%v\ngot:\n%v\ndiff:\n%v", tc.Managed, state.Managers, diff)
 		}
 	}
 
