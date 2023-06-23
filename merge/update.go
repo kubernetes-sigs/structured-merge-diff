@@ -18,6 +18,7 @@ import (
 
 	"sigs.k8s.io/structured-merge-diff/v4/fieldpath"
 	"sigs.k8s.io/structured-merge-diff/v4/typed"
+	"sigs.k8s.io/structured-merge-diff/v4/value"
 )
 
 // Converter is an interface to the conversion logic. The converter
@@ -157,8 +158,7 @@ func (s *Updater) Update(liveObject, newObject *typed.TypedValue, version fieldp
 
 // Apply should be called when Apply is run, given the current object as
 // well as the configuration that is applied. This will merge the object
-// and return it. If the object hasn't changed, nil is returned (the
-// managers can still have changed though).
+// and return it.
 func (s *Updater) Apply(liveObject, configObject *typed.TypedValue, version fieldpath.APIVersion, managers fieldpath.ManagedFields, manager string, force bool) (*typed.TypedValue, fieldpath.ManagedFields, error) {
 	var err error
 	managers, err = s.reconcileManagedFieldsWithSchemaChanges(liveObject, managers)
@@ -200,11 +200,11 @@ func (s *Updater) Apply(liveObject, configObject *typed.TypedValue, version fiel
 	if err != nil {
 		return nil, fieldpath.ManagedFields{}, fmt.Errorf("failed to prune fields: %v", err)
 	}
-	managers, compare, err := s.update(liveObject, newObject, version, managers, manager, force)
+	managers, _, err = s.update(liveObject, newObject, version, managers, manager, force)
 	if err != nil {
 		return nil, fieldpath.ManagedFields{}, err
 	}
-	if compare.IsSame() {
+	if value.EqualsUsing(value.NewFreelistAllocator(), liveObject.AsValue(), newObject.AsValue()) {
 		newObject = nil
 	}
 	return newObject, managers, nil

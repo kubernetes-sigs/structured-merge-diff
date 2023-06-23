@@ -124,11 +124,11 @@ func TestUpdateSet(t *testing.T) {
 			Object: `
 				list:
 				- a
-				- aprime
 				- b
+				- aprime
 				- c
-				- cprime
 				- d
+				- cprime
 			`,
 			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
@@ -189,11 +189,11 @@ func TestUpdateSet(t *testing.T) {
 			Object: `
 				list:
 				- a
-				- aprime
 				- b
+				- aprime
 				- c
-				- cprime
 				- d
+				- cprime
 			`,
 			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
