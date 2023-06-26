@@ -129,12 +129,13 @@ func (tv TypedValue) Compare(rhs *TypedValue) (c *Comparison, err error) {
 		Modified: fieldpath.NewSet(),
 		Added:    fieldpath.NewSet(),
 	}
+	a := value.NewFreelistAllocator()
 	_, err = merge(&tv, rhs, func(w *mergingWalker) {
 		if w.lhs == nil {
 			c.Added.Insert(w.path)
 		} else if w.rhs == nil {
 			c.Removed.Insert(w.path)
-		} else if !value.Equals(w.rhs, w.lhs) {
+		} else if !value.EqualsUsing(a, w.rhs, w.lhs) {
 			// TODO: Equality is not sufficient for this.
 			// Need to implement equality check on the value type.
 			c.Modified.Insert(w.path)
