@@ -166,63 +166,6 @@ func (tv TypedValue) ExtractItems(items *fieldpath.Set) *TypedValue {
 	return &tv
 }
 
-// NormalizeUnions takes the new object and normalizes the union:
-// - If discriminator changed to non-nil, and a new field has been added
-// that doesn't match, an error is returned,
-// - If discriminator hasn't changed and two fields or more are set, an
-// error is returned,
-// - If discriminator changed to non-nil, all other fields but the
-// discriminated one will be cleared,
-// - Otherwise, If only one field is left, update discriminator to that value.
-//
-// Please note: union behavior isn't finalized yet and this is still experimental.
-func (tv TypedValue) NormalizeUnions(new *TypedValue) (*TypedValue, error) {
-	var errs ValidationErrors
-	var normalizeFn = func(w *mergingWalker) {
-		if w.rhs != nil {
-			v := w.rhs.Unstructured()
-			w.out = &v
-		}
-		if err := normalizeUnions(w); err != nil {
-			errs = append(errs, errorf(err.Error())...)
-		}
-	}
-	out, mergeErrs := merge(&tv, new, func(w *mergingWalker) {}, normalizeFn)
-	if mergeErrs != nil {
-		errs = append(errs, mergeErrs.(ValidationErrors)...)
-	}
-	if len(errs) > 0 {
-		return nil, errs
-	}
-	return out, nil
-}
-
-// NormalizeUnionsApply specifically normalize unions on apply. It
-// validates that the applied union is correct (there should be no
-// ambiguity there), and clear the fields according to the sent intent.
-//
-// Please note: union behavior isn't finalized yet and this is still experimental.
-func (tv TypedValue) NormalizeUnionsApply(new *TypedValue) (*TypedValue, error) {
-	var errs ValidationErrors
-	var normalizeFn = func(w *mergingWalker) {
-		if w.rhs != nil {
-			v := w.rhs.Unstructured()
-			w.out = &v
-		}
-		if err := normalizeUnionsApply(w); err != nil {
-			errs = append(errs, errorf(err.Error())...)
-		}
-	}
-	out, mergeErrs := merge(&tv, new, func(w *mergingWalker) {}, normalizeFn)
-	if mergeErrs != nil {
-		errs = append(errs, mergeErrs.(ValidationErrors)...)
-	}
-	if len(errs) > 0 {
-		return nil, errs
-	}
-	return out, nil
-}
-
 func (tv TypedValue) Empty() *TypedValue {
 	tv.value = value.NewValueInterface(nil)
 	return &tv

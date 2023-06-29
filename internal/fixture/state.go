@@ -507,8 +507,6 @@ type TestCase struct {
 	// Managed, if not nil, is the ManagedFields as expected
 	// after all operations are run.
 	Managed fieldpath.ManagedFields
-	// Set to true if the test case needs the union behavior enabled.
-	RequiresUnions bool
 	// IgnoredFields containing the set to ignore for every version
 	IgnoredFields map[fieldpath.APIVersion]*fieldpath.Set
 }
@@ -545,9 +543,6 @@ func (tc TestCase) BenchWithConverter(parser Parser, converter merge.Converter) 
 		Updater: &merge.Updater{Converter: converter, IgnoredFields: tc.IgnoredFields},
 		Parser:  parser,
 	}
-	if tc.RequiresUnions {
-		state.Updater.EnableUnionFeature()
-	}
 	// We currently don't have any test that converts, we can take
 	// care of that later.
 	for i, ops := range tc.Ops {
@@ -564,9 +559,6 @@ func (tc TestCase) TestWithConverter(parser Parser, converter merge.Converter) e
 	state := State{
 		Updater: &merge.Updater{Converter: converter, IgnoredFields: tc.IgnoredFields},
 		Parser:  parser,
-	}
-	if tc.RequiresUnions {
-		state.Updater.EnableUnionFeature()
 	}
 	for i, ops := range tc.Ops {
 		err := ops.run(&state)
@@ -596,16 +588,6 @@ func (tc TestCase) TestWithConverter(parser Parser, converter merge.Converter) e
 	for manager, set := range state.Managers {
 		if set.Set().Empty() {
 			return fmt.Errorf("expected Managers to have no empty sets, but found one managed by %v", manager)
-		}
-	}
-
-	if !tc.RequiresUnions {
-		// Re-run the test with unions on.
-		tc2 := tc
-		tc2.RequiresUnions = true
-		err := tc2.TestWithConverter(parser, converter)
-		if err != nil {
-			return fmt.Errorf("fails if unions are on: %v", err)
 		}
 	}
 

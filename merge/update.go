@@ -32,14 +32,6 @@ type Converter interface {
 type Updater struct {
 	Converter     Converter
 	IgnoredFields map[fieldpath.APIVersion]*fieldpath.Set
-
-	enableUnions bool
-}
-
-// EnableUnionFeature turns on union handling. It is disabled by default until the
-// feature is complete.
-func (s *Updater) EnableUnionFeature() {
-	s.enableUnions = true
 }
 
 func (s *Updater) update(oldObject, newObject *typed.TypedValue, version fieldpath.APIVersion, managers fieldpath.ManagedFields, workflow string, force bool) (fieldpath.ManagedFields, *typed.Comparison, error) {
@@ -126,12 +118,6 @@ func (s *Updater) Update(liveObject, newObject *typed.TypedValue, version fieldp
 	if err != nil {
 		return nil, fieldpath.ManagedFields{}, err
 	}
-	if s.enableUnions {
-		newObject, err = liveObject.NormalizeUnions(newObject)
-		if err != nil {
-			return nil, fieldpath.ManagedFields{}, err
-		}
-	}
 	managers, compare, err := s.update(liveObject, newObject, version, managers, manager, true)
 	if err != nil {
 		return nil, fieldpath.ManagedFields{}, err
@@ -165,21 +151,9 @@ func (s *Updater) Apply(liveObject, configObject *typed.TypedValue, version fiel
 	if err != nil {
 		return nil, fieldpath.ManagedFields{}, err
 	}
-	if s.enableUnions {
-		configObject, err = configObject.NormalizeUnionsApply(configObject)
-		if err != nil {
-			return nil, fieldpath.ManagedFields{}, err
-		}
-	}
 	newObject, err := liveObject.Merge(configObject)
 	if err != nil {
 		return nil, fieldpath.ManagedFields{}, fmt.Errorf("failed to merge config: %v", err)
-	}
-	if s.enableUnions {
-		newObject, err = configObject.NormalizeUnionsApply(newObject)
-		if err != nil {
-			return nil, fieldpath.ManagedFields{}, err
-		}
 	}
 	lastSet := managers[manager]
 	set, err := configObject.ToFieldSet()
