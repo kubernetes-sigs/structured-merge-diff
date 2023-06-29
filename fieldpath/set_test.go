@@ -24,6 +24,7 @@ import (
 
 	"gopkg.in/yaml.v2"
 	"sigs.k8s.io/structured-merge-diff/v4/schema"
+	"sigs.k8s.io/structured-merge-diff/v4/value"
 )
 
 type randomPathAlphabet []PathElement
@@ -57,7 +58,6 @@ var randomPathMaker = randomPathAlphabet(MakePathOrDie(
 	_V("aa"),
 	_V("ab"),
 	_V(true),
-	1, 2, 3, 4,
 ))
 
 func BenchmarkFieldSet(b *testing.B) {
@@ -151,11 +151,9 @@ func BenchmarkFieldSet(b *testing.B) {
 
 func TestSetInsertHas(t *testing.T) {
 	s1 := NewSet(
-		MakePathOrDie("foo", 0, "bar", "baz"),
-		MakePathOrDie("foo", 0, "bar"),
-		MakePathOrDie("foo", 0),
-		MakePathOrDie("foo", 1, "bar", "baz"),
-		MakePathOrDie("foo", 1, "bar"),
+		MakePathOrDie("foo", "bar", "baz"),
+		MakePathOrDie("foo", "bar"),
+		MakePathOrDie("foo"),
 		MakePathOrDie("qux", KeyByFields("name", "first")),
 		MakePathOrDie("qux", KeyByFields("name", "first"), "bar"),
 		MakePathOrDie("qux", KeyByFields("name", "second"), "bar"),
@@ -178,12 +176,9 @@ func TestSetInsertHas(t *testing.T) {
 		{s1, MakePathOrDie("qux", KeyByFields("name", "second"), "bar"), true},
 		{s1, MakePathOrDie("qux", KeyByFields("name", "first")), true},
 		{s1, MakePathOrDie("xuq", KeyByFields("name", "first")), false},
-		{s1, MakePathOrDie("foo", 0), true},
-		{s1, MakePathOrDie("foo", 0, "bar"), true},
-		{s1, MakePathOrDie("foo", 0, "bar", "baz"), true},
-		{s1, MakePathOrDie("foo", 1), false},
-		{s1, MakePathOrDie("foo", 1, "bar"), true},
-		{s1, MakePathOrDie("foo", 1, "bar", "baz"), true},
+		{s1, MakePathOrDie("foo"), true},
+		{s1, MakePathOrDie("foo", "bar"), true},
+		{s1, MakePathOrDie("foo", "bar", "baz"), true},
 		{s1, MakePathOrDie("canonicalOrder", KeyByFields(
 			"f", "a",
 			"e", "a",
@@ -219,12 +214,10 @@ func TestSetString(t *testing.T) {
 
 func TestSetIterSize(t *testing.T) {
 	s1 := NewSet(
-		MakePathOrDie("foo", 0, "bar", "baz"),
-		MakePathOrDie("foo", 0, "bar", "zot"),
-		MakePathOrDie("foo", 0, "bar"),
-		MakePathOrDie("foo", 0),
-		MakePathOrDie("foo", 1, "bar", "baz"),
-		MakePathOrDie("foo", 1, "bar"),
+		MakePathOrDie("foo", "bar", "baz"),
+		MakePathOrDie("foo", "bar", "zot"),
+		MakePathOrDie("foo", "bar"),
+		MakePathOrDie("foo"),
 		MakePathOrDie("qux", KeyByFields("name", "first")),
 		MakePathOrDie("qux", KeyByFields("name", "first"), "bar"),
 		MakePathOrDie("qux", KeyByFields("name", "second"), "bar"),
@@ -268,50 +261,21 @@ func TestSetEquals(t *testing.T) {
 		},
 		{
 			a:     NewSet(),
-			b:     NewSet(MakePathOrDie(0, "foo")),
+			b:     NewSet(MakePathOrDie("foo")),
 			equal: false,
 		},
 		{
-			a:     NewSet(MakePathOrDie(1, "foo")),
-			b:     NewSet(MakePathOrDie(0, "foo")),
-			equal: false,
-		},
-		{
-			a:     NewSet(MakePathOrDie(1, "foo")),
-			b:     NewSet(MakePathOrDie(1, "foo", "bar")),
+			a:     NewSet(MakePathOrDie("foo")),
+			b:     NewSet(MakePathOrDie("foo", "bar")),
 			equal: false,
 		},
 		{
 			a: NewSet(
-				MakePathOrDie(0),
-				MakePathOrDie(1),
-			),
-			b: NewSet(
-				MakePathOrDie(1),
-				MakePathOrDie(0),
-			),
-			equal: true,
-		},
-		{
-			a: NewSet(
-				MakePathOrDie("foo", 0),
-				MakePathOrDie("foo", 1),
-			),
-			b: NewSet(
-				MakePathOrDie("foo", 1),
-				MakePathOrDie("foo", 0),
-			),
-			equal: true,
-		},
-		{
-			a: NewSet(
-				MakePathOrDie("foo", 0),
 				MakePathOrDie("foo"),
 				MakePathOrDie("bar", "baz"),
 				MakePathOrDie("qux", KeyByFields("name", "first")),
 			),
 			b: NewSet(
-				MakePathOrDie("foo", 1),
 				MakePathOrDie("bar", "baz"),
 				MakePathOrDie("bar"),
 				MakePathOrDie("qux", KeyByFields("name", "second")),
@@ -333,7 +297,6 @@ func TestSetUnion(t *testing.T) {
 	// sufficient to check all code paths.
 
 	s1 := NewSet(
-		MakePathOrDie("foo", 0),
 		MakePathOrDie("foo"),
 		MakePathOrDie("bar", "baz"),
 		MakePathOrDie("qux", KeyByFields("name", "first")),
@@ -341,7 +304,7 @@ func TestSetUnion(t *testing.T) {
 	)
 
 	s2 := NewSet(
-		MakePathOrDie("foo", 1),
+		MakePathOrDie("foo"),
 		MakePathOrDie("bar", "baz"),
 		MakePathOrDie("bar"),
 		MakePathOrDie("qux", KeyByFields("name", "second")),
@@ -349,8 +312,6 @@ func TestSetUnion(t *testing.T) {
 	)
 
 	u := NewSet(
-		MakePathOrDie("foo", 0),
-		MakePathOrDie("foo", 1),
 		MakePathOrDie("foo"),
 		MakePathOrDie("bar", "baz"),
 		MakePathOrDie("bar"),
@@ -376,8 +337,7 @@ func TestSetIntersectionDifference(t *testing.T) {
 	s1 := NewSet(
 		MakePathOrDie("a0"),
 		MakePathOrDie("a1"),
-		MakePathOrDie("foo", 0),
-		MakePathOrDie("foo", 1),
+		MakePathOrDie("foo"),
 		MakePathOrDie("b0", nameFirst),
 		MakePathOrDie("b1", nameFirst),
 		MakePathOrDie("bar", "c0"),
@@ -388,8 +348,7 @@ func TestSetIntersectionDifference(t *testing.T) {
 	s2 := NewSet(
 		MakePathOrDie("a1"),
 		MakePathOrDie("a2"),
-		MakePathOrDie("foo", 1),
-		MakePathOrDie("foo", 2),
+		MakePathOrDie("foo"),
 		MakePathOrDie("b1", nameFirst),
 		MakePathOrDie("b2", nameFirst),
 		MakePathOrDie("bar", "c2"),
@@ -402,7 +361,7 @@ func TestSetIntersectionDifference(t *testing.T) {
 	t.Run("intersection", func(t *testing.T) {
 		i := NewSet(
 			MakePathOrDie("a1"),
-			MakePathOrDie("foo", 1),
+			MakePathOrDie("foo"),
 			MakePathOrDie("b1", nameFirst),
 		)
 
@@ -415,7 +374,6 @@ func TestSetIntersectionDifference(t *testing.T) {
 	t.Run("s1 - s2", func(t *testing.T) {
 		sDiffS2 := NewSet(
 			MakePathOrDie("a0"),
-			MakePathOrDie("foo", 0),
 			MakePathOrDie("b0", nameFirst),
 			MakePathOrDie("bar", "c0"),
 			MakePathOrDie("cp", nameFirst, "child"),
@@ -430,7 +388,6 @@ func TestSetIntersectionDifference(t *testing.T) {
 	t.Run("s2 - s1", func(t *testing.T) {
 		s2DiffS := NewSet(
 			MakePathOrDie("a2"),
-			MakePathOrDie("foo", 2),
 			MakePathOrDie("b2", nameFirst),
 			MakePathOrDie("bar", "c2"),
 			MakePathOrDie("cp", nameFirst),
@@ -445,7 +402,7 @@ func TestSetIntersectionDifference(t *testing.T) {
 	t.Run("intersection (the hard way)", func(t *testing.T) {
 		i := NewSet(
 			MakePathOrDie("a1"),
-			MakePathOrDie("foo", 1),
+			MakePathOrDie("foo"),
 			MakePathOrDie("b1", nameFirst),
 		)
 
@@ -735,8 +692,8 @@ func TestSetNodeMapIterate(t *testing.T) {
 	toAdd := 5
 	addedElements := make([]string, toAdd)
 	for i := 0; i < toAdd; i++ {
-		p := i
-		pe := PathElement{Index: &p}
+		v := value.NewValueInterface(i)
+		pe := PathElement{Value: &v}
 		addedElements[i] = pe.String()
 		_ = set.Descend(pe)
 	}

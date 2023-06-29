@@ -20,7 +20,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"strconv"
 	"strings"
 
 	jsoniter "github.com/json-iterator/go"
@@ -36,9 +35,6 @@ const (
 	// Value indicates that the content of this path element is a field's value
 	peValue = "v"
 
-	// Index indicates that the content of this path element is an index in an array
-	peIndex = "i"
-
 	// Key indicates that the content of this path element is a key value map
 	peKey = "k"
 
@@ -49,7 +45,6 @@ const (
 var (
 	peFieldSepBytes = []byte(peField + peSeparator)
 	peValueSepBytes = []byte(peValue + peSeparator)
-	peIndexSepBytes = []byte(peIndex + peSeparator)
 	peKeySepBytes   = []byte(peKey + peSeparator)
 	peSepBytes      = []byte(peSeparator)
 )
@@ -96,14 +91,6 @@ func DeserializePathElement(s string) (PathElement, error) {
 		})
 		fields.Sort()
 		return PathElement{Key: &fields}, iter.Error
-	case peIndexSepBytes[0]:
-		i, err := strconv.Atoi(s[2:])
-		if err != nil {
-			return PathElement{}, err
-		}
-		return PathElement{
-			Index: &i,
-		}, nil
 	default:
 		return PathElement{}, ErrUnknownPathElementType
 	}
@@ -149,11 +136,6 @@ func serializePathElementToWriter(w io.Writer, pe PathElement) error {
 			return err
 		}
 		value.WriteJSONStream(*pe.Value, stream)
-	case pe.Index != nil:
-		if _, err := stream.Write(peIndexSepBytes); err != nil {
-			return err
-		}
-		stream.WriteInt(*pe.Index)
 	default:
 		return errors.New("invalid PathElement")
 	}

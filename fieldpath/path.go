@@ -85,10 +85,6 @@ func MakePath(parts ...interface{}) (Path, error) {
 		switch t := p.(type) {
 		case PathElement:
 			fp = append(fp, t)
-		case int:
-			// TODO: Understand schema and object and convert this to the
-			// FieldSpecifier below if appropriate.
-			fp = append(fp, PathElement{Index: &t})
 		case string:
 			fp = append(fp, PathElement{FieldName: &t})
 		case *value.FieldList:

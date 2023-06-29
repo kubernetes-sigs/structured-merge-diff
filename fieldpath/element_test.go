@@ -100,10 +100,6 @@ func TestPathElementLess(t *testing.T) {
 			a:    PathElement{FieldName: strptr("elephant")},
 			b:    PathElement{Value: valptr(4)},
 		}, {
-			name: "FieldName-5",
-			a:    PathElement{FieldName: strptr("falcon")},
-			b:    PathElement{Index: intptr(5)},
-		}, {
 			name: "Key-1",
 			a:    PathElement{Key: KeyByFields("goat", 1)},
 			b:    PathElement{Key: KeyByFields("goat", 1)},
@@ -125,10 +121,6 @@ func TestPathElementLess(t *testing.T) {
 			a:    PathElement{Key: KeyByFields("kite", 1)},
 			b:    PathElement{Value: valptr(1)},
 		}, {
-			name: "Key-6",
-			a:    PathElement{Key: KeyByFields("kite", 1)},
-			b:    PathElement{Index: intptr(5)},
-		}, {
 			name: "Value-1",
 			a:    PathElement{Value: valptr(1)},
 			b:    PathElement{Value: valptr(2)},
@@ -136,19 +128,6 @@ func TestPathElementLess(t *testing.T) {
 			name: "Value-2",
 			a:    PathElement{Value: valptr(1)},
 			b:    PathElement{Value: valptr(1)},
-			eq:   true,
-		}, {
-			name: "Value-3",
-			a:    PathElement{Value: valptr(1)},
-			b:    PathElement{Index: intptr(1)},
-		}, {
-			name: "Index-1",
-			a:    PathElement{Index: intptr(1)},
-			b:    PathElement{Index: intptr(2)},
-		}, {
-			name: "Index-2",
-			a:    PathElement{Index: intptr(1)},
-			b:    PathElement{Index: intptr(1)},
 			eq:   true,
 		},
 	}

@@ -20,8 +20,6 @@ import "testing"
 
 func TestPathElementRoundTrip(t *testing.T) {
 	tests := []string{
-		`i:0`,
-		`i:1234`,
 		`f:`,
 		`f:spec`,
 		`f:more-complicated-string`,
@@ -64,9 +62,6 @@ func TestDeserializePathElementError(t *testing.T) {
 	tests := []string{
 		``,
 		`no-colon`,
-		`i:index is not a number`,
-		`i:1.23`,
-		`i:`,
 		`v:invalid json`,
 		`v:`,
 		`k:invalid json`,

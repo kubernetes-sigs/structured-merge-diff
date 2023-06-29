@@ -246,15 +246,11 @@ func setItemToPathElement(list *schema.List, index int, child value.Value) (fiel
 }
 
 func listItemToPathElement(a value.Allocator, s *schema.Schema, list *schema.List, index int, child value.Value) (fieldpath.PathElement, error) {
-	if list.ElementRelationship == schema.Associative {
-		if len(list.Keys) > 0 {
-			return keyedAssociativeListItemToPathElement(a, s, list, index, child)
-		}
-
-		// If there's no keys, then we must be a set of primitives.
-		return setItemToPathElement(list, index, child)
+	if list.ElementRelationship != schema.Associative {
+		panic(fmt.Errorf("trying to merge non-associative list: %v", list.ElementRelationship))
 	}
-
-	// Use the index as a key for atomic lists.
-	return fieldpath.PathElement{Index: &index}, nil
+	if len(list.Keys) > 0 {
+		return keyedAssociativeListItemToPathElement(a, s, list, index, child)
+	}
+	return setItemToPathElement(list, index, child)
 }

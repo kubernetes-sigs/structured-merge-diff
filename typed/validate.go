@@ -17,6 +17,7 @@ limitations under the License.
 package typed
 
 import (
+	"fmt"
 	"sync"
 
 	"sigs.k8s.io/structured-merge-diff/v4/fieldpath"
@@ -125,9 +126,11 @@ func (v *validatingObjectWalker) visitListItems(t *schema.List, list value.List)
 		child := list.AtUsing(v.allocator, i)
 		defer v.allocator.Free(child)
 		var pe fieldpath.PathElement
-		if t.ElementRelationship != schema.Associative {
-			pe.Index = &i
-		} else {
+
+		prefixFn := func() string {
+			return fmt.Sprintf("i:%v", i)
+		}
+		if t.ElementRelationship == schema.Associative {
 			var err error
 			pe, err = listItemToPathElement(v.allocator, v.schema, t, i, child)
 			if err != nil {
@@ -141,10 +144,11 @@ func (v *validatingObjectWalker) visitListItems(t *schema.List, list value.List)
 				errs = append(errs, errorf("duplicate entries for key %v", pe.String())...)
 			}
 			observedKeys.Insert(pe)
+			prefixFn = pe.String
 		}
 		v2 := v.prepareDescent(t.ElementType)
 		v2.value = child
-		errs = append(errs, v2.validate(pe.String)...)
+		errs = append(errs, v2.validate(prefixFn)...)
 		v.finishDescent(v2)
 	}
 	return errs

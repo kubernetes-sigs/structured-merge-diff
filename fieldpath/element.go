@@ -41,10 +41,6 @@ type PathElement struct {
 	// object must be an associative list with a primitive typed element
 	// (i.e., a set).
 	Value *value.Value
-
-	// Index selects a list element by its index number. The containing
-	// object must be an atomic list.
-	Index *int
 }
 
 // Less provides an order for path elements.
@@ -81,20 +77,6 @@ func (e PathElement) Compare(rhs PathElement) int {
 		return 1
 	}
 
-	if e.Index != nil {
-		if rhs.Index == nil {
-			return -1
-		}
-		if *e.Index < *rhs.Index {
-			return -1
-		} else if *e.Index == *rhs.Index {
-			return 0
-		}
-		return 1
-	} else if rhs.Index != nil {
-		return 1
-	}
-
 	return 0
 }
 
@@ -124,14 +106,6 @@ func (e PathElement) Equals(rhs PathElement) bool {
 	} else if rhs.Value != nil {
 		return false
 	}
-	if e.Index != nil {
-		if rhs.Index == nil {
-			return false
-		}
-		return *e.Index == *rhs.Index
-	} else if rhs.Index != nil {
-		return false
-	}
 	return true
 }
 
@@ -149,8 +123,6 @@ func (e PathElement) String() string {
 		return "[" + strings.Join(strs, ",") + "]"
 	case e.Value != nil:
 		return fmt.Sprintf("[=%v]", value.ToString(*e.Value))
-	case e.Index != nil:
-		return fmt.Sprintf("[%v]", *e.Index)
 	default:
 		return "{{invalid path element}}"
 	}

@@ -85,6 +85,7 @@ types:
     - name: keys
       type:
         list:
+          elementRelationship: associative
           elementType:
             scalar: string
 - name: untyped
@@ -93,4 +94,3 @@ types:
     - name: elementRelationship
       type:
         scalar: string
-

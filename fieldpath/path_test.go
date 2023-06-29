@@ -32,8 +32,8 @@ func TestPathString(t *testing.T) {
 		fp     Path
 		expect string
 	}{
-		{"basic1", MakePathOrDie("foo", 1), ".foo[1]"},
-		{"basic2", MakePathOrDie("foo", "bar", 1, "baz"), ".foo.bar[1].baz"},
+		{"basic1", MakePathOrDie("foo"), ".foo"},
+		{"basic2", MakePathOrDie("foo", "bar", "baz"), ".foo.bar.baz"},
 		{"associative-list-ref", MakePathOrDie("foo", KeyByFields(
 			// This makes sure we test all types: string,
 			// floats, integers and booleans.
