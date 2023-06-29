@@ -28,17 +28,50 @@ type Converter interface {
 	IsMissingVersionError(error) bool
 }
 
-// Updater is the object used to compute updated FieldSets and also
-// merge the object on Apply.
-type Updater struct {
+// UpdateBuilder allows you to create a new Updater by exposing all of
+// the options and setting them once.
+type UpdaterBuilder struct {
 	Converter     Converter
 	IgnoredFields map[fieldpath.APIVersion]*fieldpath.Set
 
+	EnableUnions bool
+
+	// Stop comparing the new object with old object after applying.
+	// This was initially used to avoid spurious etcd update, but
+	// since that's vastly inefficient, we've come-up with a better
+	// way of doing that. Create this flag to stop it.
+	// Comparing has become more expensive too now that we're not using
+	// `Compare` but `value.Equals` so this gives an option to avoid it.
+	ReturnInputOnNoop bool
+}
+
+func (u *UpdaterBuilder) BuildUpdater() *Updater {
+	return &Updater{
+		Converter:         u.Converter,
+		IgnoredFields:     u.IgnoredFields,
+		enableUnions:      u.EnableUnions,
+		returnInputOnNoop: u.ReturnInputOnNoop,
+	}
+}
+
+// Updater is the object used to compute updated FieldSets and also
+// merge the object on Apply.
+type Updater struct {
+	// Deprecated: This will eventually become private.
+	Converter Converter
+
+	// Deprecated: This will eventually become private.
+	IgnoredFields map[fieldpath.APIVersion]*fieldpath.Set
+
 	enableUnions bool
+
+	returnInputOnNoop bool
 }
 
 // EnableUnionFeature turns on union handling. It is disabled by default until the
 // feature is complete.
+//
+// Deprecated: Use the builder instead.
 func (s *Updater) EnableUnionFeature() {
 	s.enableUnions = true
 }
@@ -204,7 +237,7 @@ func (s *Updater) Apply(liveObject, configObject *typed.TypedValue, version fiel
 	if err != nil {
 		return nil, fieldpath.ManagedFields{}, err
 	}
-	if value.EqualsUsing(value.NewFreelistAllocator(), liveObject.AsValue(), newObject.AsValue()) {
+	if !s.returnInputOnNoop && value.EqualsUsing(value.NewFreelistAllocator(), liveObject.AsValue(), newObject.AsValue()) {
 		newObject = nil
 	}
 	return newObject, managers, nil

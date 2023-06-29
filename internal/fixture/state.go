@@ -537,6 +537,9 @@ type TestCase struct {
 	Managed fieldpath.ManagedFields
 	// Set to true if the test case needs the union behavior enabled.
 	RequiresUnions bool
+	// ReportInputOnNoop if we don't want to compare the output and
+	// always return it.
+	ReturnInputOnNoop bool
 	// IgnoredFields containing the set to ignore for every version
 	IgnoredFields map[fieldpath.APIVersion]*fieldpath.Set
 }
@@ -569,12 +572,15 @@ func (tc TestCase) PreprocessOperations(parser Parser) error {
 // TestWithConverter once and reset the benchmark, to make sure the test case
 // actually passes..
 func (tc TestCase) BenchWithConverter(parser Parser, converter merge.Converter) error {
-	state := State{
-		Updater: &merge.Updater{Converter: converter, IgnoredFields: tc.IgnoredFields},
-		Parser:  parser,
+	updaterBuilder := merge.UpdaterBuilder{
+		Converter:         converter,
+		IgnoredFields:     tc.IgnoredFields,
+		ReturnInputOnNoop: tc.ReturnInputOnNoop,
+		EnableUnions:      tc.RequiresUnions,
 	}
-	if tc.RequiresUnions {
-		state.Updater.EnableUnionFeature()
+	state := State{
+		Updater: updaterBuilder.BuildUpdater(),
+		Parser:  parser,
 	}
 	// We currently don't have any test that converts, we can take
 	// care of that later.
@@ -589,12 +595,15 @@ func (tc TestCase) BenchWithConverter(parser Parser, converter merge.Converter) 
 
 // TestWithConverter runs the test-case using the given parser and converter.
 func (tc TestCase) TestWithConverter(parser Parser, converter merge.Converter) error {
-	state := State{
-		Updater: &merge.Updater{Converter: converter, IgnoredFields: tc.IgnoredFields},
-		Parser:  parser,
+	updaterBuilder := merge.UpdaterBuilder{
+		Converter:         converter,
+		IgnoredFields:     tc.IgnoredFields,
+		ReturnInputOnNoop: tc.ReturnInputOnNoop,
+		EnableUnions:      tc.RequiresUnions,
 	}
-	if tc.RequiresUnions {
-		state.Updater.EnableUnionFeature()
+	state := State{
+		Updater: updaterBuilder.BuildUpdater(),
+		Parser:  parser,
 	}
 	for i, ops := range tc.Ops {
 		err := ops.run(&state)
