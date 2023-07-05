@@ -127,7 +127,7 @@ func TestApplyObsoleteVersion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to compare live object: %v", err)
 	}
-	if !comparison.IsSame() {
+	if comparison != "" {
 		t.Fatalf("Unexpected object:\n%v", comparison)
 	}
 }

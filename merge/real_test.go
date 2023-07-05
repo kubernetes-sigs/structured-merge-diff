@@ -108,8 +108,9 @@ func BenchmarkOperations(b *testing.B) {
 		b.Run(bench.name, func(b *testing.B) {
 			obj := typed.YAMLObject(read(testdata(bench.filename)))
 			tests := []struct {
-				name string
-				ops  []Operation
+				name              string
+				returnInputonNoop bool
+				ops               []Operation
 			}{
 				{
 					name: "Create",
@@ -133,6 +134,22 @@ func BenchmarkOperations(b *testing.B) {
 				},
 				{
 					name: "ApplyTwice",
+					ops: []Operation{
+						Apply{
+							Manager:    "controller",
+							APIVersion: "v1",
+							Object:     obj,
+						},
+						Apply{
+							Manager:    "other-controller",
+							APIVersion: "v1",
+							Object:     obj,
+						},
+					},
+				},
+				{
+					name:              "ApplyTwiceNoCompare",
+					returnInputonNoop: true,
 					ops: []Operation{
 						Apply{
 							Manager:    "controller",
@@ -180,7 +197,8 @@ func BenchmarkOperations(b *testing.B) {
 			for _, test := range tests {
 				b.Run(test.name, func(b *testing.B) {
 					tc := TestCase{
-						Ops: test.ops,
+						Ops:               test.ops,
+						ReturnInputOnNoop: test.returnInputonNoop,
 					}
 					p := SameVersionParser{T: bench.parseType}
 					tc.PreprocessOperations(p)

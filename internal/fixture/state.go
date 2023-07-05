@@ -20,10 +20,11 @@ import (
 	"bytes"
 	"fmt"
 
+	"github.com/google/go-cmp/cmp"
+
 	"sigs.k8s.io/structured-merge-diff/v4/fieldpath"
 	"sigs.k8s.io/structured-merge-diff/v4/merge"
 	"sigs.k8s.io/structured-merge-diff/v4/typed"
-	"sigs.k8s.io/structured-merge-diff/v4/value"
 )
 
 // For the sake of tests, a parser is something that can retrieve a
@@ -168,20 +169,47 @@ func (s *State) Apply(obj typed.YAMLObject, version fieldpath.APIVersion, manage
 
 // CompareLive takes a YAML string and returns the comparison with the
 // current live object or an error.
-func (s *State) CompareLive(obj typed.YAMLObject, version fieldpath.APIVersion) (*typed.Comparison, error) {
+func (s *State) CompareLive(obj typed.YAMLObject, version fieldpath.APIVersion) (string, error) {
 	obj = FixTabsOrDie(obj)
 	if err := s.checkInit(version); err != nil {
-		return nil, err
+		return "", err
 	}
 	tv, err := s.Parser.Type(string(version)).FromYAML(obj)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	live, err := s.Updater.Converter.Convert(s.Live, version)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	return live.Compare(tv)
+	tvu := convertMapAnyToMapString(tv.AsValue().Unstructured())
+	liveu := convertMapAnyToMapString(live.AsValue().Unstructured())
+	return cmp.Diff(tvu, liveu), nil
+}
+
+func convertMapAnyToMapString(obj interface{}) interface{} {
+	switch m := obj.(type) {
+	case map[string]interface{}:
+		out := map[string]interface{}{}
+		for key, value := range m {
+			out[key] = convertMapAnyToMapString(value)
+		}
+		return out
+	case map[interface{}]interface{}:
+		out := map[string]interface{}{}
+		for key, value := range m {
+			out[key.(string)] = convertMapAnyToMapString(value)
+		}
+		return out
+	case []interface{}:
+		out := []interface{}{}
+		for _, value := range m {
+			out = append(out, convertMapAnyToMapString(value))
+		}
+		return out
+	default:
+		return obj
+	}
 }
 
 // dummyConverter doesn't convert, it just returns the same exact object, as long as a version is provided.
@@ -509,6 +537,9 @@ type TestCase struct {
 	Managed fieldpath.ManagedFields
 	// Set to true if the test case needs the union behavior enabled.
 	RequiresUnions bool
+	// ReportInputOnNoop if we don't want to compare the output and
+	// always return it.
+	ReturnInputOnNoop bool
 	// IgnoredFields containing the set to ignore for every version
 	IgnoredFields map[fieldpath.APIVersion]*fieldpath.Set
 }
@@ -541,12 +572,15 @@ func (tc TestCase) PreprocessOperations(parser Parser) error {
 // TestWithConverter once and reset the benchmark, to make sure the test case
 // actually passes..
 func (tc TestCase) BenchWithConverter(parser Parser, converter merge.Converter) error {
-	state := State{
-		Updater: &merge.Updater{Converter: converter, IgnoredFields: tc.IgnoredFields},
-		Parser:  parser,
+	updaterBuilder := merge.UpdaterBuilder{
+		Converter:         converter,
+		IgnoredFields:     tc.IgnoredFields,
+		ReturnInputOnNoop: tc.ReturnInputOnNoop,
+		EnableUnions:      tc.RequiresUnions,
 	}
-	if tc.RequiresUnions {
-		state.Updater.EnableUnionFeature()
+	state := State{
+		Updater: updaterBuilder.BuildUpdater(),
+		Parser:  parser,
 	}
 	// We currently don't have any test that converts, we can take
 	// care of that later.
@@ -561,12 +595,15 @@ func (tc TestCase) BenchWithConverter(parser Parser, converter merge.Converter) 
 
 // TestWithConverter runs the test-case using the given parser and converter.
 func (tc TestCase) TestWithConverter(parser Parser, converter merge.Converter) error {
-	state := State{
-		Updater: &merge.Updater{Converter: converter, IgnoredFields: tc.IgnoredFields},
-		Parser:  parser,
+	updaterBuilder := merge.UpdaterBuilder{
+		Converter:         converter,
+		IgnoredFields:     tc.IgnoredFields,
+		ReturnInputOnNoop: tc.ReturnInputOnNoop,
+		EnableUnions:      tc.RequiresUnions,
 	}
-	if tc.RequiresUnions {
-		state.Updater.EnableUnionFeature()
+	state := State{
+		Updater: updaterBuilder.BuildUpdater(),
+		Parser:  parser,
 	}
 	for i, ops := range tc.Ops {
 		err := ops.run(&state)
@@ -581,8 +618,8 @@ func (tc TestCase) TestWithConverter(parser Parser, converter merge.Converter) e
 		if err != nil {
 			return fmt.Errorf("failed to compare live with config: %v", err)
 		}
-		if !comparison.IsSame() {
-			return fmt.Errorf("expected live and config to be the same:\n%v\nConfig: %v\n", comparison, value.ToString(state.Live.AsValue()))
+		if comparison != "" {
+			return fmt.Errorf("expected live and config to be the same:\n%v\n", comparison)
 		}
 	}
 
