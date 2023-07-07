@@ -94,7 +94,6 @@ func TestToSet(t *testing.T) {
 }
 
 func TestConflictsFromManagers(t *testing.T) {
-
 	got := merge.ConflictsFromManagers(fieldpath.ManagedFields{
 		"Bob": fieldpath.NewVersionedSet(
 			_NS(
