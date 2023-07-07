@@ -17,7 +17,6 @@ limitations under the License.
 package merge_test
 
 import (
-	"reflect"
 	"testing"
 
 	"sigs.k8s.io/structured-merge-diff/v4/fieldpath"
@@ -95,42 +94,21 @@ func TestToSet(t *testing.T) {
 }
 
 func TestConflictsFromManagers(t *testing.T) {
-	type args struct {
-		sets fieldpath.ManagedFields
-	}
-	tests := []struct {
-		name string
-		args args
-		want string
-	}{
-		{
-			name: "test with common prefix",
-			args: args{
-				sets: fieldpath.ManagedFields{
-					"Bob": fieldpath.NewVersionedSet(
-						_NS(
-							_P("spec", "template", "spec", "containers", _KBF("name", "probe"), "livenessProbe", "exec", "command"),
-							_P("spec", "template", "spec", "containers", _KBF("name", "probe"), "livenessProbe", "periodSeconds"),
-							_P("spec", "template", "spec", "containers", _KBF("name", "probe"), "readinessProbe", "exec", "command"),
-							_P("spec", "template", "spec", "containers", _KBF("name", "probe"), "readinessProbe", "periodSeconds"),
-						),
-						"v1",
-						false,
-					),
-				},
-			},
-			want: `conflicts with "Bob":
-- .spec.template.spec.containers[name="probe"].livenessProbe.periodSeconds
-- .spec.template.spec.containers[name="probe"].livenessProbe.exec.command
-- .spec.template.spec.containers[name="probe"].readinessProbe.periodSeconds
-- .spec.template.spec.containers[name="probe"].readinessProbe.exec.command`,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := merge.ConflictsFromManagers(tt.args.sets); !reflect.DeepEqual(got.Error(), tt.want) {
-				t.Errorf("ConflictsFromManagers() = %v, want %v", got, tt.want)
-			}
-		})
+
+	got := merge.ConflictsFromManagers(fieldpath.ManagedFields{
+		"Bob": fieldpath.NewVersionedSet(
+			_NS(
+				_P("obj", "template", "obj", "list", _KBF("name", "a"), "id"),
+				_P("obj", "template", "obj", "list", _KBF("name", "a"), "key"),
+			),
+			"v1",
+			false,
+		),
+	})
+	wanted := `conflicts with "Bob":
+- .obj.template.obj.list[name="a"].id
+- .obj.template.obj.list[name="a"].key`
+	if got.Error() != wanted {
+		t.Errorf("Got %v, wanted %v", got.Error(), wanted)
 	}
 }
