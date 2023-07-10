@@ -92,3 +92,22 @@ func TestToSet(t *testing.T) {
 		t.Fatalf("expected\n%v\n, but got\n%v\n", expected, actual)
 	}
 }
+
+func TestConflictsFromManagers(t *testing.T) {
+	got := merge.ConflictsFromManagers(fieldpath.ManagedFields{
+		"Bob": fieldpath.NewVersionedSet(
+			_NS(
+				_P("obj", "template", "obj", "list", _KBF("name", "a"), "id"),
+				_P("obj", "template", "obj", "list", _KBF("name", "a"), "key"),
+			),
+			"v1",
+			false,
+		),
+	})
+	wanted := `conflicts with "Bob":
+- .obj.template.obj.list[name="a"].id
+- .obj.template.obj.list[name="a"].key`
+	if got.Error() != wanted {
+		t.Errorf("Got %v, wanted %v", got.Error(), wanted)
+	}
+}
