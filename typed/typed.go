@@ -130,7 +130,7 @@ func (tv TypedValue) Compare(rhs *TypedValue) (c *Comparison, err error) {
 		Added:    fieldpath.NewSet(),
 	}
 	a := value.NewFreelistAllocator()
-	_, err = merge(&tv, rhs, func(w *mergingWalker) {
+	_, err = compare(&tv, rhs, func(w *compareWalker) {
 		if w.lhs == nil {
 			c.Added.Insert(w.path)
 		} else if w.rhs == nil {
@@ -140,7 +140,7 @@ func (tv TypedValue) Compare(rhs *TypedValue) (c *Comparison, err error) {
 			// Need to implement equality check on the value type.
 			c.Modified.Insert(w.path)
 		}
-	}, func(w *mergingWalker) {
+	}, func(w *compareWalker) {
 		if w.lhs == nil {
 			c.Added.Insert(w.path)
 		} else if w.rhs == nil {
@@ -275,6 +275,57 @@ func merge(lhs, rhs *TypedValue, rule, postRule mergeRule) (*TypedValue, error) 
 	}
 	if mw.out != nil {
 		out.value = value.NewValueInterface(*mw.out)
+	}
+	return out, nil
+}
+
+var cmpwPool = sync.Pool{
+	New: func() interface{} { return &compareWalker{} },
+}
+
+func compare(lhs, rhs *TypedValue, rule, postRule compareRule) (*TypedValue, error) {
+	if lhs.schema != rhs.schema {
+		return nil, errorf("expected objects with types from the same schema")
+	}
+	if !lhs.typeRef.Equals(&rhs.typeRef) {
+		return nil, errorf("expected objects of the same type, but got %v and %v", lhs.typeRef, rhs.typeRef)
+	}
+
+	cmpw := cmpwPool.Get().(*compareWalker)
+	defer func() {
+		cmpw.lhs = nil
+		cmpw.rhs = nil
+		cmpw.schema = nil
+		cmpw.typeRef = schema.TypeRef{}
+		cmpw.rule = nil
+		cmpw.postItemHook = nil
+		cmpw.out = nil
+		cmpw.inLeaf = false
+
+		cmpwPool.Put(cmpw)
+	}()
+
+	cmpw.lhs = lhs.value
+	cmpw.rhs = rhs.value
+	cmpw.schema = lhs.schema
+	cmpw.typeRef = lhs.typeRef
+	cmpw.rule = rule
+	cmpw.postItemHook = postRule
+	if cmpw.allocator == nil {
+		cmpw.allocator = value.NewFreelistAllocator()
+	}
+
+	errs := cmpw.compare(nil)
+	if len(errs) > 0 {
+		return nil, errs
+	}
+
+	out := &TypedValue{
+		schema:  lhs.schema,
+		typeRef: lhs.typeRef,
+	}
+	if cmpw.out != nil {
+		out.value = value.NewValueInterface(*cmpw.out)
 	}
 	return out, nil
 }
