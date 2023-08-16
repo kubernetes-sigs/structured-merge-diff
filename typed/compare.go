@@ -17,10 +17,60 @@ limitations under the License.
 package typed
 
 import (
+	"fmt"
+	"strings"
+
 	"sigs.k8s.io/structured-merge-diff/v4/fieldpath"
 	"sigs.k8s.io/structured-merge-diff/v4/schema"
 	"sigs.k8s.io/structured-merge-diff/v4/value"
 )
+
+// Comparison is the return value of a TypedValue.Compare() operation.
+//
+// No field will appear in more than one of the three fieldsets. If all of the
+// fieldsets are empty, then the objects must have been equal.
+type Comparison struct {
+	// Removed contains any fields removed by rhs (the right-hand-side
+	// object in the comparison).
+	Removed *fieldpath.Set
+	// Modified contains fields present in both objects but different.
+	Modified *fieldpath.Set
+	// Added contains any fields added by rhs.
+	Added *fieldpath.Set
+}
+
+// IsSame returns true if the comparison returned no changes (the two
+// compared objects are similar).
+func (c *Comparison) IsSame() bool {
+	return c.Removed.Empty() && c.Modified.Empty() && c.Added.Empty()
+}
+
+// String returns a human readable version of the comparison.
+func (c *Comparison) String() string {
+	bld := strings.Builder{}
+	if !c.Modified.Empty() {
+		bld.WriteString(fmt.Sprintf("- Modified Fields:\n%v\n", c.Modified))
+	}
+	if !c.Added.Empty() {
+		bld.WriteString(fmt.Sprintf("- Added Fields:\n%v\n", c.Added))
+	}
+	if !c.Removed.Empty() {
+		bld.WriteString(fmt.Sprintf("- Removed Fields:\n%v\n", c.Removed))
+	}
+	return bld.String()
+}
+
+// ExcludeFields fields from the compare recursively removes the fields
+// from the entire comparison
+func (c *Comparison) ExcludeFields(fields *fieldpath.Set) *Comparison {
+	if fields == nil || fields.Empty() {
+		return c
+	}
+	c.Removed = c.Removed.RecursiveDifference(fields)
+	c.Modified = c.Modified.RecursiveDifference(fields)
+	c.Added = c.Added.RecursiveDifference(fields)
+	return c
+}
 
 type compareWalker struct {
 	lhs     value.Value
@@ -31,15 +81,8 @@ type compareWalker struct {
 	// Current path that we are comparing
 	path fieldpath.Path
 
-	// How to compare. Called after schema validation for all leaf fields.
-	rule compareRule
-
-	// If set, called after non-leaf items have been compared. (`out` is
-	// probably already set.)
-	postItemHook compareRule
-
-	// output of the merge operation (nil if none)
-	out *interface{}
+	// Resulting comparison.
+	comparison *Comparison
 
 	// internal housekeeping--don't set when constructing.
 	inLeaf bool // Set to true if we're in a "big leaf"--atomic map/list
@@ -49,11 +92,6 @@ type compareWalker struct {
 
 	allocator value.Allocator
 }
-
-// compareRule examine w.lhs and w.rhs (up to one of which may be nil) and
-// optionally set w.out. If lhs and rhs are both set, they will be of
-// comparable type.
-type compareRule func(w *compareWalker)
 
 // compare compares stuff.
 func (w *compareWalker) compare(prefixFn func() string) (errs ValidationErrors) {
@@ -81,8 +119,12 @@ func (w *compareWalker) compare(prefixFn func() string) (errs ValidationErrors) 
 		errs = append(errs, handleAtom(arhs, w.typeRef, w)...)
 	}
 
-	if !w.inLeaf && w.postItemHook != nil {
-		w.postItemHook(w)
+	if !w.inLeaf {
+		if w.lhs == nil {
+			w.comparison.Added.Insert(w.path)
+		} else if w.rhs == nil {
+			w.comparison.Removed.Insert(w.path)
+		}
 	}
 	return errs.WithLazyPrefix(prefixFn)
 }
@@ -98,7 +140,15 @@ func (w *compareWalker) doLeaf() {
 	w.inLeaf = true
 
 	// We don't recurse into leaf fields for merging.
-	w.rule(w)
+	if w.lhs == nil {
+		w.comparison.Added.Insert(w.path)
+	} else if w.rhs == nil {
+		w.comparison.Removed.Insert(w.path)
+	} else if !value.EqualsUsing(w.allocator, w.rhs, w.lhs) {
+		// TODO: Equality is not sufficient for this.
+		// Need to implement equality check on the value type.
+		w.comparison.Modified.Insert(w.path)
+	}
 }
 
 func (w *compareWalker) doScalar(t *schema.Scalar) ValidationErrors {
@@ -115,7 +165,7 @@ func (w *compareWalker) doScalar(t *schema.Scalar) ValidationErrors {
 	return nil
 }
 
-func (w *compareWalker) prepareDescent(pe fieldpath.PathElement, tr schema.TypeRef) *compareWalker {
+func (w *compareWalker) prepareDescent(pe fieldpath.PathElement, tr schema.TypeRef, cmp *Comparison) *compareWalker {
 	if w.spareWalkers == nil {
 		// first descent.
 		w.spareWalkers = &[]*compareWalker{}
@@ -131,7 +181,7 @@ func (w *compareWalker) prepareDescent(pe fieldpath.PathElement, tr schema.TypeR
 	w2.path = append(w2.path, pe)
 	w2.lhs = nil
 	w2.rhs = nil
-	w2.out = nil
+	w2.comparison = cmp
 	return w2
 }
 
@@ -162,102 +212,64 @@ func (w *compareWalker) visitListItems(t *schema.List, lhs, rhs value.List) (err
 	if lhs != nil {
 		lLen = lhs.Length()
 	}
-	outLen := lLen
-	if outLen < rLen {
-		outLen = rLen
-	}
-	out := make([]interface{}, 0, outLen)
 
-	rhsOrder, observedRHS, rhsErrs := w.indexListPathElements(t, rhs)
-	errs = append(errs, rhsErrs...)
-	lhsOrder, observedLHS, lhsErrs := w.indexListPathElements(t, lhs)
-	errs = append(errs, lhsErrs...)
-
-	sharedOrder := make([]*fieldpath.PathElement, 0, rLen)
-	for i := range rhsOrder {
-		pe := &rhsOrder[i]
-		if _, ok := observedLHS.Get(*pe); ok {
-			sharedOrder = append(sharedOrder, pe)
+	lValues := fieldpath.MakePathElementValueMap(lLen)
+	for i := 0; i < lLen; i++ {
+		child := lhs.At(i)
+		pe, err := listItemToPathElement(w.allocator, w.schema, t, i, child)
+		if err != nil {
+			errs = append(errs, errorf("element %v: %v", i, err.Error())...)
+			// If we can't construct the path element, we can't
+			// even report errors deeper in the schema, so bail on
+			// this element.
+			continue
 		}
-	}
-
-	var nextShared *fieldpath.PathElement
-	if len(sharedOrder) > 0 {
-		nextShared = sharedOrder[0]
-		sharedOrder = sharedOrder[1:]
-	}
-
-	lLen, rLen = len(lhsOrder), len(rhsOrder)
-	for lI, rI := 0, 0; lI < lLen || rI < rLen; {
-		if lI < lLen && rI < rLen {
-			pe := lhsOrder[lI]
-			if pe.Equals(rhsOrder[rI]) {
-				// merge LHS & RHS items
-				lChild, _ := observedLHS.Get(pe)
-				rChild, _ := observedRHS.Get(pe)
-				mergeOut, errs := w.mergeListItem(t, pe, lChild, rChild)
-				errs = append(errs, errs...)
-				if mergeOut != nil {
-					out = append(out, *mergeOut)
-				}
-				lI++
-				rI++
-
-				nextShared = nil
-				if len(sharedOrder) > 0 {
-					nextShared = sharedOrder[0]
-					sharedOrder = sharedOrder[1:]
-				}
-				continue
-			}
-			if _, ok := observedRHS.Get(pe); ok && nextShared != nil && !nextShared.Equals(lhsOrder[lI]) {
-				// shared item, but not the one we want in this round
-				lI++
-				continue
-			}
+		// Ignore repeated occurences of `pe`.
+		if _, found := lValues.Get(pe); found {
+			continue
 		}
-		if lI < lLen {
-			pe := lhsOrder[lI]
-			if _, ok := observedRHS.Get(pe); !ok {
-				// take LHS item
-				lChild, _ := observedLHS.Get(pe)
-				mergeOut, errs := w.mergeListItem(t, pe, lChild, nil)
-				errs = append(errs, errs...)
-				if mergeOut != nil {
-					out = append(out, *mergeOut)
-				}
-				lI++
-				continue
-			}
-		}
-		if rI < rLen {
-			// Take the RHS item, merge with matching LHS item if possible
-			pe := rhsOrder[rI]
-			lChild, _ := observedLHS.Get(pe) // may be nil
-			rChild, _ := observedRHS.Get(pe)
-			mergeOut, errs := w.mergeListItem(t, pe, lChild, rChild)
-			errs = append(errs, errs...)
-			if mergeOut != nil {
-				out = append(out, *mergeOut)
-			}
-			rI++
-			// Advance nextShared, if we are merging nextShared.
-			if nextShared != nil && nextShared.Equals(pe) {
-				nextShared = nil
-				if len(sharedOrder) > 0 {
-					nextShared = sharedOrder[0]
-					sharedOrder = sharedOrder[1:]
-				}
-			}
-		}
+		lValues.Insert(pe, child)
 	}
 
-	if len(out) > 0 {
-		i := interface{}(out)
-		w.out = &i
+	rValues := fieldpath.MakePathElementValueMap(rLen)
+	for i := 0; i < rLen; i++ {
+		rValue := rhs.At(i)
+		pe, err := listItemToPathElement(w.allocator, w.schema, t, i, rValue)
+		if err != nil {
+			errs = append(errs, errorf("element %v: %v", i, err.Error())...)
+			// If we can't construct the path element, we can't
+			// even report errors deeper in the schema, so bail on
+			// this element.
+			continue
+		}
+		// Ignore repeated occurences of `pe`.
+		if _, found := rValues.Get(pe); found {
+			continue
+		}
+		rValues.Insert(pe, rValue)
+		// We can merge with nil if lValue is not present.
+		lValue, _ := lValues.Get(pe)
+		errs = append(errs, w.mergeListItem(t, pe, lValue, rValue)...)
 	}
 
-	return errs
+	// Add items from left that are not in right.
+	for i := 0; i < lLen; i++ {
+		lValue := lhs.At(i)
+		pe, err := listItemToPathElement(w.allocator, w.schema, t, i, lValue)
+		if err != nil {
+			errs = append(errs, errorf("element %v: %v", i, err.Error())...)
+			// If we can't construct the path element, we can't
+			// even report errors deeper in the schema, so bail on
+			// this element.
+			continue
+		}
+		if _, found := rValues.Get(pe); found {
+			continue
+		}
+		errs = append(errs, w.mergeListItem(t, pe, lValue, nil)...)
+	}
+
+	return
 }
 
 func (w *compareWalker) indexListPathElements(t *schema.List, list value.List) ([]fieldpath.PathElement, fieldpath.PathElementValueMap, ValidationErrors) {
@@ -288,16 +300,13 @@ func (w *compareWalker) indexListPathElements(t *schema.List, list value.List) (
 	return pes, observed, errs
 }
 
-func (w *compareWalker) mergeListItem(t *schema.List, pe fieldpath.PathElement, lChild, rChild value.Value) (out *interface{}, errs ValidationErrors) {
-	w2 := w.prepareDescent(pe, t.ElementType)
+func (w *compareWalker) mergeListItem(t *schema.List, pe fieldpath.PathElement, lChild, rChild value.Value) ValidationErrors {
+	w2 := w.prepareDescent(pe, t.ElementType, w.comparison)
 	w2.lhs = lChild
 	w2.rhs = rChild
-	errs = append(errs, w2.compare(pe.String)...)
-	if w2.out != nil {
-		out = w2.out
-	}
+	errs := w2.compare(pe.String)
 	w.finishDescent(w2)
-	return
+	return errs
 }
 
 func (w *compareWalker) derefList(prefix string, v value.Value) (value.List, ValidationErrors) {
@@ -346,13 +355,10 @@ func (w *compareWalker) visitMapItem(t *schema.Map, out map[string]interface{}, 
 		fieldType = sf.Type
 	}
 	pe := fieldpath.PathElement{FieldName: &key}
-	w2 := w.prepareDescent(pe, fieldType)
+	w2 := w.prepareDescent(pe, fieldType, w.comparison)
 	w2.lhs = lhs
 	w2.rhs = rhs
 	errs = append(errs, w2.compare(pe.String)...)
-	if w2.out != nil {
-		out[key] = *w2.out
-	}
 	w.finishDescent(w2)
 	return errs
 }
@@ -364,10 +370,6 @@ func (w *compareWalker) visitMapItems(t *schema.Map, lhs, rhs value.Map) (errs V
 		errs = append(errs, w.visitMapItem(t, out, key, lhsValue, rhsValue)...)
 		return true
 	})
-	if len(out) > 0 {
-		i := interface{}(out)
-		w.out = &i
-	}
 
 	return errs
 }
