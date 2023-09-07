@@ -247,9 +247,9 @@ func (w *compareWalker) visitListItems(t *schema.List, lhs, rhs value.List) (err
 			continue
 		}
 		rValues.Insert(pe, rValue)
-		// We can merge with nil if lValue is not present.
+		// We can compare with nil if lValue is not present.
 		lValue, _ := lValues.Get(pe)
-		errs = append(errs, w.mergeListItem(t, pe, lValue, rValue)...)
+		errs = append(errs, w.compareListItem(t, pe, lValue, rValue)...)
 	}
 
 	// Add items from left that are not in right.
@@ -266,7 +266,7 @@ func (w *compareWalker) visitListItems(t *schema.List, lhs, rhs value.List) (err
 		if _, found := rValues.Get(pe); found {
 			continue
 		}
-		errs = append(errs, w.mergeListItem(t, pe, lValue, nil)...)
+		errs = append(errs, w.compareListItem(t, pe, lValue, nil)...)
 	}
 
 	return
@@ -300,7 +300,7 @@ func (w *compareWalker) indexListPathElements(t *schema.List, list value.List) (
 	return pes, observed, errs
 }
 
-func (w *compareWalker) mergeListItem(t *schema.List, pe fieldpath.PathElement, lChild, rChild value.Value) ValidationErrors {
+func (w *compareWalker) compareListItem(t *schema.List, pe fieldpath.PathElement, lChild, rChild value.Value) ValidationErrors {
 	w2 := w.prepareDescent(pe, t.ElementType, w.comparison)
 	w2.lhs = lChild
 	w2.rhs = rChild
