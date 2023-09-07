@@ -216,7 +216,7 @@ func (w *compareWalker) visitListItems(t *schema.List, lhs, rhs value.List) (err
 	lValues := fieldpath.MakePathElementValueMap(lLen)
 	for i := 0; i < lLen; i++ {
 		child := lhs.At(i)
-		pe, err := listItemToPathElement(w.allocator, w.schema, t, i, child)
+		pe, err := listItemToPathElement(w.allocator, w.schema, t, child)
 		if err != nil {
 			errs = append(errs, errorf("element %v: %v", i, err.Error())...)
 			// If we can't construct the path element, we can't
@@ -234,7 +234,7 @@ func (w *compareWalker) visitListItems(t *schema.List, lhs, rhs value.List) (err
 	rValues := fieldpath.MakePathElementValueMap(rLen)
 	for i := 0; i < rLen; i++ {
 		rValue := rhs.At(i)
-		pe, err := listItemToPathElement(w.allocator, w.schema, t, i, rValue)
+		pe, err := listItemToPathElement(w.allocator, w.schema, t, rValue)
 		if err != nil {
 			errs = append(errs, errorf("element %v: %v", i, err.Error())...)
 			// If we can't construct the path element, we can't
@@ -255,7 +255,7 @@ func (w *compareWalker) visitListItems(t *schema.List, lhs, rhs value.List) (err
 	// Add items from left that are not in right.
 	for i := 0; i < lLen; i++ {
 		lValue := lhs.At(i)
-		pe, err := listItemToPathElement(w.allocator, w.schema, t, i, lValue)
+		pe, err := listItemToPathElement(w.allocator, w.schema, t, lValue)
 		if err != nil {
 			errs = append(errs, errorf("element %v: %v", i, err.Error())...)
 			// If we can't construct the path element, we can't
@@ -282,7 +282,7 @@ func (w *compareWalker) indexListPathElements(t *schema.List, list value.List) (
 	pes := make([]fieldpath.PathElement, 0, length)
 	for i := 0; i < length; i++ {
 		child := list.At(i)
-		pe, err := listItemToPathElement(w.allocator, w.schema, t, i, child)
+		pe, err := listItemToPathElement(w.allocator, w.schema, t, child)
 		if err != nil {
 			errs = append(errs, errorf("element %v: %v", i, err.Error())...)
 			// If we can't construct the path element, we can't
