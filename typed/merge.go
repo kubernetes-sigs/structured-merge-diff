@@ -282,7 +282,7 @@ func (w *mergingWalker) indexListPathElements(t *schema.List, list value.List) (
 	pes := make([]fieldpath.PathElement, 0, length)
 	for i := 0; i < length; i++ {
 		child := list.At(i)
-		pe, err := listItemToPathElement(w.allocator, w.schema, t, i, child)
+		pe, err := listItemToPathElement(w.allocator, w.schema, t, child)
 		if err != nil {
 			errs = append(errs, errorf("element %v: %v", i, err.Error())...)
 			// If we can't construct the path element, we can't

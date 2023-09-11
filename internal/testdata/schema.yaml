@@ -87,10 +87,10 @@ types:
         list:
           elementType:
             scalar: string
+          elementRelationship: atomic
 - name: untyped
   map:
     fields:
     - name: elementRelationship
       type:
         scalar: string
-

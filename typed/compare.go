@@ -216,7 +216,7 @@ func (w *compareWalker) visitListItems(t *schema.List, lhs, rhs value.List) (err
 	lValues := fieldpath.MakePathElementValueMap(lLen)
 	for i := 0; i < lLen; i++ {
 		child := lhs.At(i)
-		pe, err := listItemToPathElement(w.allocator, w.schema, t, i, child)
+		pe, err := listItemToPathElement(w.allocator, w.schema, t, child)
 		if err != nil {
 			errs = append(errs, errorf("element %v: %v", i, err.Error())...)
 			// If we can't construct the path element, we can't
@@ -234,7 +234,7 @@ func (w *compareWalker) visitListItems(t *schema.List, lhs, rhs value.List) (err
 	rValues := fieldpath.MakePathElementValueMap(rLen)
 	for i := 0; i < rLen; i++ {
 		rValue := rhs.At(i)
-		pe, err := listItemToPathElement(w.allocator, w.schema, t, i, rValue)
+		pe, err := listItemToPathElement(w.allocator, w.schema, t, rValue)
 		if err != nil {
 			errs = append(errs, errorf("element %v: %v", i, err.Error())...)
 			// If we can't construct the path element, we can't
@@ -247,15 +247,15 @@ func (w *compareWalker) visitListItems(t *schema.List, lhs, rhs value.List) (err
 			continue
 		}
 		rValues.Insert(pe, rValue)
-		// We can merge with nil if lValue is not present.
+		// We can compare with nil if lValue is not present.
 		lValue, _ := lValues.Get(pe)
-		errs = append(errs, w.mergeListItem(t, pe, lValue, rValue)...)
+		errs = append(errs, w.compareListItem(t, pe, lValue, rValue)...)
 	}
 
 	// Add items from left that are not in right.
 	for i := 0; i < lLen; i++ {
 		lValue := lhs.At(i)
-		pe, err := listItemToPathElement(w.allocator, w.schema, t, i, lValue)
+		pe, err := listItemToPathElement(w.allocator, w.schema, t, lValue)
 		if err != nil {
 			errs = append(errs, errorf("element %v: %v", i, err.Error())...)
 			// If we can't construct the path element, we can't
@@ -266,7 +266,7 @@ func (w *compareWalker) visitListItems(t *schema.List, lhs, rhs value.List) (err
 		if _, found := rValues.Get(pe); found {
 			continue
 		}
-		errs = append(errs, w.mergeListItem(t, pe, lValue, nil)...)
+		errs = append(errs, w.compareListItem(t, pe, lValue, nil)...)
 	}
 
 	return
@@ -282,7 +282,7 @@ func (w *compareWalker) indexListPathElements(t *schema.List, list value.List) (
 	pes := make([]fieldpath.PathElement, 0, length)
 	for i := 0; i < length; i++ {
 		child := list.At(i)
-		pe, err := listItemToPathElement(w.allocator, w.schema, t, i, child)
+		pe, err := listItemToPathElement(w.allocator, w.schema, t, child)
 		if err != nil {
 			errs = append(errs, errorf("element %v: %v", i, err.Error())...)
 			// If we can't construct the path element, we can't
@@ -300,7 +300,7 @@ func (w *compareWalker) indexListPathElements(t *schema.List, list value.List) (
 	return pes, observed, errs
 }
 
-func (w *compareWalker) mergeListItem(t *schema.List, pe fieldpath.PathElement, lChild, rChild value.Value) ValidationErrors {
+func (w *compareWalker) compareListItem(t *schema.List, pe fieldpath.PathElement, lChild, rChild value.Value) ValidationErrors {
 	w2 := w.prepareDescent(pe, t.ElementType, w.comparison)
 	w2.lhs = lChild
 	w2.rhs = rChild
