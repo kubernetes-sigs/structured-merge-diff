@@ -93,13 +93,25 @@ func (p ParseableType) IsValid() bool {
 
 // FromYAML parses a yaml string into an object with the current schema
 // and the type "typename" or an error if validation fails.
-func (p ParseableType) FromYAML(object YAMLObject, opts ...ValidationOptions) (*TypedValue, error) {
+func (p ParseableType) FromYAML(object YAMLObject) (*TypedValue, error) {
 	var v interface{}
 	err := yaml.Unmarshal([]byte(object), &v)
 	if err != nil {
 		return nil, err
 	}
-	return AsTyped(value.NewValueInterface(v), p.Schema, p.TypeRef, opts...)
+	return AsTyped(value.NewValueInterface(v), p.Schema, p.TypeRef)
+}
+
+// FromYAMLWithDuplicates parses a yaml string into an object with the current schema
+// and the type "typename" or an error if validation fails.
+// This variant allows for duplicate items in lists/sets.
+func (p ParseableType) FromYAMLWithDuplicates(object YAMLObject) (*TypedValue, error) {
+	var v interface{}
+	err := yaml.Unmarshal([]byte(object), &v)
+	if err != nil {
+		return nil, err
+	}
+	return AsTypedWithDuplicates(value.NewValueInterface(v), p.Schema, p.TypeRef)
 }
 
 // FromUnstructured converts a go "interface{}" type, typically an
@@ -108,8 +120,19 @@ func (p ParseableType) FromYAML(object YAMLObject, opts ...ValidationOptions) (*
 // The provided interface{} must be one of: map[string]interface{},
 // map[interface{}]interface{}, []interface{}, int types, float types,
 // string or boolean. Nested interface{} must also be one of these types.
-func (p ParseableType) FromUnstructured(in interface{}, opts ...ValidationOptions) (*TypedValue, error) {
-	return AsTyped(value.NewValueInterface(in), p.Schema, p.TypeRef, opts...)
+func (p ParseableType) FromUnstructured(in interface{}) (*TypedValue, error) {
+	return AsTyped(value.NewValueInterface(in), p.Schema, p.TypeRef)
+}
+
+// FromUnstructuredWithDuplicates converts a go "interface{}" type, typically an
+// unstructured object in Kubernetes world, to a TypedValue. It returns an
+// error if the resulting object fails schema validation.
+// The provided interface{} must be one of: map[string]interface{},
+// map[interface{}]interface{}, []interface{}, int types, float types,
+// string or boolean. Nested interface{} must also be one of these types.
+// This variant allows for duplicate items in lists/sets.
+func (p ParseableType) FromUnstructuredWithDuplicates(in interface{}) (*TypedValue, error) {
+	return AsTypedWithDuplicates(value.NewValueInterface(in), p.Schema, p.TypeRef)
 }
 
 // FromStructured converts a go "interface{}" type, typically an structured object in
@@ -117,12 +140,26 @@ func (p ParseableType) FromUnstructured(in interface{}, opts ...ValidationOption
 // schema validation. The provided "interface{}" value must be a pointer so that the
 // value can be modified via reflection. The provided "interface{}" may contain structs
 // and types that are converted to Values by the jsonMarshaler interface.
-func (p ParseableType) FromStructured(in interface{}, opts ...ValidationOptions) (*TypedValue, error) {
+func (p ParseableType) FromStructured(in interface{}) (*TypedValue, error) {
 	v, err := value.NewValueReflect(in)
 	if err != nil {
 		return nil, fmt.Errorf("error creating struct value reflector: %v", err)
 	}
-	return AsTyped(v, p.Schema, p.TypeRef, opts...)
+	return AsTyped(v, p.Schema, p.TypeRef)
+}
+
+// FromStructured converts a go "interface{}" type, typically an structured object in
+// Kubernetes, to a TypedValue. It will return an error if the resulting object fails
+// schema validation. The provided "interface{}" value must be a pointer so that the
+// value can be modified via reflection. The provided "interface{}" may contain structs
+// and types that are converted to Values by the jsonMarshaler interface.
+// This variant allows for duplicate items in lists/sets.
+func (p ParseableType) FromStructuredWithDuplicates(in interface{}) (*TypedValue, error) {
+	v, err := value.NewValueReflect(in)
+	if err != nil {
+		return nil, fmt.Errorf("error creating struct value reflector: %v", err)
+	}
+	return AsTypedWithDuplicates(v, p.Schema, p.TypeRef)
 }
 
 // DeducedParseableType is a ParseableType that deduces the type from

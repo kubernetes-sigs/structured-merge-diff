@@ -24,24 +24,32 @@ import (
 	"sigs.k8s.io/structured-merge-diff/v4/value"
 )
 
-// ValidationOptions is the list of all the options available when running the validation.
-type ValidationOptions int
-
-const (
-	// AllowDuplicates means that sets and associative lists can have duplicate similar items.
-	AllowDuplicates ValidationOptions = iota
-)
-
 // AsTyped accepts a value and a type and returns a TypedValue. 'v' must have
 // type 'typeName' in the schema. An error is returned if the v doesn't conform
 // to the schema.
-func AsTyped(v value.Value, s *schema.Schema, typeRef schema.TypeRef, opts ...ValidationOptions) (*TypedValue, error) {
+func AsTyped(v value.Value, s *schema.Schema, typeRef schema.TypeRef) (*TypedValue, error) {
 	tv := &TypedValue{
 		value:   v,
 		typeRef: typeRef,
 		schema:  s,
 	}
-	if err := tv.Validate(opts...); err != nil {
+	if err := tv.Validate(); err != nil {
+		return nil, err
+	}
+	return tv, nil
+}
+
+// AsTypedWithDuplicates accepts a value and a type and returns a TypedValue. 'v' must have
+// type 'typeName' in the schema. An error is returned if the v doesn't conform
+// to the schema, with the only caveat that this one will allow duplicate items in associative
+// lists and sets.
+func AsTypedWithDuplicates(v value.Value, s *schema.Schema, typeRef schema.TypeRef) (*TypedValue, error) {
+	tv := &TypedValue{
+		value:   v,
+		typeRef: typeRef,
+		schema:  s,
+	}
+	if err := tv.ValidateWithDuplicates(); err != nil {
 		return nil, err
 	}
 	return tv, nil
@@ -87,14 +95,19 @@ func (tv TypedValue) Schema() *schema.Schema {
 }
 
 // Validate returns an error with a list of every spec violation.
-func (tv TypedValue) Validate(opts ...ValidationOptions) error {
+func (tv TypedValue) Validate() error {
 	w := tv.walker()
-	for _, opt := range opts {
-		switch opt {
-		case AllowDuplicates:
-			w.allowDuplicates = true
-		}
+	defer w.finished()
+	if errs := w.validate(nil); len(errs) != 0 {
+		return errs
 	}
+	return nil
+}
+
+// ValidateWithDuplicates returns an error with a list of every spec violation, allowing duplicates.
+func (tv TypedValue) ValidateWithDuplicates() error {
+	w := tv.walker()
+	w.allowDuplicates = true
 	defer w.finished()
 	if errs := w.validate(nil); len(errs) != 0 {
 		return errs

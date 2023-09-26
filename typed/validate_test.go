@@ -281,7 +281,7 @@ func (tt validationTestCase) test(t *testing.T) {
 			if strings.Contains(err.Error(), "invalid atom") {
 				t.Errorf("Error should be useful, but got: %v\n%v", err, iv)
 			}
-			_, err = pt.FromYAML(iv, typed.AllowDuplicates)
+			_, err = pt.FromYAMLWithDuplicates(iv)
 			if err != nil {
 				t.Errorf("failed to parse/validate yaml: %v\n%v", err, iv)
 			}
