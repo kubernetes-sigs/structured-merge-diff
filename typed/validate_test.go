@@ -31,6 +31,8 @@ type validationTestCase struct {
 	schema         typed.YAMLObject
 	validObjects   []typed.YAMLObject
 	invalidObjects []typed.YAMLObject
+	// duplicatesObjects are valid with AllowDuplicates validation, invalid otherwise.
+	duplicatesObjects []typed.YAMLObject
 }
 
 var validationCases = []validationTestCase{{
@@ -62,7 +64,6 @@ var validationCases = []validationTestCase{{
 		`{"key":"foo","value":{}}`,
 		`{"key":"foo","value":null}`,
 		`{"key":"foo"}`,
-		`{"key":"foo","value":true}`,
 		`{"key":"foo","value":true}`,
 		`{"key":null}`,
 	},
@@ -136,28 +137,27 @@ var validationCases = []validationTestCase{{
 		`{"bool":"aoeu"}`,
 		`{"bool":{"a":1}}`,
 		`{"bool":["foo"]}`,
-		`{"setStr":["a","a"]}`,
-		`{"setBool":[true,false,true]}`,
-		`{"setNumeric":[1,2,3,3.14159,1]}`,
 		`{"setStr":[1]}`,
 		`{"setStr":[true]}`,
 		`{"setStr":[1.5]}`,
 		`{"setStr":[null]}`,
 		`{"setStr":[{}]}`,
 		`{"setStr":[[]]}`,
-		`{"setBool":[true,false,true]}`,
 		`{"setBool":[1]}`,
 		`{"setBool":[1.5]}`,
 		`{"setBool":[null]}`,
 		`{"setBool":[{}]}`,
 		`{"setBool":[[]]}`,
 		`{"setBool":["a"]}`,
-		`{"setNumeric":[1,2,3,3.14159,1]}`,
 		`{"setNumeric":[null]}`,
 		`{"setNumeric":[true]}`,
 		`{"setNumeric":["a"]}`,
 		`{"setNumeric":[[]]}`,
 		`{"setNumeric":[{}]}`,
+	}, duplicatesObjects: []typed.YAMLObject{
+		`{"setStr":["a","a"]}`,
+		`{"setBool":[true,false,true]}`,
+		`{"setNumeric":[1,2,3,3.14159,1]}`,
 	},
 }, {
 	name:         "associative list",
@@ -232,9 +232,10 @@ var validationCases = []validationTestCase{{
 		`{"list":[{}]}`,
 		`{"list":[{"value":{"a":"a"},"bv":true,"nv":3.14}]}`,
 		`{"list":[{"key":"a","id":1,"value":{"a":1}}]}`,
-		`{"list":[{"key":"a","id":1},{"key":"a","id":1}]}`,
 		`{"list":[{"key":"a","id":1,"value":{"a":"a"},"bv":"true","nv":3.14}]}`,
 		`{"list":[{"key":"a","id":1,"value":{"a":"a"},"bv":true,"nv":false}]}`,
+	}, duplicatesObjects: []typed.YAMLObject{
+		`{"list":[{"key":"a","id":1},{"key":"a","id":1}]}`,
 	},
 }}
 
@@ -262,10 +263,27 @@ func (tt validationTestCase) test(t *testing.T) {
 			t.Parallel()
 			_, err := pt.FromYAML(iv)
 			if err == nil {
-				t.Errorf("Object should fail: %v\n%v", err, iv)
+				t.Fatalf("Object should fail:\n%v", iv)
 			}
 			if strings.Contains(err.Error(), "invalid atom") {
 				t.Errorf("Error should be useful, but got: %v\n%v", err, iv)
+			}
+		})
+	}
+	for i, iv := range tt.duplicatesObjects {
+		iv := iv
+		t.Run(fmt.Sprintf("%v-duplicates-%v", tt.name, i), func(t *testing.T) {
+			t.Parallel()
+			_, err := pt.FromYAML(iv)
+			if err == nil {
+				t.Fatalf("Object should fail:\n%v", iv)
+			}
+			if strings.Contains(err.Error(), "invalid atom") {
+				t.Errorf("Error should be useful, but got: %v\n%v", err, iv)
+			}
+			_, err = pt.FromYAML(iv, typed.AllowDuplicates)
+			if err != nil {
+				t.Errorf("failed to parse/validate yaml: %v\n%v", err, iv)
 			}
 		})
 	}
