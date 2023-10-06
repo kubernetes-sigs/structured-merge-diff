@@ -53,6 +53,7 @@ func (spev sortedPathElementValues) Less(i, j int) bool {
 func (spev sortedPathElementValues) Swap(i, j int) { spev[i], spev[j] = spev[j], spev[i] }
 
 // Insert adds the pathelement and associated value in the map.
+// If insert is called twice with the same PathElement, the value is replaced.
 func (s *PathElementValueMap) Insert(pe PathElement, v value.Value) {
 	loc := sort.Search(len(s.members), func(i int) bool {
 		return !s.members[i].PathElement.Less(pe)
@@ -62,6 +63,7 @@ func (s *PathElementValueMap) Insert(pe PathElement, v value.Value) {
 		return
 	}
 	if s.members[loc].PathElement.Equals(pe) {
+		s.members[loc].Value = v
 		return
 	}
 	s.members = append(s.members, pathElementValue{})
