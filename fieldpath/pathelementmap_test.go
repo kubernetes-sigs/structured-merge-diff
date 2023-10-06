@@ -47,4 +47,11 @@ func TestPathElementValueMap(t *testing.T) {
 	} else if !value.Equals(val, value.NewValueInterface(2)) {
 		t.Fatalf("Unexpected value found: %#v", val)
 	}
+
+	m.Insert(PathElement{FieldName: strptr("carrot")}, value.NewValueInterface("fork"))
+	if val, ok := m.Get(PathElement{FieldName: strptr("carrot")}); !ok {
+		t.Fatal("Missing path-element in map")
+	} else if !value.Equals(val, value.NewValueInterface("fork")) {
+		t.Fatalf("Unexpected value found: %#v", val)
+	}
 }
