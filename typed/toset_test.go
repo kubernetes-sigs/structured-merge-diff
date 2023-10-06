@@ -155,7 +155,12 @@ var fieldsetCases = []fieldsetTestCase{{
 			_P("setStr", _V("b")),
 			_P("setStr", _V("c")),
 		)},
-		{`{"setBool":[true,false]}`, _NS(
+		{`{"setStr":["a","b","c","a","b","c","c"]}`, _NS(
+			_P("setStr", _V("a")),
+			_P("setStr", _V("b")),
+			_P("setStr", _V("c")),
+		)},
+		{`{"setBool":[true,false,true]}`, _NS(
 			_P("setBool", _V(true)),
 			_P("setBool", _V(false)),
 		)},
@@ -244,6 +249,16 @@ var fieldsetCases = []fieldsetTestCase{{
 			_P("list", _KBF("key", "b", "id", 1), "key"),
 			_P("list", _KBF("key", "b", "id", 1), "id"),
 		)},
+		{`{"list":[{"key":"a","id":1,"nv":2},{"key":"a","id":2,"nv":3},{"key":"b","id":1},{"key":"a","id":2,"bv":true}]}`, _NS(
+			_P("list", _KBF("key", "a", "id", 1)),
+			_P("list", _KBF("key", "a", "id", 1), "key"),
+			_P("list", _KBF("key", "a", "id", 1), "id"),
+			_P("list", _KBF("key", "a", "id", 1), "nv"),
+			_P("list", _KBF("key", "a", "id", 2)),
+			_P("list", _KBF("key", "b", "id", 1)),
+			_P("list", _KBF("key", "b", "id", 1), "key"),
+			_P("list", _KBF("key", "b", "id", 1), "id"),
+		)},
 		{`{"atomicList":["a","a","a"]}`, _NS(_P("atomicList"))},
 	},
 }}
@@ -257,9 +272,9 @@ func (tt fieldsetTestCase) test(t *testing.T) {
 		v := v
 		t.Run(fmt.Sprintf("%v-%v", tt.name, i), func(t *testing.T) {
 			t.Parallel()
-			tv, err := parser.Type(tt.rootTypeName).FromYAML(v.object)
+			tv, err := parser.Type(tt.rootTypeName).FromYAML(v.object, typed.AllowDuplicates)
 			if err != nil {
-				t.Errorf("failed to parse object: %v", err)
+				t.Fatalf("failed to parse object: %v", err)
 			}
 			fs, err := tv.ToFieldSet()
 			if err != nil {
