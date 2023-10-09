@@ -213,7 +213,16 @@ func (w *compareWalker) visitListItems(t *schema.List, lhs, rhs value.List) (err
 		lLen = lhs.Length()
 	}
 
-	lValues := fieldpath.MakePathElementValueMap(lLen)
+	maxLength := rLen
+	if lLen > maxLength {
+		maxLength = lLen
+	}
+	// Contains all the unique PEs between lhs and rhs, exactly once.
+	// Order doesn't matter since we're just tracking ownership in a set.
+	allPEs := make([]fieldpath.PathElement, 0, maxLength)
+
+	// Gather all the elements from lhs, indexed by PE, in a list for duplicates.
+	lValues := fieldpath.MakePathElementMap(lLen)
 	for i := 0; i < lLen; i++ {
 		child := lhs.At(i)
 		pe, err := listItemToPathElement(w.allocator, w.schema, t, child)
@@ -224,14 +233,18 @@ func (w *compareWalker) visitListItems(t *schema.List, lhs, rhs value.List) (err
 			// this element.
 			continue
 		}
-		// Ignore repeated occurences of `pe`.
-		if _, found := lValues.Get(pe); found {
-			continue
+
+		if v, found := lValues.Get(pe); found {
+			list := v.([]value.Value)
+			lValues.Insert(pe, append(list, child))
+		} else {
+			lValues.Insert(pe, []value.Value{child})
+			allPEs = append(allPEs, pe)
 		}
-		lValues.Insert(pe, child)
 	}
 
-	rValues := fieldpath.MakePathElementValueMap(rLen)
+	// Gather all the elements from rhs, indexed by PE, in a list for duplicates.
+	rValues := fieldpath.MakePathElementMap(rLen)
 	for i := 0; i < rLen; i++ {
 		rValue := rhs.At(i)
 		pe, err := listItemToPathElement(w.allocator, w.schema, t, rValue)
@@ -242,31 +255,75 @@ func (w *compareWalker) visitListItems(t *schema.List, lhs, rhs value.List) (err
 			// this element.
 			continue
 		}
-		// Ignore repeated occurences of `pe`.
-		if _, found := rValues.Get(pe); found {
-			continue
+		if v, found := rValues.Get(pe); found {
+			list := v.([]value.Value)
+			rValues.Insert(pe, append(list, rValue))
+		} else {
+			rValues.Insert(pe, []value.Value{rValue})
+			if _, found := lValues.Get(pe); !found {
+				allPEs = append(allPEs, pe)
+			}
 		}
-		rValues.Insert(pe, rValue)
-		// We can compare with nil if lValue is not present.
-		lValue, _ := lValues.Get(pe)
-		errs = append(errs, w.compareListItem(t, pe, lValue, rValue)...)
 	}
 
-	// Add items from left that are not in right.
-	for i := 0; i < lLen; i++ {
-		lValue := lhs.At(i)
-		pe, err := listItemToPathElement(w.allocator, w.schema, t, lValue)
-		if err != nil {
-			errs = append(errs, errorf("element %v: %v", i, err.Error())...)
-			// If we can't construct the path element, we can't
-			// even report errors deeper in the schema, so bail on
-			// this element.
-			continue
+	for _, pe := range allPEs {
+		lList := []value.Value(nil)
+		if l, ok := lValues.Get(pe); ok {
+			lList = l.([]value.Value)
 		}
-		if _, found := rValues.Get(pe); found {
-			continue
+		rList := []value.Value(nil)
+		if l, ok := rValues.Get(pe); ok {
+			rList = l.([]value.Value)
 		}
-		errs = append(errs, w.compareListItem(t, pe, lValue, nil)...)
+
+		switch {
+		case len(lList) == 0 && len(rList) == 0:
+			// We shouldn't be here anyway.
+			return
+		// Normal use-case:
+		// We have no duplicates for this PE, compare items one-to-one.
+		case len(lList) <= 1 && len(rList) <= 1:
+			lValue := value.Value(nil)
+			if len(lList) != 0 {
+				lValue = lList[0]
+			}
+			rValue := value.Value(nil)
+			if len(rList) != 0 {
+				rValue = rList[0]
+			}
+			errs = append(errs, w.compareListItem(t, pe, lValue, rValue)...)
+		// Duplicates before & after use-case:
+		// Compare the duplicates lists as if they were atomic, mark modified if they changed.
+		case len(lList) >= 2 && len(rList) >= 2:
+			listEqual := func(lList, rList []value.Value) bool {
+				if len(lList) != len(rList) {
+					return false
+				}
+				for i := range lList {
+					if !value.Equals(lList[i], rList[i]) {
+						return false
+					}
+				}
+				return true
+			}
+			if !listEqual(lList, rList) {
+				w.comparison.Modified.Insert(append(w.path, pe))
+			}
+		// Duplicates before & not anymore use-case:
+		// Rcursively add new non-duplicate items, Remove duplicate marker,
+		case len(lList) >= 2:
+			if len(rList) != 0 {
+				errs = append(errs, w.compareListItem(t, pe, nil, rList[0])...)
+			}
+			w.comparison.Removed.Insert(append(w.path, pe))
+		// New duplicates use-case:
+		// Recursively remove old non-duplicate items, add duplicate marker.
+		case len(rList) >= 2:
+			if len(lList) != 0 {
+				errs = append(errs, w.compareListItem(t, pe, lList[0], nil)...)
+			}
+			w.comparison.Added.Insert(append(w.path, pe))
+		}
 	}
 
 	return

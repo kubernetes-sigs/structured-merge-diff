@@ -597,6 +597,24 @@ var symdiffCases = []symdiffTestCase{{
 		modified: _NS(),
 		added:    _NS(_P("setStr", _V("c"))),
 	}, {
+		lhs:      `{"setStr":["a"]}`,
+		rhs:      `{"setStr":["a","b","b"]}`,
+		removed:  _NS(),
+		modified: _NS(),
+		added:    _NS(_P("setStr", _V("b"))),
+	}, {
+		lhs:      `{"setStr":["a","b"]}`,
+		rhs:      `{"setStr":["a","b","b"]}`,
+		removed:  _NS(_P("setStr", _V("b"))),
+		modified: _NS(),
+		added:    _NS(_P("setStr", _V("b"))),
+	}, {
+		lhs:      `{"setStr":["b","b"]}`,
+		rhs:      `{"setStr":["a","b","b"]}`,
+		removed:  _NS(),
+		modified: _NS(),
+		added:    _NS(_P("setStr", _V("a"))),
+	}, {
 		lhs: `{"setStr":["a","b","c"]}`,
 		rhs: `{"setStr":[]}`,
 		removed: _NS(
@@ -618,6 +636,28 @@ var symdiffCases = []symdiffTestCase{{
 		removed:  _NS(_P("setNumeric", _V(3.14159))),
 		modified: _NS(),
 		added:    _NS(_P("setNumeric", _V(3))),
+	}, {
+		lhs: `{"setStr":["a","b","b","c","a"]}`,
+		rhs: `{"setStr":[]}`,
+		removed: _NS(
+			_P("setStr", _V("a")),
+			_P("setStr", _V("b")),
+			_P("setStr", _V("c")),
+		),
+		modified: _NS(),
+		added:    _NS(),
+	}, {
+		lhs:      `{"setBool":[true,true]}`,
+		rhs:      `{"setBool":[false]}`,
+		removed:  _NS(_P("setBool", _V(true))),
+		modified: _NS(),
+		added:    _NS(_P("setBool", _V(false))),
+	}, {
+		lhs:      `{"setNumeric":[1,2,2,3.14159,1]}`,
+		rhs:      `{"setNumeric":[1,2,3]}`,
+		removed:  _NS(_P("setNumeric", _V(1)), _P("setNumeric", _V(2)), _P("setNumeric", _V(3.14159))),
+		modified: _NS(),
+		added:    _NS(_P("setNumeric", _V(1)), _P("setNumeric", _V(2)), _P("setNumeric", _V(3))),
 	}},
 }, {
 	name:         "associative list",
@@ -743,6 +783,48 @@ var symdiffCases = []symdiffTestCase{{
 		removed:  _NS(),
 		modified: _NS(_P("atomicList")),
 		added:    _NS(),
+	}, {
+		lhs: `{"list":[{"key":"a","id":1,"nv":2},{"key":"b","id":1},{"key":"a","id":1,"bv":true}]}`,
+		rhs: `{"list":[{"key":"a","id":1},{"key":"a","id":2}]}`,
+		removed: _NS(
+			_P("list", _KBF("key", "b", "id", 1)),
+			_P("list", _KBF("key", "b", "id", 1), "key"),
+			_P("list", _KBF("key", "b", "id", 1), "id"),
+			_P("list", _KBF("key", "a", "id", 1)),
+		),
+		modified: _NS(),
+		added: _NS(
+			_P("list", _KBF("key", "a", "id", 1)),
+			_P("list", _KBF("key", "a", "id", 1), "key"),
+			_P("list", _KBF("key", "a", "id", 1), "id"),
+			_P("list", _KBF("key", "a", "id", 2)),
+			_P("list", _KBF("key", "a", "id", 2), "key"),
+			_P("list", _KBF("key", "a", "id", 2), "id"),
+		),
+	}, {
+		lhs:      `{"list":[{"key":"a","id":1},{"key":"b","id":1},{"key":"a","id":1,"bv":true}]}`,
+		rhs:      `{"list":[{"key":"a","id":1},{"key":"b","id":1},{"key":"a","id":1,"bv":true,"nv":1}]}`,
+		removed:  _NS(),
+		modified: _NS(_P("list", _KBF("key", "a", "id", 1))),
+		added:    _NS(),
+	}, {
+		lhs:      `{"list":[{"key":"a","id":1},{"key":"b","id":1},{"key":"a","id":1,"bv":true}]}`,
+		rhs:      `{"list":[{"key":"a","id":1},{"key":"b","id":1},{"key":"a","id":1,"bv":true}]}`,
+		removed:  _NS(),
+		modified: _NS(),
+		added:    _NS(),
+	}, {
+		lhs:      `{"list":[{"key":"a","id":1},{"key":"b","id":1},{"key":"a","id":1,"bv":true}]}`,
+		rhs:      `{"list":[{"key":"a","id":1},{"key":"b","id":1,"bv":true},{"key":"a","id":1,"bv":true}]}`,
+		removed:  _NS(),
+		modified: _NS(),
+		added:    _NS(_P("list", _KBF("key", "b", "id", 1), "bv")),
+	}, {
+		lhs:      `{"list":[{"key":"a","id":1},{"key":"b","id":1},{"key":"a","id":1,"bv":true}]}`,
+		rhs:      `{"list":[{"key":"a","id":1},{"key":"b","id":1},{"key":"a","id":1,"bv":true}],"atomicList":["unrelated"]}`,
+		removed:  _NS(),
+		modified: _NS(),
+		added:    _NS(_P("atomicList")),
 	}},
 }}
 
@@ -757,11 +839,11 @@ func (tt symdiffTestCase) test(t *testing.T) {
 			t.Parallel()
 			pt := parser.Type(tt.rootTypeName)
 
-			tvLHS, err := pt.FromYAML(quint.lhs)
+			tvLHS, err := pt.FromYAML(quint.lhs, typed.AllowDuplicates)
 			if err != nil {
 				t.Fatalf("failed to parse lhs: %v", err)
 			}
-			tvRHS, err := pt.FromYAML(quint.rhs)
+			tvRHS, err := pt.FromYAML(quint.rhs, typed.AllowDuplicates)
 			if err != nil {
 				t.Fatalf("failed to parse rhs: %v", err)
 			}
