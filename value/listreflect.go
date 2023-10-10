@@ -74,6 +74,17 @@ func (r listReflect) EqualsUsing(a Allocator, other List) bool {
 	return ListEqualsUsing(a, &r, other)
 }
 
+func toReflectValue(v Value) reflect.Value {
+	if vr, ok := v.(*valueReflect); ok {
+		return vr.Value
+	}
+	return reflect.ValueOf(v.Unstructured())
+}
+
+func (r listReflect) Set(i int, v Value) {
+	r.Value.Index(i).Set(toReflectValue(v))
+}
+
 type listReflectRange struct {
 	list  reflect.Value
 	vr    *valueReflect

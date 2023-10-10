@@ -661,6 +661,33 @@ func TestReflectList(t *testing.T) {
 	}
 }
 
+func TestReflectListMutateSet(t *testing.T) {
+	myStringSlice := []string{"value1", "value2"}
+	rv := MustReflect(myStringSlice)
+	if !rv.IsList() {
+		t.Error("expected IsList to be true")
+	}
+	m := rv.AsList()
+	at0 := m.At(0)
+	if at0.AsString() != "value1" {
+		t.Errorf("expected list.At(0) to be 'value1' but got: %v", at0)
+	}
+	m.Set(0, NewValueInterface("replacement"))
+
+	// Show that the original slice was mutated
+	expectedSlice := []string{"replacement", "value2"}
+	if !reflect.DeepEqual(myStringSlice, expectedSlice) {
+		t.Errorf("expected %v but got: %v", expectedSlice, myStringSlice)
+	}
+
+	// Show that the unstructured value is also updated
+	expectedUnstructured := []interface{}{"replacement", "value2"}
+	unstructured := rv.Unstructured()
+	if !reflect.DeepEqual(unstructured, expectedUnstructured) {
+		t.Errorf("expected %v but got: %v", expectedUnstructured, unstructured)
+	}
+}
+
 func TestReflectListAt(t *testing.T) {
 	rv := MustReflect([]string{"one", "two"})
 	if !rv.IsList() {

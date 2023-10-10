@@ -52,6 +52,10 @@ func (l listUnstructured) RangeUsing(a Allocator) ListRange {
 	return r
 }
 
+func (l listUnstructured) Set(i int, v Value) {
+	l[i] = v.Unstructured()
+}
+
 type listUnstructuredRange struct {
 	list listUnstructured
 	vv   *valueUnstructured

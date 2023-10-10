@@ -28,6 +28,10 @@ type List interface {
 	// The returned Value should be given back to the Allocator when no longer needed
 	// by calling Allocator.Free(Value).
 	AtUsing(Allocator, int) Value
+
+	// Set sets the value at the given index to the provided value
+	Set(int, Value)
+
 	// Range returns a ListRange for iterating over the items in the list.
 	Range() ListRange
 	// RangeUsing uses the provided allocator and returns a ListRange for
