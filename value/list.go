@@ -30,6 +30,7 @@ type List interface {
 	AtUsing(Allocator, int) Value
 
 	// Set sets the value at the given index to the provided value
+	// It panics if the index is negative or too large to allocate the memory.
 	Set(int, Value)
 
 	// Range returns a ListRange for iterating over the items in the list.
