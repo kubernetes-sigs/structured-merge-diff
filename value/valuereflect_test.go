@@ -686,6 +686,69 @@ func TestReflectListMutateSet(t *testing.T) {
 	if !reflect.DeepEqual(unstructured, expectedUnstructured) {
 		t.Errorf("expected %v but got: %v", expectedUnstructured, unstructured)
 	}
+
+	type TestType struct {
+		Field struct {
+			Nested string
+		}
+	}
+
+	myStructSlice := []TestType{
+		{
+			Field: struct{ Nested string }{Nested: "value1"},
+		},
+		{
+			Field: struct{ Nested string }{Nested: "value2"},
+		},
+	}
+	rv = MustReflect(myStructSlice)
+	if !rv.IsList() {
+		t.Error("expected IsList to be true")
+	}
+	m = rv.AsList()
+	m.Set(0, MustReflect(TestType{Field: struct{ Nested string }{Nested: "replacement"}}))
+	expectedStructSlice := []TestType{
+		{
+			Field: struct{ Nested string }{Nested: "replacement"},
+		},
+		{
+			Field: struct{ Nested string }{Nested: "value2"},
+		},
+	}
+	if !reflect.DeepEqual(myStructSlice, expectedStructSlice) {
+		t.Errorf("expected %v but got: %v", expectedStructSlice, myStructSlice)
+	}
+	expectedSliceUnstructured := []interface{}{
+		map[string]interface{}{"Field": map[string]interface{}{"Nested": "replacement"}},
+		map[string]interface{}{"Field": map[string]interface{}{"Nested": "value2"}},
+	}
+	unstructured = rv.Unstructured()
+	if !reflect.DeepEqual(unstructured, expectedSliceUnstructured) {
+		t.Errorf("expected %v but got: %v", expectedSliceUnstructured, unstructured)
+	}
+
+	// Now set using unstructured
+	m.Set(0, NewValueInterface(map[string]interface{}{"Field": map[string]interface{}{"Nested": "replacement2"}}))
+	expectedStructSlice = []TestType{
+		{
+			Field: struct{ Nested string }{Nested: "replacement2"},
+		},
+		{
+			Field: struct{ Nested string }{Nested: "value2"},
+		},
+	}
+	if !reflect.DeepEqual(myStructSlice, expectedStructSlice) {
+		t.Errorf("expected %v but got: %v", expectedStructSlice, myStructSlice)
+	}
+	expectedSliceUnstructured = []interface{}{
+		map[string]interface{}{"Field": map[string]interface{}{"Nested": "replacement2"}},
+		map[string]interface{}{"Field": map[string]interface{}{"Nested": "value2"}},
+	}
+	unstructured = rv.Unstructured()
+	if !reflect.DeepEqual(unstructured, expectedSliceUnstructured) {
+		t.Errorf("expected %v but got: %v", expectedSliceUnstructured, unstructured)
+	}
+
 }
 
 func TestReflectListAt(t *testing.T) {
