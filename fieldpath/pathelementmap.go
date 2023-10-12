@@ -28,18 +28,13 @@ import (
 // for PathElementSet and SetNodeMap, so we could probably share the
 // code.
 type PathElementValueMap struct {
-	members sortedPathElementValues
+	valueMap PathElementMap
 }
 
 func MakePathElementValueMap(size int) PathElementValueMap {
 	return PathElementValueMap{
-		members: make(sortedPathElementValues, 0, size),
+		valueMap: MakePathElementMap(size),
 	}
-}
-
-type pathElementValue struct {
-	PathElement PathElement
-	Value       value.Value
 }
 
 type sortedPathElementValues []pathElementValue
@@ -55,6 +50,38 @@ func (spev sortedPathElementValues) Swap(i, j int) { spev[i], spev[j] = spev[j],
 // Insert adds the pathelement and associated value in the map.
 // If insert is called twice with the same PathElement, the value is replaced.
 func (s *PathElementValueMap) Insert(pe PathElement, v value.Value) {
+	s.valueMap.Insert(pe, v)
+}
+
+// Get retrieves the value associated with the given PathElement from the map.
+// (nil, false) is returned if there is no such PathElement.
+func (s *PathElementValueMap) Get(pe PathElement) (value.Value, bool) {
+	v, ok := s.valueMap.Get(pe)
+	if !ok {
+		return nil, false
+	}
+	return v.(value.Value), true
+}
+
+// PathElementValueMap is a map from PathElement to interface{}.
+type PathElementMap struct {
+	members sortedPathElementValues
+}
+
+type pathElementValue struct {
+	PathElement PathElement
+	Value       interface{}
+}
+
+func MakePathElementMap(size int) PathElementMap {
+	return PathElementMap{
+		members: make(sortedPathElementValues, 0, size),
+	}
+}
+
+// Insert adds the pathelement and associated value in the map.
+// If insert is called twice with the same PathElement, the value is replaced.
+func (s *PathElementMap) Insert(pe PathElement, v interface{}) {
 	loc := sort.Search(len(s.members), func(i int) bool {
 		return !s.members[i].PathElement.Less(pe)
 	})
@@ -73,7 +100,7 @@ func (s *PathElementValueMap) Insert(pe PathElement, v value.Value) {
 
 // Get retrieves the value associated with the given PathElement from the map.
 // (nil, false) is returned if there is no such PathElement.
-func (s *PathElementValueMap) Get(pe PathElement) (value.Value, bool) {
+func (s *PathElementMap) Get(pe PathElement) (interface{}, bool) {
 	loc := sort.Search(len(s.members), func(i int) bool {
 		return !s.members[i].PathElement.Less(pe)
 	})
