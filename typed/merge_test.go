@@ -470,7 +470,7 @@ var mergeCases = []mergeTestCase{{
 	}, {
 		`{"list":[{"key":"a","id":1,"bv":true},{"key":"b","id":2},{"key":"a","id":1,"bv":false,"nv":2}]}`,
 		`{"list":[{"key":"a","id":1,"nv":3},{"key":"c","id":3},{"key":"b","id":2}]}`,
-		`{"list":[{"key":"a","id":1,"bv":true,"nv":3},{"key":"c","id":3},{"key":"b","id":2}]}`,
+		`{"list":[{"key":"a","id":1,"nv":3},{"key":"c","id":3},{"key":"b","id":2}]}`,
 	}, {
 		`{"list":[{"key":"a","id":1,"nv":1},{"key":"a","id":1,"nv":2}]}`,
 		`{"list":[]}`,

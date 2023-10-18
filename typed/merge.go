@@ -211,7 +211,7 @@ func (w *mergingWalker) visitListItems(t *schema.List, lhs, rhs value.List) (err
 			if pe.Equals(rhsPEs[rI]) {
 				// merge LHS & RHS items
 				mergedRHS.Insert(pe, struct{}{})
-				lChild, _ := observedLHS.Get(pe)
+				lChild, _ := observedLHS.Get(pe) // may be nil if the PE is duplicaated.
 				rChild, _ := observedRHS.Get(pe)
 				mergeOut, errs := w.mergeListItem(t, pe, lChild, rChild)
 				errs = append(errs, errs...)
@@ -237,7 +237,7 @@ func (w *mergingWalker) visitListItems(t *schema.List, lhs, rhs value.List) (err
 		if lI < lLen {
 			pe := lhsPEs[lI]
 			if _, ok := observedRHS.Get(pe); !ok {
-				// take LHS item
+				// take LHS item using At to make sure we get the right item (observed may not contain the right item).
 				lChild := lhs.AtUsing(w.allocator, lI)
 				mergeOut, errs := w.mergeListItem(t, pe, lChild, nil)
 				errs = append(errs, errs...)
@@ -255,7 +255,7 @@ func (w *mergingWalker) visitListItems(t *schema.List, lhs, rhs value.List) (err
 			// Take the RHS item, merge with matching LHS item if possible
 			pe := rhsPEs[rI]
 			mergedRHS.Insert(pe, struct{}{})
-			lChild, _ := observedLHS.Get(pe) // may be nil
+			lChild, _ := observedLHS.Get(pe) // may be nil if absent or duplicaated.
 			rChild, _ := observedRHS.Get(pe)
 			mergeOut, errs := w.mergeListItem(t, pe, lChild, rChild)
 			errs = append(errs, errs...)
@@ -305,6 +305,9 @@ func (w *mergingWalker) indexListPathElements(t *schema.List, list value.List, a
 			continue
 		} else if !found {
 			observed.Insert(pe, child)
+		} else {
+			// Duplicated items are not merged with the new value, make them nil.
+			observed.Insert(pe, value.NewValueInterface(nil))
 		}
 		pes = append(pes, pe)
 	}
