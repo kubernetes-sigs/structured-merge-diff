@@ -180,14 +180,14 @@ func (w *mergingWalker) visitListItems(t *schema.List, lhs, rhs value.List) (err
 	}
 	out := make([]interface{}, 0, outLen)
 
-	rhsOrder, observedRHS, rhsErrs := w.indexListPathElements(t, rhs)
+	rhsPEs, observedRHS, rhsErrs := w.indexListPathElements(t, rhs)
 	errs = append(errs, rhsErrs...)
-	lhsOrder, observedLHS, lhsErrs := w.indexListPathElements(t, lhs)
+	lhsPEs, observedLHS, lhsErrs := w.indexListPathElements(t, lhs)
 	errs = append(errs, lhsErrs...)
 
 	sharedOrder := make([]*fieldpath.PathElement, 0, rLen)
-	for i := range rhsOrder {
-		pe := &rhsOrder[i]
+	for i := range rhsPEs {
+		pe := &rhsPEs[i]
 		if _, ok := observedLHS.Get(*pe); ok {
 			sharedOrder = append(sharedOrder, pe)
 		}
@@ -199,11 +199,11 @@ func (w *mergingWalker) visitListItems(t *schema.List, lhs, rhs value.List) (err
 		sharedOrder = sharedOrder[1:]
 	}
 
-	lLen, rLen = len(lhsOrder), len(rhsOrder)
+	lLen, rLen = len(lhsPEs), len(rhsPEs)
 	for lI, rI := 0, 0; lI < lLen || rI < rLen; {
 		if lI < lLen && rI < rLen {
-			pe := lhsOrder[lI]
-			if pe.Equals(rhsOrder[rI]) {
+			pe := lhsPEs[lI]
+			if pe.Equals(rhsPEs[rI]) {
 				// merge LHS & RHS items
 				lChild, _ := observedLHS.Get(pe)
 				rChild, _ := observedRHS.Get(pe)
@@ -222,14 +222,14 @@ func (w *mergingWalker) visitListItems(t *schema.List, lhs, rhs value.List) (err
 				}
 				continue
 			}
-			if _, ok := observedRHS.Get(pe); ok && nextShared != nil && !nextShared.Equals(lhsOrder[lI]) {
+			if _, ok := observedRHS.Get(pe); ok && nextShared != nil && !nextShared.Equals(lhsPEs[lI]) {
 				// shared item, but not the one we want in this round
 				lI++
 				continue
 			}
 		}
 		if lI < lLen {
-			pe := lhsOrder[lI]
+			pe := lhsPEs[lI]
 			if _, ok := observedRHS.Get(pe); !ok {
 				// take LHS item
 				lChild, _ := observedLHS.Get(pe)
@@ -244,7 +244,7 @@ func (w *mergingWalker) visitListItems(t *schema.List, lhs, rhs value.List) (err
 		}
 		if rI < rLen {
 			// Take the RHS item, merge with matching LHS item if possible
-			pe := rhsOrder[rI]
+			pe := rhsPEs[rI]
 			lChild, _ := observedLHS.Get(pe) // may be nil
 			rChild, _ := observedRHS.Get(pe)
 			mergeOut, errs := w.mergeListItem(t, pe, lChild, rChild)
