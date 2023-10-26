@@ -535,8 +535,6 @@ type TestCase struct {
 	// Managed, if not nil, is the ManagedFields as expected
 	// after all operations are run.
 	Managed fieldpath.ManagedFields
-	// Set to true if the test case needs the union behavior enabled.
-	RequiresUnions bool
 	// ReportInputOnNoop if we don't want to compare the output and
 	// always return it.
 	ReturnInputOnNoop bool
@@ -576,7 +574,6 @@ func (tc TestCase) BenchWithConverter(parser Parser, converter merge.Converter) 
 		Converter:         converter,
 		IgnoredFields:     tc.IgnoredFields,
 		ReturnInputOnNoop: tc.ReturnInputOnNoop,
-		EnableUnions:      tc.RequiresUnions,
 	}
 	state := State{
 		Updater: updaterBuilder.BuildUpdater(),
@@ -599,7 +596,6 @@ func (tc TestCase) TestWithConverter(parser Parser, converter merge.Converter) e
 		Converter:         converter,
 		IgnoredFields:     tc.IgnoredFields,
 		ReturnInputOnNoop: tc.ReturnInputOnNoop,
-		EnableUnions:      tc.RequiresUnions,
 	}
 	state := State{
 		Updater: updaterBuilder.BuildUpdater(),
@@ -633,16 +629,6 @@ func (tc TestCase) TestWithConverter(parser Parser, converter merge.Converter) e
 	for manager, set := range state.Managers {
 		if set.Set().Empty() {
 			return fmt.Errorf("expected Managers to have no empty sets, but found one managed by %v", manager)
-		}
-	}
-
-	if !tc.RequiresUnions {
-		// Re-run the test with unions on.
-		tc2 := tc
-		tc2.RequiresUnions = true
-		err := tc2.TestWithConverter(parser, converter)
-		if err != nil {
-			return fmt.Errorf("fails if unions are on: %v", err)
 		}
 	}
 
