@@ -17,8 +17,11 @@ limitations under the License.
 package value
 
 import (
+	gojson "encoding/json"
 	"sort"
 	"strings"
+
+	"sigs.k8s.io/json"
 )
 
 // Field is an individual key-value pair.
@@ -30,6 +33,30 @@ type Field struct {
 // FieldList is a list of key-value pairs. Each field is expected to
 // have a different name.
 type FieldList []Field
+
+// FieldListFromJSON is a helper function for reading a JSON document.
+func FieldListFromJSON(input []byte) (FieldList, error) {
+	v := map[string]interface{}{}
+	if err := json.UnmarshalCaseSensitivePreserveInts(input, &v); err != nil {
+		return nil, err
+	}
+
+	fields := make(FieldList, 0, len(v))
+	for k, raw := range v {
+		fields = append(fields, Field{Name: k, Value: NewValueInterface(raw)})
+	}
+
+	return fields, nil
+}
+
+// FieldListToJSON is a helper function for producing a JSON document.
+func FieldListToJSON(v FieldList) ([]byte, error) {
+	m := make(map[string]interface{}, len(v))
+	for _, f := range v {
+		m[f.Name] = f.Value.Unstructured()
+	}
+	return gojson.Marshal(m)
+}
 
 // Sort sorts the field list by Name.
 func (f FieldList) Sort() {
