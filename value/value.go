@@ -85,8 +85,8 @@ func FromJSON(input []byte) (Value, error) {
 }
 
 // ToJSON is a helper function for producing a JSON document.
-func ToJSON(v Value, w *builder.JSONBuilder) error {
-	return w.WriteJSON(v.Unstructured())
+func ToJSON(v Value) ([]byte, error) {
+	return builder.MarshalInterface(v.Unstructured())
 }
 
 // ToYAML marshals a value as YAML.

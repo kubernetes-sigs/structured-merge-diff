@@ -48,7 +48,7 @@ func (w noNewlineWriter) Write(p []byte) (n int, err error) {
 //go:nocheckptr
 func noescape(p unsafe.Pointer) unsafe.Pointer {
 	x := uintptr(p)
-	return unsafe.Pointer(x ^ 0) //nolint:unsafeptr
+	return unsafe.Pointer(x ^ 0)
 }
 
 func (r *JSONBuilder) WriteJSON(v interface{}) error {
@@ -64,4 +64,26 @@ func (r *JSONBuilder) WriteJSON(v interface{}) error {
 	runtime.KeepAlive(v)
 
 	return nil
+}
+
+func MarshalString(input string) ([]byte, error) {
+	out, err := gojson.Marshal((*string)(noescape(unsafe.Pointer(&input))))
+	if err != nil {
+		return nil, err
+	}
+
+	runtime.KeepAlive(input)
+
+	return out, nil
+}
+
+func MarshalInterface(input interface{}) ([]byte, error) {
+	out, err := gojson.Marshal((*interface{})(noescape(unsafe.Pointer(&input))))
+	if err != nil {
+		return nil, err
+	}
+
+	runtime.KeepAlive(input)
+
+	return out, nil
 }

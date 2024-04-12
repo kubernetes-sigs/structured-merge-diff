@@ -113,14 +113,26 @@ func serializePathElementToWriter(w *builder.JSONBuilder, pe PathElement) error 
 		if _, err := w.Write(peKeySepBytes); err != nil {
 			return err
 		}
-		if err := value.FieldListToJSON(*pe.Key, w); err != nil {
-			return err
+		w.WriteByte('{')
+		nrKeys := len(*pe.Key)
+		for i, f := range *pe.Key {
+			if err := w.WriteJSON(f.Name); err != nil {
+				return err
+			}
+			w.WriteByte(':')
+			if err := w.WriteJSON(f.Value.Unstructured()); err != nil {
+				return err
+			}
+			if i < nrKeys-1 {
+				w.WriteByte(',')
+			}
 		}
+		w.WriteByte('}')
 	case pe.Value != nil:
 		if _, err := w.Write(peValueSepBytes); err != nil {
 			return err
 		}
-		if err := value.ToJSON(*pe.Value, w); err != nil {
+		if err := w.WriteJSON((*pe.Value).Unstructured()); err != nil {
 			return err
 		}
 	case pe.Index != nil:

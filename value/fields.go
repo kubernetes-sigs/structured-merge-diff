@@ -71,25 +71,6 @@ func FieldListFromJSON(input []byte) (FieldList, error) {
 	return fields, nil
 }
 
-// FieldListToJSON is a helper function for producing a JSON document.
-func FieldListToJSON(v FieldList, w *builder.JSONBuilder) error {
-	w.WriteByte('{')
-	for i, f := range v {
-		if err := w.WriteJSON(f.Name); err != nil {
-			return err
-		}
-		w.WriteByte(':')
-		if err := w.WriteJSON(f.Value.Unstructured()); err != nil {
-			return err
-		}
-		if i < len(v)-1 {
-			w.WriteByte(',')
-		}
-	}
-	w.WriteByte('}')
-	return nil
-}
-
 // Sort sorts the field list by Name.
 func (f FieldList) Sort() {
 	if len(f) < 2 {
