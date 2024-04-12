@@ -21,7 +21,6 @@ import (
 	"io"
 	"sort"
 
-	json "sigs.k8s.io/json"
 	"sigs.k8s.io/structured-merge-diff/v4/internal/builder"
 )
 
@@ -202,31 +201,31 @@ func (s *Set) FromJSON(r io.Reader) error {
 	return nil
 }
 
-type setReader struct {
-	target   *Set
-	isMember bool
-}
-
-func (sr *setReader) UnmarshalJSON(data []byte) error {
-	children, isMember, err := readIterV1(data)
-	if err != nil {
-		return err
-	}
-	sr.target = children
-	sr.isMember = isMember
-	return nil
-}
-
 // returns true if this subtree is also (or only) a member of parent; s is nil
 // if there are no further children.
 func readIterV1(data []byte) (children *Set, isMember bool, err error) {
-	m := map[string]setReader{}
+	parser := builder.NewFastObjParser(data)
 
-	if err := json.UnmarshalCaseSensitivePreserveInts(data, &m); err != nil {
-		return nil, false, err
-	}
+	for {
+		rawKey, err := parser.Parse()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return nil, false, fmt.Errorf("parsing JSON: %v", err)
+		}
 
-	for k, v := range m {
+		rawValue, err := parser.Parse()
+		if err == io.EOF {
+			return nil, false, fmt.Errorf("unexpected EOF")
+		} else if err != nil {
+			return nil, false, fmt.Errorf("parsing JSON: %v", err)
+		}
+
+		k, err := builder.UnmarshalString(rawKey)
+		if err != nil {
+			return nil, false, fmt.Errorf("decoding key: %v", err)
+		}
+
 		if k == "." {
 			isMember = true
 			continue
@@ -242,7 +241,12 @@ func readIterV1(data []byte) (children *Set, isMember bool, err error) {
 			return nil, false, fmt.Errorf("parsing key as path element: %v", err)
 		}
 
-		if v.isMember {
+		grandChildren, isChildMember, err := readIterV1(rawValue)
+		if err != nil {
+			return nil, false, fmt.Errorf("parsing value as set: %v", err)
+		}
+
+		if isChildMember {
 			if children == nil {
 				children = &Set{}
 			}
@@ -252,26 +256,21 @@ func readIterV1(data []byte) (children *Set, isMember bool, err error) {
 			*m = append(*m, pe)
 		}
 
-		if v.target != nil {
+		if grandChildren != nil {
 			if children == nil {
 				children = &Set{}
 			}
 
 			// Append the child to the children list, we will sort it later
 			m := &children.Children.members
-			*m = append(*m, setNode{pe, v.target})
+			*m = append(*m, setNode{pe, grandChildren})
 		}
 	}
 
 	// Sort the members and children
 	if children != nil {
-		sort.Slice(children.Members.members, func(i, j int) bool {
-			return children.Members.members[i].Less(children.Members.members[j])
-		})
-
-		sort.Slice(children.Children.members, func(i, j int) bool {
-			return children.Children.members[i].pathElement.Less(children.Children.members[j].pathElement)
-		})
+		sort.Sort(children.Members.members)
+		sort.Sort(children.Children.members)
 	}
 
 	if children == nil {

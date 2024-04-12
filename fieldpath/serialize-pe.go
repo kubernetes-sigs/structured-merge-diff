@@ -29,40 +29,39 @@ var ErrUnknownPathElementType = errors.New("unknown path element type")
 
 const (
 	// Field indicates that the content of this path element is a field's name
-	peField = "f"
+	peField byte = 'f'
 
 	// Value indicates that the content of this path element is a field's value
-	peValue = "v"
+	peValue byte = 'v'
 
 	// Index indicates that the content of this path element is an index in an array
-	peIndex = "i"
+	peIndex byte = 'i'
 
 	// Key indicates that the content of this path element is a key value map
-	peKey = "k"
+	peKey byte = 'k'
 
 	// Separator separates the type of a path element from the contents
-	peSeparator = ":"
+	peSeparator byte = ':'
 )
 
 var (
-	peFieldSepBytes = []byte(peField + peSeparator)
-	peValueSepBytes = []byte(peValue + peSeparator)
-	peIndexSepBytes = []byte(peIndex + peSeparator)
-	peKeySepBytes   = []byte(peKey + peSeparator)
-	peSepBytes      = []byte(peSeparator)
+	peFieldSepBytes = []byte{peField, peSeparator}
+	peValueSepBytes = []byte{peValue, peSeparator}
+	peIndexSepBytes = []byte{peIndex, peSeparator}
+	peKeySepBytes   = []byte{peKey, peSeparator}
 )
 
 // DeserializePathElement parses a serialized path element
 func DeserializePathElement(s string) (PathElement, error) {
-	b := []byte(s)
+	b := builder.StringToReadOnlyByteSlice(s)
 	if len(b) < 2 {
 		return PathElement{}, errors.New("key must be 2 characters long")
 	}
-	typeSep, b := b[:2], b[2:]
-	if typeSep[1] != peSepBytes[0] {
+	typeSep0, typeSep1, b := b[0], b[1], b[2:]
+	if typeSep1 != peSeparator {
 		return PathElement{}, fmt.Errorf("missing colon: %v", s)
 	}
-	switch typeSep[0] {
+	switch typeSep0 {
 	case peFieldSepBytes[0]:
 		// Slice s rather than convert b, to save on
 		// allocations.

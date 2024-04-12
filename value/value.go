@@ -21,7 +21,6 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v2"
-	"sigs.k8s.io/json"
 	"sigs.k8s.io/structured-merge-diff/v4/internal/builder"
 )
 
@@ -77,10 +76,11 @@ type Value interface {
 
 // FromJSON is a helper function for reading a JSON document.
 func FromJSON(input []byte) (Value, error) {
-	var v interface{}
-	if err := json.UnmarshalCaseSensitivePreserveInts(input, &v); err != nil {
+	v, err := builder.UnmarshalInterface(input)
+	if err != nil {
 		return nil, err
 	}
+
 	return NewValueInterface(v), nil
 }
 

@@ -17,10 +17,11 @@ limitations under the License.
 package value
 
 import (
+	"fmt"
+	"io"
 	"sort"
 	"strings"
 
-	"sigs.k8s.io/json"
 	"sigs.k8s.io/structured-merge-diff/v4/internal/builder"
 )
 
@@ -36,14 +37,35 @@ type FieldList []Field
 
 // FieldListFromJSON is a helper function for reading a JSON document.
 func FieldListFromJSON(input []byte) (FieldList, error) {
-	v := map[string]interface{}{}
-	if err := json.UnmarshalCaseSensitivePreserveInts(input, &v); err != nil {
-		return nil, err
-	}
+	parser := builder.NewFastObjParser(input)
 
-	fields := make(FieldList, 0, len(v))
-	for k, raw := range v {
-		fields = append(fields, Field{Name: k, Value: NewValueInterface(raw)})
+	var fields FieldList
+	for {
+		rawKey, err := parser.Parse()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return nil, fmt.Errorf("parsing JSON: %v", err)
+		}
+
+		rawValue, err := parser.Parse()
+		if err == io.EOF {
+			return nil, fmt.Errorf("unexpected EOF")
+		} else if err != nil {
+			return nil, fmt.Errorf("parsing JSON: %v", err)
+		}
+
+		k, err := builder.UnmarshalString(rawKey)
+		if err != nil {
+			return nil, fmt.Errorf("parsing JSON: %v", err)
+		}
+
+		v, err := builder.UnmarshalInterface(rawValue)
+		if err != nil {
+			return nil, fmt.Errorf("parsing JSON: %v", err)
+		}
+
+		fields = append(fields, Field{Name: k, Value: NewValueInterface(v)})
 	}
 
 	return fields, nil
