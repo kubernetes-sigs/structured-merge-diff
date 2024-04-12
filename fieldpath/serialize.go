@@ -17,34 +17,36 @@ limitations under the License.
 package fieldpath
 
 import (
-	"bytes"
-	gojson "encoding/json"
 	"fmt"
 	"io"
+	"sort"
 
 	json "sigs.k8s.io/json"
+	"sigs.k8s.io/structured-merge-diff/v4/internal/builder"
 )
 
 func (s *Set) ToJSON() ([]byte, error) {
-	buf := bytes.Buffer{}
-	err := s.ToJSONStream(&buf)
-	if err != nil {
+	buf := builder.JSONBuilder{}
+	if err := s.emitContentsV1(false, &buf, &builder.ReusableBuilder{}); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
 }
 
 func (s *Set) ToJSONStream(w io.Writer) error {
-	err := s.emitContentsV1(false, w)
-	if err != nil {
+	buf := builder.JSONBuilder{}
+	if err := s.emitContentsV1(false, &buf, &builder.ReusableBuilder{}); err != nil {
 		return err
 	}
-	return nil
+	_, err := buf.WriteTo(w)
+	return err
 }
 
 type orderedMapItemWriter struct {
-	w        io.Writer
+	w        *builder.JSONBuilder
 	hasItems bool
+
+	builder *builder.ReusableBuilder
 }
 
 // writeKey writes a key to the writer, including a leading comma if necessary.
@@ -74,16 +76,24 @@ func (om *orderedMapItemWriter) writeKey(key []byte) error {
 // After writing the key, the caller should write the encoded value, e.g. using
 // writeEmptyValue or by directly writing the value to the writer.
 func (om *orderedMapItemWriter) writePathKey(pe PathElement) error {
-	pev, err := SerializePathElement(pe)
-	if err != nil {
+	if om.hasItems {
+		if _, err := om.w.Write([]byte{','}); err != nil {
+			return err
+		}
+	}
+
+	if err := serializePathElementToWriter(om.builder.Reset(), pe); err != nil {
 		return err
 	}
-	key, err := gojson.Marshal(pev)
-	if err != nil {
+	if err := om.w.WriteJSON(om.builder.UnsafeString()); err != nil {
 		return err
 	}
 
-	return om.writeKey(key)
+	if _, err := om.w.Write([]byte{':'}); err != nil {
+		return err
+	}
+	om.hasItems = true
+	return nil
 }
 
 // writeEmptyValue writes an empty JSON object to the writer.
@@ -95,11 +105,11 @@ func (om orderedMapItemWriter) writeEmptyValue() error {
 	return nil
 }
 
-func (s *Set) emitContentsV1(includeSelf bool, w io.Writer) error {
-	om := orderedMapItemWriter{w: w}
+func (s *Set) emitContentsV1(includeSelf bool, w *builder.JSONBuilder, r *builder.ReusableBuilder) error {
+	om := orderedMapItemWriter{w: w, builder: r}
 	mi, ci := 0, 0
 
-	if _, err := om.w.Write([]byte{'{'}); err != nil {
+	if _, err := w.Write([]byte{'{'}); err != nil {
 		return err
 	}
 
@@ -129,7 +139,7 @@ func (s *Set) emitContentsV1(includeSelf bool, w io.Writer) error {
 			if err := om.writePathKey(cpe); err != nil {
 				return err
 			}
-			if err := s.Children.members[ci].set.emitContentsV1(c == 0, om.w); err != nil {
+			if err := s.Children.members[ci].set.emitContentsV1(c == 0, w, r); err != nil {
 				return err
 			}
 
@@ -160,14 +170,14 @@ func (s *Set) emitContentsV1(includeSelf bool, w io.Writer) error {
 		if err := om.writePathKey(cpe); err != nil {
 			return err
 		}
-		if err := s.Children.members[ci].set.emitContentsV1(false, om.w); err != nil {
+		if err := s.Children.members[ci].set.emitContentsV1(false, w, r); err != nil {
 			return err
 		}
 
 		ci++
 	}
 
-	if _, err := om.w.Write([]byte{'}'}); err != nil {
+	if _, err := w.Write([]byte{'}'}); err != nil {
 		return err
 	}
 
@@ -237,15 +247,9 @@ func readIterV1(data []byte) (children *Set, isMember bool, err error) {
 				children = &Set{}
 			}
 
+			// Append the member to the members list, we will sort it later
 			m := &children.Members.members
-			// Since we expect that most of the time these will have been
-			// serialized in the right order, we just verify that and append.
-			appendOK := len(*m) == 0 || (*m)[len(*m)-1].Less(pe)
-			if appendOK {
-				*m = append(*m, pe)
-			} else {
-				children.Members.Insert(pe)
-			}
+			*m = append(*m, pe)
 		}
 
 		if v.target != nil {
@@ -253,16 +257,21 @@ func readIterV1(data []byte) (children *Set, isMember bool, err error) {
 				children = &Set{}
 			}
 
-			// Since we expect that most of the time these will have been
-			// serialized in the right order, we just verify that and append.
+			// Append the child to the children list, we will sort it later
 			m := &children.Children.members
-			appendOK := len(*m) == 0 || (*m)[len(*m)-1].pathElement.Less(pe)
-			if appendOK {
-				*m = append(*m, setNode{pe, v.target})
-			} else {
-				*children.Children.Descend(pe) = *v.target
-			}
+			*m = append(*m, setNode{pe, v.target})
 		}
+	}
+
+	// Sort the members and children
+	if children != nil {
+		sort.Slice(children.Members.members, func(i, j int) bool {
+			return children.Members.members[i].Less(children.Members.members[j])
+		})
+
+		sort.Slice(children.Children.members, func(i, j int) bool {
+			return children.Children.members[i].pathElement.Less(children.Children.members[j].pathElement)
+		})
 	}
 
 	if children == nil {

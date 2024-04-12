@@ -17,12 +17,12 @@ limitations under the License.
 package value
 
 import (
-	gojson "encoding/json"
 	"fmt"
 	"strings"
 
 	"gopkg.in/yaml.v2"
 	"sigs.k8s.io/json"
+	"sigs.k8s.io/structured-merge-diff/v4/internal/builder"
 )
 
 // A Value corresponds to an 'atom' in the schema. It should return true
@@ -85,8 +85,8 @@ func FromJSON(input []byte) (Value, error) {
 }
 
 // ToJSON is a helper function for producing a JSON document.
-func ToJSON(v Value) ([]byte, error) {
-	return gojson.Marshal(v.Unstructured())
+func ToJSON(v Value, w *builder.JSONBuilder) error {
+	return w.WriteJSON(v.Unstructured())
 }
 
 // ToYAML marshals a value as YAML.

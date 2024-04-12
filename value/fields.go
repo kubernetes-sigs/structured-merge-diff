@@ -17,11 +17,11 @@ limitations under the License.
 package value
 
 import (
-	gojson "encoding/json"
 	"sort"
 	"strings"
 
 	"sigs.k8s.io/json"
+	"sigs.k8s.io/structured-merge-diff/v4/internal/builder"
 )
 
 // Field is an individual key-value pair.
@@ -50,12 +50,22 @@ func FieldListFromJSON(input []byte) (FieldList, error) {
 }
 
 // FieldListToJSON is a helper function for producing a JSON document.
-func FieldListToJSON(v FieldList) ([]byte, error) {
-	m := make(map[string]interface{}, len(v))
-	for _, f := range v {
-		m[f.Name] = f.Value.Unstructured()
+func FieldListToJSON(v FieldList, w *builder.JSONBuilder) error {
+	w.WriteByte('{')
+	for i, f := range v {
+		if err := w.WriteJSON(f.Name); err != nil {
+			return err
+		}
+		w.WriteByte(':')
+		if err := w.WriteJSON(f.Value.Unstructured()); err != nil {
+			return err
+		}
+		if i < len(v)-1 {
+			w.WriteByte(',')
+		}
 	}
-	return gojson.Marshal(m)
+	w.WriteByte('}')
+	return nil
 }
 
 // Sort sorts the field list by Name.

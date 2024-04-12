@@ -19,10 +19,9 @@ package fieldpath
 import (
 	"errors"
 	"fmt"
-	"io"
 	"strconv"
-	"strings"
 
+	"sigs.k8s.io/structured-merge-diff/v4/internal/builder"
 	"sigs.k8s.io/structured-merge-diff/v4/value"
 )
 
@@ -57,7 +56,7 @@ var (
 func DeserializePathElement(s string) (PathElement, error) {
 	b := []byte(s)
 	if len(b) < 2 {
-		return PathElement{}, errors.New("key must be 2 characters long:")
+		return PathElement{}, errors.New("key must be 2 characters long")
 	}
 	typeSep, b := b[:2], b[2:]
 	if typeSep[1] != peSepBytes[0] {
@@ -99,41 +98,37 @@ func DeserializePathElement(s string) (PathElement, error) {
 
 // SerializePathElement serializes a path element
 func SerializePathElement(pe PathElement) (string, error) {
-	buf := strings.Builder{}
+	buf := builder.JSONBuilder{}
 	err := serializePathElementToWriter(&buf, pe)
 	return buf.String(), err
 }
 
-func serializePathElementToWriter(w io.Writer, pe PathElement) error {
+func serializePathElementToWriter(w *builder.JSONBuilder, pe PathElement) error {
 	switch {
 	case pe.FieldName != nil:
 		if _, err := w.Write(peFieldSepBytes); err != nil {
 			return err
 		}
-		fmt.Fprintf(w, "%s", *pe.FieldName)
+		w.WriteString(*pe.FieldName)
 	case pe.Key != nil:
 		if _, err := w.Write(peKeySepBytes); err != nil {
 			return err
 		}
-		jsonVal, err := value.FieldListToJSON(*pe.Key)
-		if err != nil {
+		if err := value.FieldListToJSON(*pe.Key, w); err != nil {
 			return err
 		}
-		fmt.Fprintf(w, "%s", jsonVal)
 	case pe.Value != nil:
 		if _, err := w.Write(peValueSepBytes); err != nil {
 			return err
 		}
-		jsonVal, err := value.ToJSON(*pe.Value)
-		if err != nil {
+		if err := value.ToJSON(*pe.Value, w); err != nil {
 			return err
 		}
-		fmt.Fprintf(w, "%s", jsonVal)
 	case pe.Index != nil:
 		if _, err := w.Write(peIndexSepBytes); err != nil {
 			return err
 		}
-		fmt.Fprintf(w, "%d", *pe.Index)
+		w.WriteString(strconv.Itoa(*pe.Index))
 	default:
 		return errors.New("invalid PathElement")
 	}
