@@ -19,6 +19,7 @@ package value
 import (
 	"reflect"
 	"testing"
+	"time"
 )
 
 type CustomValue struct {
@@ -37,6 +38,21 @@ type CustomPointer struct {
 // MarshalJSON has a pointer receiver on this type.
 func (c *CustomPointer) MarshalJSON() ([]byte, error) {
 	return c.data, nil
+}
+
+// Mimics https://github.com/kubernetes/apimachinery/blob/master/pkg/apis/meta/v1/time.go.
+type Time struct {
+	time.Time
+}
+
+// ToUnstructured implements the value.UnstructuredConverter interface.
+func (t Time) ToUnstructured() interface{} {
+	if t.IsZero() {
+		return nil
+	}
+	buf := make([]byte, 0, len(time.RFC3339))
+	buf = t.UTC().AppendFormat(buf, time.RFC3339)
+	return string(buf)
 }
 
 func TestToUnstructured(t *testing.T) {
@@ -73,6 +89,39 @@ func TestToUnstructured(t *testing.T) {
 				if !reflect.DeepEqual(result, tc.Expected) {
 					t.Errorf("expected %#v but got %#v", tc.Expected, result)
 				}
+			}
+		})
+	}
+}
+
+func timePtr(t time.Time) *time.Time { return &t }
+
+func TestTimeToUnstructured(t *testing.T) {
+	testcases := []struct {
+		Name     string
+		Time     *time.Time
+		Expected interface{}
+	}{
+		{Name: "nil", Time: nil, Expected: nil},
+		{Name: "zero", Time: &time.Time{}, Expected: nil},
+		{Name: "1", Time: timePtr(time.Time{}.Add(time.Second)), Expected: "0001-01-01T00:00:01Z"},
+	}
+
+	for _, tc := range testcases {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			var time *Time
+			rv := reflect.ValueOf(time)
+			if tc.Time != nil {
+				rv = reflect.ValueOf(Time{Time: *tc.Time})
+			}
+			result, err := TypeReflectEntryOf(rv.Type()).ToUnstructured(rv)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(result, tc.Expected) {
+				t.Errorf("expected %#v but got %#v", tc.Expected, result)
 			}
 		})
 	}
