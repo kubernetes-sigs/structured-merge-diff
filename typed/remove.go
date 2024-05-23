@@ -19,6 +19,8 @@ import (
 	"sigs.k8s.io/structured-merge-diff/v4/value"
 )
 
+var REMOVEKEEPEMPTYCOLLECTIONS = false
+
 type removingWalker struct {
 	value         value.Value
 	out           interface{}
@@ -58,6 +60,9 @@ func (w *removingWalker) doList(t *schema.List) (errs ValidationErrors) {
 	defer w.allocator.Free(l)
 	// If list is null or empty just return
 	if l == nil || l.Length() == 0 {
+		if REMOVEKEEPEMPTYCOLLECTIONS {
+			w.out = w.value.Unstructured()
+		}
 		return nil
 	}
 
@@ -66,6 +71,10 @@ func (w *removingWalker) doList(t *schema.List) (errs ValidationErrors) {
 	if t.ElementRelationship == schema.Atomic {
 		if w.shouldExtract {
 			w.out = w.value.Unstructured()
+		} else if !w.toRemove.Has(fieldpath.Path{}) && REMOVEKEEPEMPTYCOLLECTIONS {
+			// If the atomic list itself wasn't being removed, then it
+			// is being set to empty list (we only get here if a prefix of this fieldPath is in toRemove)
+			w.out = []interface{}{}
 		}
 		return nil
 	}
@@ -97,7 +106,7 @@ func (w *removingWalker) doList(t *schema.List) (errs ValidationErrors) {
 		}
 		newItems = append(newItems, item.Unstructured())
 	}
-	if len(newItems) > 0 {
+	if len(newItems) > 0 || REMOVEKEEPEMPTYCOLLECTIONS {
 		w.out = newItems
 	}
 	return nil
@@ -113,6 +122,9 @@ func (w *removingWalker) doMap(t *schema.Map) ValidationErrors {
 	}
 	// If map is null or empty just return
 	if m == nil || m.Empty() {
+		if REMOVEKEEPEMPTYCOLLECTIONS {
+			w.out = w.value
+		}
 		return nil
 	}
 
@@ -121,6 +133,10 @@ func (w *removingWalker) doMap(t *schema.Map) ValidationErrors {
 	if t.ElementRelationship == schema.Atomic {
 		if w.shouldExtract {
 			w.out = w.value.Unstructured()
+		} else if !w.toRemove.Has(fieldpath.Path{}) && REMOVEKEEPEMPTYCOLLECTIONS {
+			// If the atomic map itself wasn't being removed, then it
+			// is being set to empty map (we only get here if a prefix of this fieldPath is in toRemove)
+			w.out = map[string]interface{}{}
 		}
 		return nil
 	}
@@ -158,7 +174,7 @@ func (w *removingWalker) doMap(t *schema.Map) ValidationErrors {
 		newMap[k] = val.Unstructured()
 		return true
 	})
-	if len(newMap) > 0 {
+	if len(newMap) > 0 || REMOVEKEEPEMPTYCOLLECTIONS {
 		w.out = newMap
 	}
 	return nil
