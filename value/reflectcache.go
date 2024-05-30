@@ -184,6 +184,11 @@ func (e TypeReflectCacheEntry) ToUnstructured(sv reflect.Value) (interface{}, er
 	// This is based on https://github.com/kubernetes/kubernetes/blob/82c9e5c814eb7acc6cc0a090c057294d0667ad66/staging/src/k8s.io/apimachinery/pkg/runtime/converter.go#L505
 	// and is intended to replace it.
 
+	// Check if the object is a nil pointer.
+	if sv.Kind() == reflect.Ptr && sv.IsNil() {
+		// We're done - we don't need to store anything.
+		return nil, nil
+	}
 	// Check if the object has a custom string converter and use it if available, since it is much more efficient
 	// than round tripping through json.
 	if converter, ok := e.getUnstructuredConverter(sv); ok {
@@ -191,11 +196,6 @@ func (e TypeReflectCacheEntry) ToUnstructured(sv reflect.Value) (interface{}, er
 	}
 	// Check if the object has a custom JSON marshaller/unmarshaller.
 	if marshaler, ok := e.getJsonMarshaler(sv); ok {
-		if sv.Kind() == reflect.Ptr && sv.IsNil() {
-			// We're done - we don't need to store anything.
-			return nil, nil
-		}
-
 		data, err := marshaler.MarshalJSON()
 		if err != nil {
 			return nil, err
