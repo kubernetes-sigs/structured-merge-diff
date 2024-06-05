@@ -2,9 +2,10 @@
 
 approvers:
   - apelisse
+  - jpbetz
 emeritus_approvers:
   - lavalamp		# 2023-05-13
   - jennybuckley	# 2021-05-13
 reviewers:
   - apelisse
-  - jpbetz
+
