@@ -19,7 +19,9 @@ package value
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"reflect"
 	"sort"
 	"sync"
@@ -379,34 +381,47 @@ const maxDepth = 10000
 // unmarshal unmarshals the given data
 // If v is a *map[string]interface{}, numbers are converted to int64 or float64
 func unmarshal(data []byte, v interface{}) error {
+	// Build a decoder from the given data
+	decoder := json.NewDecoder(bytes.NewBuffer(data))
+	// Preserve numbers, rather than casting to float64 automatically
+	decoder.UseNumber()
+	// Run the decode
+	if err := decoder.Decode(v); err != nil {
+		return err
+	}
+	next := decoder.InputOffset()
+	if _, err := decoder.Token(); !errors.Is(err, io.EOF) {
+		tail := bytes.TrimLeft(data[next:], " \t\r\n")
+		return fmt.Errorf("unexpected trailing data at offset %d", len(data)-len(tail))
+	}
+
+	// If the decode succeeds, post-process the object to convert json.Number objects to int64 or float64
 	switch v := v.(type) {
 	case *map[string]interface{}:
-		// Build a decoder from the given data
-		decoder := json.NewDecoder(bytes.NewBuffer(data))
-		// Preserve numbers, rather than casting to float64 automatically
-		decoder.UseNumber()
-		// Run the decode
-		if err := decoder.Decode(v); err != nil {
-			return err
-		}
-		// If the decode succeeds, post-process the map to convert json.Number objects to int64 or float64
 		return convertMapNumbers(*v, 0)
 
 	case *[]interface{}:
-		// Build a decoder from the given data
-		decoder := json.NewDecoder(bytes.NewBuffer(data))
-		// Preserve numbers, rather than casting to float64 automatically
-		decoder.UseNumber()
-		// Run the decode
-		if err := decoder.Decode(v); err != nil {
-			return err
-		}
-		// If the decode succeeds, post-process the map to convert json.Number objects to int64 or float64
 		return convertSliceNumbers(*v, 0)
 
+	case *interface{}:
+		return convertInterfaceNumbers(v, 0)
+
 	default:
-		return json.Unmarshal(data, v)
+		return nil
 	}
+}
+
+func convertInterfaceNumbers(v *interface{}, depth int) error {
+	var err error
+	switch v2 := (*v).(type) {
+	case json.Number:
+		*v, err = convertNumber(v2)
+	case map[string]interface{}:
+		err = convertMapNumbers(v2, depth+1)
+	case []interface{}:
+		err = convertSliceNumbers(v2, depth+1)
+	}
+	return err
 }
 
 // convertMapNumbers traverses the map, converting any json.Number values to int64 or float64.
