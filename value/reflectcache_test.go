@@ -17,6 +17,8 @@ limitations under the License.
 package value
 
 import (
+	"encoding/json"
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -57,8 +59,9 @@ func (t Time) ToUnstructured() interface{} {
 
 func TestToUnstructured(t *testing.T) {
 	testcases := []struct {
-		Data     string
-		Expected interface{}
+		Data                 string
+		Expected             interface{}
+		ExpectedErrorMessage string
 	}{
 		{Data: `null`, Expected: nil},
 		{Data: `true`, Expected: true},
@@ -69,6 +72,12 @@ func TestToUnstructured(t *testing.T) {
 		{Data: `{"a":1}`, Expected: map[string]interface{}{"a": int64(1)}},
 		{Data: `0`, Expected: int64(0)},
 		{Data: `0.0`, Expected: float64(0)},
+		{Data: "{} \t\r\n", Expected: map[string]interface{}{}},
+		{Data: "{} \t\r\n}", ExpectedErrorMessage: "error decoding object from json: unexpected trailing data at offset 6"},
+		{Data: "{} \t\r\n{}", ExpectedErrorMessage: "error decoding object from json: unexpected trailing data at offset 6"},
+		{Data: "[] \t\r\n", Expected: []interface{}{}},
+		{Data: "[] \t\r\n]", ExpectedErrorMessage: "error decoding array from json: unexpected trailing data at offset 6"},
+		{Data: "[] \t\r\n[]", ExpectedErrorMessage: "error decoding array from json: unexpected trailing data at offset 6"},
 	}
 
 	for _, tc := range testcases {
@@ -84,7 +93,13 @@ func TestToUnstructured(t *testing.T) {
 				rv := reflect.ValueOf(custom)
 				result, err := TypeReflectEntryOf(rv.Type()).ToUnstructured(rv)
 				if err != nil {
-					t.Fatal(err)
+					if tc.ExpectedErrorMessage == "" {
+						t.Fatal(err)
+					} else if got := err.Error(); got != tc.ExpectedErrorMessage {
+						t.Fatalf("expected error message %q but got %q", tc.ExpectedErrorMessage, got)
+					}
+				} else if tc.ExpectedErrorMessage != "" {
+					t.Fatalf("expected error message %q but got nil error", tc.ExpectedErrorMessage)
 				}
 				if !reflect.DeepEqual(result, tc.Expected) {
 					t.Errorf("expected %#v but got %#v", tc.Expected, result)
@@ -195,6 +210,145 @@ func TestTypeReflectEntryOf(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			if got := TypeReflectEntryOf(reflect.TypeOf(tt.arg)); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("TypeReflectEntryOf() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestUnmarshal(t *testing.T) {
+	for _, tc := range []struct {
+		JSON      string
+		IntoType  reflect.Type
+		Want      interface{}
+		WantError bool
+	}{
+		{
+			JSON:      "{}}",
+			IntoType:  reflect.TypeOf([0]interface{}{}).Elem(),
+			Want:      map[string]interface{}{},
+			WantError: true,
+		},
+		{
+			JSON:     `1.0`,
+			IntoType: reflect.TypeOf(json.Number("")),
+			Want:     json.Number("1.0"),
+		},
+		{
+			JSON:     `1`,
+			IntoType: reflect.TypeOf(json.Number("")),
+			Want:     json.Number("1"),
+		},
+		{
+			JSON:     `1.0`,
+			IntoType: reflect.TypeOf(float64(0)),
+			Want:     float64(1),
+		},
+		{
+			JSON:     `1`,
+			IntoType: reflect.TypeOf(float64(0)),
+			Want:     float64(1),
+		},
+		{
+			JSON:      `1.0`,
+			IntoType:  reflect.TypeOf(int64(0)),
+			Want:      int64(0),
+			WantError: true,
+		},
+		{
+			JSON:     `1`,
+			IntoType: reflect.TypeOf(int64(0)),
+			Want:     int64(1),
+		},
+		{
+			JSON:     `1.0`,
+			IntoType: reflect.TypeOf([0]interface{}{}).Elem(),
+			Want:     float64(1),
+		},
+		{
+			JSON:     `1`,
+			IntoType: reflect.TypeOf([0]interface{}{}).Elem(),
+			Want:     int64(1),
+		},
+		{
+			JSON:     `[1.0,[1.0],{"":1.0}]`,
+			IntoType: reflect.TypeOf([0]interface{}{}).Elem(),
+			Want: []interface{}{
+				float64(1),
+				[]interface{}{float64(1)},
+				map[string]interface{}{"": float64(1)},
+			},
+		},
+		{
+			JSON:     `[1.0,[1.0],{"":1.0}]`,
+			IntoType: reflect.TypeOf([]interface{}{}),
+			Want: []interface{}{
+				float64(1),
+				[]interface{}{float64(1)},
+				map[string]interface{}{"": float64(1)},
+			},
+		},
+		{
+			JSON:     `[1,[1],{"":1}]`,
+			IntoType: reflect.TypeOf([0]interface{}{}).Elem(),
+			Want: []interface{}{
+				int64(1),
+				[]interface{}{int64(1)},
+				map[string]interface{}{"": int64(1)},
+			},
+		},
+		{
+			JSON:     `[1,[1],{"":1}]`,
+			IntoType: reflect.TypeOf([]interface{}{}),
+			Want: []interface{}{
+				int64(1),
+				[]interface{}{int64(1)},
+				map[string]interface{}{"": int64(1)},
+			},
+		},
+		{
+			JSON:     `{"x":1.0,"y":[1.0],"z":{"":1.0}}`,
+			IntoType: reflect.TypeOf([0]interface{}{}).Elem(),
+			Want: map[string]interface{}{
+				"x": float64(1),
+				"y": []interface{}{float64(1)},
+				"z": map[string]interface{}{"": float64(1)},
+			},
+		},
+		{
+			JSON:     `{"x":1.0,"y":[1.0],"z":{"":1.0}}`,
+			IntoType: reflect.TypeOf(map[string]interface{}{}),
+			Want: map[string]interface{}{
+				"x": float64(1),
+				"y": []interface{}{float64(1)},
+				"z": map[string]interface{}{"": float64(1)},
+			},
+		},
+		{
+			JSON:     `{"x":1,"y":[1],"z":{"":1}}`,
+			IntoType: reflect.TypeOf([0]interface{}{}).Elem(),
+			Want: map[string]interface{}{
+				"x": int64(1),
+				"y": []interface{}{int64(1)},
+				"z": map[string]interface{}{"": int64(1)},
+			},
+		},
+		{
+			JSON:     `{"x":1,"y":[1],"z":{"":1}}`,
+			IntoType: reflect.TypeOf(map[string]interface{}{}),
+			Want: map[string]interface{}{
+				"x": int64(1),
+				"y": []interface{}{int64(1)},
+				"z": map[string]interface{}{"": int64(1)},
+			},
+		},
+	} {
+		t.Run(fmt.Sprintf("%s into %v", tc.JSON, reflect.PointerTo(tc.IntoType)), func(t *testing.T) {
+			into := reflect.New(tc.IntoType)
+			if err := unmarshal([]byte(tc.JSON), into.Interface()); tc.WantError != (err != nil) {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got := into.Elem().Interface(); !reflect.DeepEqual(tc.Want, got) {
+				t.Errorf("want %#v (%T), got %#v (%T)", tc.Want, tc.Want, got, got)
 			}
 		})
 	}
