@@ -22,8 +22,8 @@ import (
 	"math/rand"
 	"testing"
 
-	"gopkg.in/yaml.v2"
 	"sigs.k8s.io/structured-merge-diff/v4/schema"
+	yaml "sigs.k8s.io/yaml/goyaml.v2"
 )
 
 type randomPathAlphabet []PathElement
