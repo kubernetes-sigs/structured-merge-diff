@@ -19,8 +19,8 @@ package fieldpath
 import (
 	"testing"
 
-	"gopkg.in/yaml.v2"
 	"sigs.k8s.io/structured-merge-diff/v4/value"
+	yaml "sigs.k8s.io/yaml/goyaml.v2"
 )
 
 func TestFromValue(t *testing.T) {
