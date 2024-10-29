@@ -50,10 +50,10 @@ func TestIgnoredFields(t *testing.T) {
 					false,
 				),
 			},
-			IgnoredFields: map[fieldpath.APIVersion]*fieldpath.Set{
-				"v1": _NS(
+			IgnoreFilter: map[fieldpath.APIVersion]fieldpath.Filter{
+				"v1": fieldpath.NewExcludeFilter(_NS(
 					_P("string"),
-				),
+				)),
 			},
 		},
 		"update_does_not_own_deep_ignored": {
@@ -75,10 +75,10 @@ func TestIgnoredFields(t *testing.T) {
 					false,
 				),
 			},
-			IgnoredFields: map[fieldpath.APIVersion]*fieldpath.Set{
-				"v1": _NS(
+			IgnoreFilter: map[fieldpath.APIVersion]fieldpath.Filter{
+				"v1": fieldpath.NewExcludeFilter(_NS(
 					_P("obj"),
-				),
+				)),
 			},
 		},
 		"apply_does_not_own_ignored": {
@@ -106,10 +106,10 @@ func TestIgnoredFields(t *testing.T) {
 					true,
 				),
 			},
-			IgnoredFields: map[fieldpath.APIVersion]*fieldpath.Set{
-				"v1": _NS(
+			IgnoreFilter: map[fieldpath.APIVersion]fieldpath.Filter{
+				"v1": fieldpath.NewExcludeFilter(_NS(
 					_P("string"),
-				),
+				)),
 			},
 		},
 		"apply_does_not_own_deep_ignored": {
@@ -131,10 +131,10 @@ func TestIgnoredFields(t *testing.T) {
 					true,
 				),
 			},
-			IgnoredFields: map[fieldpath.APIVersion]*fieldpath.Set{
-				"v1": _NS(
+			IgnoreFilter: map[fieldpath.APIVersion]fieldpath.Filter{
+				"v1": fieldpath.NewExcludeFilter(_NS(
 					_P("obj"),
-				),
+				)),
 			},
 		},
 	}
@@ -148,7 +148,7 @@ func TestIgnoredFields(t *testing.T) {
 	}
 }
 
-func TestIgnoredFieldsUsesVersions(t *testing.T) {
+func TestFilteredFieldsUsesVersions(t *testing.T) {
 	tests := map[string]TestCase{
 		"does_use_ignored_fields_versions": {
 			Ops: []Operation{
@@ -205,19 +205,19 @@ func TestIgnoredFieldsUsesVersions(t *testing.T) {
 					false,
 				),
 			},
-			IgnoredFields: map[fieldpath.APIVersion]*fieldpath.Set{
-				"v1": _NS(
+			IgnoreFilter: map[fieldpath.APIVersion]fieldpath.Filter{
+				"v1": fieldpath.NewExcludeFilter(_NS(
 					_P("mapOfMapsRecursive", "c"),
-				),
-				"v2": _NS(
+				)),
+				"v2": fieldpath.NewExcludeFilter(_NS(
 					_P("mapOfMapsRecursive", "cc"),
-				),
-				"v3": _NS(
+				)),
+				"v3": fieldpath.NewExcludeFilter(_NS(
 					_P("mapOfMapsRecursive", "ccc"),
-				),
-				"v4": _NS(
+				)),
+				"v4": fieldpath.NewExcludeFilter(_NS(
 					_P("mapOfMapsRecursive", "cccc"),
-				),
+				)),
 			},
 		},
 		"update_does_not_steal_ignored": {
@@ -273,10 +273,10 @@ func TestIgnoredFieldsUsesVersions(t *testing.T) {
 					false,
 				),
 			},
-			IgnoredFields: map[fieldpath.APIVersion]*fieldpath.Set{
-				"v2": _NS(
+			IgnoreFilter: map[fieldpath.APIVersion]fieldpath.Filter{
+				"v2": fieldpath.NewExcludeFilter(_NS(
 					_P("mapOfMapsRecursive", "c"),
-				),
+				)),
 			},
 		},
 		"apply_does_not_steal_ignored": {
@@ -332,10 +332,10 @@ func TestIgnoredFieldsUsesVersions(t *testing.T) {
 					false,
 				),
 			},
-			IgnoredFields: map[fieldpath.APIVersion]*fieldpath.Set{
-				"v2": _NS(
+			IgnoreFilter: map[fieldpath.APIVersion]fieldpath.Filter{
+				"v2": fieldpath.NewExcludeFilter(_NS(
 					_P("mapOfMapsRecursive", "c"),
-				),
+				)),
 			},
 		},
 	}

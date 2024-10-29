@@ -538,8 +538,8 @@ type TestCase struct {
 	// ReportInputOnNoop if we don't want to compare the output and
 	// always return it.
 	ReturnInputOnNoop bool
-	// IgnoredFields containing the set to ignore for every version
-	IgnoredFields map[fieldpath.APIVersion]*fieldpath.Set
+	// IgnoreFilter filters out ignored fields from a fieldpath.Set.
+	IgnoreFilter map[fieldpath.APIVersion]fieldpath.Filter
 }
 
 // Test runs the test-case using the given parser and a dummy converter.
@@ -572,7 +572,7 @@ func (tc TestCase) PreprocessOperations(parser Parser) error {
 func (tc TestCase) BenchWithConverter(parser Parser, converter merge.Converter) error {
 	updaterBuilder := merge.UpdaterBuilder{
 		Converter:         converter,
-		IgnoredFields:     tc.IgnoredFields,
+		IgnoreFilter:      tc.IgnoreFilter,
 		ReturnInputOnNoop: tc.ReturnInputOnNoop,
 	}
 	state := State{
@@ -594,7 +594,7 @@ func (tc TestCase) BenchWithConverter(parser Parser, converter merge.Converter) 
 func (tc TestCase) TestWithConverter(parser Parser, converter merge.Converter) error {
 	updaterBuilder := merge.UpdaterBuilder{
 		Converter:         converter,
-		IgnoredFields:     tc.IgnoredFields,
+		IgnoreFilter:      tc.IgnoreFilter,
 		ReturnInputOnNoop: tc.ReturnInputOnNoop,
 	}
 	state := State{

@@ -503,3 +503,27 @@ func (s *SetNodeMap) Leaves() *SetNodeMap {
 	}
 	return out
 }
+
+type Filter interface {
+	Filter(*Set) *Set
+}
+
+func NewExcludeFilter(set *Set) Filter {
+	return excludeFilter{set}
+}
+
+func NewExcludeFilterMap(resetFields map[APIVersion]*Set) map[APIVersion]Filter {
+	result := make(map[APIVersion]Filter)
+	for k, v := range resetFields {
+		result[k] = excludeFilter{v}
+	}
+	return result
+}
+
+type excludeFilter struct {
+	exeludeSet *Set
+}
+
+func (t excludeFilter) Filter(set *Set) *Set {
+	return set.RecursiveDifference(t.exeludeSet)
+}
