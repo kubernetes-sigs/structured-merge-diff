@@ -755,3 +755,96 @@ func TestSetNodeMapIterate(t *testing.T) {
 		}
 	}
 }
+
+func TestFilterByPattern(t *testing.T) {
+	testCases := []struct {
+		name   string
+		input  *Set
+		expect *Set
+	}{
+		{
+			name: "exact match",
+			input: NewSet(
+				MakePathOrDie("spec"),
+				MakePathOrDie("spec", "containers"),
+				MakePathOrDie("spec", "containers", 0, "resources"),
+				MakePathOrDie("spec", "containers", 0, "resources", "limits"),
+				MakePathOrDie("spec", "containers", 0, "resources", "limits", "cpu"),
+				MakePathOrDie("spec", "containers", 0, "resources", "requests"),
+				MakePathOrDie("spec", "containers", 0, "resources", "requests", "cpu"),
+				MakePathOrDie("spec", "containers", 0, "resources", "claims"),
+				MakePathOrDie("spec", "containers", 0, "resources", "claims", 0, "name"),
+				MakePathOrDie("spec", "containers", 0, "resources", "claims", 0, "request"),
+				MakePathOrDie("spec", "containers", 0, "resources", "claims", 1, "name"),
+				MakePathOrDie("spec", "containers", 0, "resources", "claims", 1, "request"),
+				MakePathOrDie("spec", "containers", 1, "resources"),
+				MakePathOrDie("spec", "containers", 1, "resources", "limits"),
+				MakePathOrDie("spec", "containers", 1, "resources", "limits", "cpu"),
+			),
+			expect: NewSet(
+				MakePathOrDie("spec"),
+				MakePathOrDie("spec", "containers"),
+				MakePathOrDie("spec", "containers", 0, "resources"),
+				MakePathOrDie("spec", "containers", 0, "resources", "limits"),
+				MakePathOrDie("spec", "containers", 0, "resources", "limits", "cpu"),
+				MakePathOrDie("spec", "containers", 0, "resources", "requests"),
+				MakePathOrDie("spec", "containers", 0, "resources", "requests", "cpu"),
+				MakePathOrDie("spec", "containers", 0, "resources", "claims"),
+				MakePathOrDie("spec", "containers", 0, "resources", "claims", 0, "name"),
+				MakePathOrDie("spec", "containers", 0, "resources", "claims", 0, "request"),
+				MakePathOrDie("spec", "containers", 0, "resources", "claims", 1, "name"),
+				MakePathOrDie("spec", "containers", 0, "resources", "claims", 1, "request"),
+				MakePathOrDie("spec", "containers", 1, "resources"),
+				MakePathOrDie("spec", "containers", 1, "resources", "limits"),
+				MakePathOrDie("spec", "containers", 1, "resources", "limits", "cpu"),
+			),
+		},
+		{
+			name: "filter status and metadata",
+			input: NewSet(
+				MakePathOrDie("spec"),
+				MakePathOrDie("status"),
+				MakePathOrDie("metadata"),
+			),
+			expect: NewSet(
+				MakePathOrDie("spec"),
+			),
+		},
+		{
+			name: "filter non-container spec fields",
+			input: NewSet(
+				MakePathOrDie("spec"),
+				MakePathOrDie("spec", "volumes"),
+				MakePathOrDie("spec", "hostNetwork"),
+			),
+			expect: NewSet(
+				MakePathOrDie("spec"),
+			),
+		},
+		{
+			name: "filter non-resource container fields",
+			input: NewSet(
+				MakePathOrDie("spec"),
+				MakePathOrDie("spec", "containers"),
+				MakePathOrDie("spec", "containers", 0, "image"),
+				MakePathOrDie("spec", "containers", 0, "workingDir"),
+				MakePathOrDie("spec", "containers", 0, "resources"),
+			),
+			expect: NewSet(
+				MakePathOrDie("spec"),
+				MakePathOrDie("spec", "containers"),
+				MakePathOrDie("spec", "containers", 0, "resources"),
+			),
+		},
+	}
+
+	for _, tc := range testCases {
+		filter := NewPatternFilter(MustPrefixPattern("spec", "containers", MatchAnyPathElement(), "resources"))
+		t.Run(tc.name, func(t *testing.T) {
+			filtered := filter.Filter(tc.input)
+			if !filtered.Equals(tc.expect) {
+				t.Errorf("Expected:\n%v\n\nbut got:\n%v", tc.expect, filtered)
+			}
+		})
+	}
+}

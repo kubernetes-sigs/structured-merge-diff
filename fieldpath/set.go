@@ -17,6 +17,7 @@ limitations under the License.
 package fieldpath
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 
@@ -133,6 +134,111 @@ func (s *Set) EnsureNamedFieldsAreMembers(sc *schema.Schema, tr schema.TypeRef) 
 	return &Set{
 		Members:  members,
 		Children: *s.Children.EnsureNamedFieldsAreMembers(sc, tr),
+	}
+}
+
+// MustPrefixPattern is the same as PrefixPattern except it panics if parts can't be
+// turned into a SetPattern.
+func MustPrefixPattern(parts ...interface{}) *SetPattern {
+	result, err := PrefixPattern(parts...)
+	if err != nil {
+		panic(err)
+	}
+	return result
+}
+
+// PrefixPattern creates a SetPattern that matches all field paths prefixed by the given list of path parts.
+// The parts may be PathPatterns, PathElements, strings (for field names) or ints (for array indices).
+// `MatchAnyPathElement()` may be used to "wildcard" match any PathElement at that position in the field path.
+func PrefixPattern(parts ...interface{}) (*SetPattern, error) {
+	current := MatchAnySet() // match all field patch suffixes
+	for i := len(parts) - 1; i >= 0; i-- {
+		part := parts[i]
+		var pattern PathPattern
+		switch t := part.(type) {
+		case PathPattern:
+			pattern = t
+		case PathElement:
+			pattern = PathPattern{PathElement: t}
+		case string:
+			pattern = PathPattern{PathElement: PathElement{FieldName: &t}}
+		case int:
+			pattern = PathPattern{PathElement: PathElement{Index: &t}}
+		default:
+			return nil, fmt.Errorf("unexpected type %T", t)
+		}
+		current = &SetPattern{
+			Members: []*MemberSetPattern{{
+				Path:  pattern,
+				Child: current,
+			}},
+		}
+	}
+	return current, nil
+}
+
+// MatchAnyPathElement returns a PathPattern that matches any path element.
+func MatchAnyPathElement() PathPattern {
+	return PathPattern{Wildcard: true}
+}
+
+// MatchAnySet returns a SetPattern that matches any set.
+func MatchAnySet() *SetPattern {
+	return &SetPattern{Wildcard: true}
+}
+
+// SetPattern defines a pattern that matches fields in a Set.
+// SetPattern is structured much like a Set but with wildcard support.
+type SetPattern struct {
+	// Wildcard indicates that all members and children are matched.
+	// If set, the Members and Children fields are ignored.
+	Wildcard bool
+	// Members provides patterns to match the Members of a Set.
+	// If any PatchPattern is a wildcard, then all members of a Set are matched.
+	// Otherwise, if any PathPattern is Equal to a member of a Set, that member is matched.
+	Members []*MemberSetPattern
+}
+
+// MemberSetPattern defines a pattern that matches the Members of a Set.
+// MemberSetPattern is structured much like the elements of a SetNodeMap, but with wildcard support.
+type MemberSetPattern struct {
+	// Path provides a pattern to match Members of a Set.
+	// If Path is a wildcard, all Members of a Set are matched.
+	// Otherwise, the Member of a Set with a path that is Equal to this Path is matched.
+	Path PathPattern
+
+	// Child provides a pattern to use for Member of a Set that were matched by this MemberSetPattern's Path.
+	Child *SetPattern
+}
+
+// PathPattern defined a match pattern for a PathElement.
+type PathPattern struct {
+	// Wildcard indicates that all PathElements are matched by this pattern.
+	// If set, PathElement is ignored.
+	Wildcard bool
+
+	// PathElement matches another PathElement if it is Equal to this PathElement.
+	PathElement
+}
+
+// FilterByPattern returns a Set with only fields that match the pattern.
+func (s *Set) FilterByPattern(pattern *SetPattern) *Set {
+	if pattern.Wildcard {
+		return s
+	}
+
+	members := PathElementSet{}
+	for _, m := range s.Members.members {
+		for _, pm := range pattern.Members {
+			if pm.Path.Wildcard || pm.Path.PathElement.Equals(m) {
+				members.Insert(m)
+				break
+			}
+		}
+	}
+	return &Set{
+		Members:  members,
+		Children: *s.Children.FilterByPattern(pattern),
 	}
 }
 
@@ -476,6 +582,33 @@ func (s *SetNodeMap) EnsureNamedFieldsAreMembers(sc *schema.Schema, tr schema.Ty
 	}
 }
 
+// FilterByPattern returns a set that is filtered by the pattern.
+func (s *SetNodeMap) FilterByPattern(pattern *SetPattern) *SetNodeMap {
+	if pattern.Wildcard {
+		return s
+	}
+
+	var out sortedSetNode
+	for _, member := range s.members {
+		for _, c := range pattern.Members {
+			if c.Path.Wildcard || c.Path.PathElement.Equals(member.pathElement) {
+				childSet := member.set.FilterByPattern(c.Child)
+				if childSet.Size() > 0 {
+					out = append(out, setNode{
+						pathElement: member.pathElement,
+						set:         childSet,
+					})
+				}
+				break
+			}
+		}
+	}
+
+	return &SetNodeMap{
+		members: out,
+	}
+}
+
 // Iterate calls f for each PathElement in the set.
 func (s *SetNodeMap) Iterate(f func(PathElement)) {
 	for _, n := range s.members {
@@ -504,14 +637,23 @@ func (s *SetNodeMap) Leaves() *SetNodeMap {
 	return out
 }
 
+// Filter defines an interface for filtering Set.
+// NewExcludeFilter can be used to create a filter that removes fields at the
+// excluded field paths.
+// NewPatternFilter can be used to create a filter that removes all fields except
+// the fields that match a field path pattern. PrefixPattern and MustPrefixPattern
+// can help create field path patterns.
 type Filter interface {
+	// Filter returns a filtered copy of the set.
 	Filter(*Set) *Set
 }
 
-func NewExcludeFilter(set *Set) Filter {
-	return excludeFilter{set}
+// NewExcludeFilter returns a filter that removes field paths in the exclude set.
+func NewExcludeFilter(exclude *Set) Filter {
+	return excludeFilter{exclude}
 }
 
+// NewExcludeFilterMap converts a map of APIVersion to exclude set to a map of APIVersion to exclude filters.
 func NewExcludeFilterMap(resetFields map[APIVersion]*Set) map[APIVersion]Filter {
 	result := make(map[APIVersion]Filter)
 	for k, v := range resetFields {
@@ -521,9 +663,23 @@ func NewExcludeFilterMap(resetFields map[APIVersion]*Set) map[APIVersion]Filter 
 }
 
 type excludeFilter struct {
-	exeludeSet *Set
+	excludeSet *Set
 }
 
 func (t excludeFilter) Filter(set *Set) *Set {
-	return set.RecursiveDifference(t.exeludeSet)
+	return set.RecursiveDifference(t.excludeSet)
+}
+
+// NewPatternFilter returns a filter that only includes field paths that match the pattern.
+// PrefixPattern and MustPrefixPattern can help create basic SetPatterns.
+func NewPatternFilter(pattern *SetPattern) Filter {
+	return patternFilter{pattern}
+}
+
+type patternFilter struct {
+	pattern *SetPattern
+}
+
+func (pf patternFilter) Filter(set *Set) *Set {
+	return set.FilterByPattern(pf.pattern)
 }
