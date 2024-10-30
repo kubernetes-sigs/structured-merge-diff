@@ -18,6 +18,7 @@ package fieldpath
 
 import (
 	"fmt"
+	"sigs.k8s.io/structured-merge-diff/v4/value"
 	"sort"
 	"strings"
 
@@ -148,8 +149,14 @@ func MustPrefixPattern(parts ...interface{}) *SetPattern {
 }
 
 // PrefixPattern creates a SetPattern that matches all field paths prefixed by the given list of pattern path parts.
-// The pattern parts may be PathPatterns, PathElements, strings (for field names) or ints (for array indices).
-// `MatchAnyPathElement()` may be used as a pattern path part to wildcard match a field path part.
+// The pattern parts may any of:
+//
+//   - PathPattern - for wildcards, `MatchAnyPathElement()` can be used as well.
+//   - PathElement - for any path element
+//   - value.FieldList - for associative list keys
+//   - value.Value - for scalar list elements
+//   - string - For field names
+//   - int - for array indices
 func PrefixPattern(parts ...interface{}) (*SetPattern, error) {
 	current := MatchAnySet() // match all field patch suffixes
 	for i := len(parts) - 1; i >= 0; i-- {
@@ -160,6 +167,13 @@ func PrefixPattern(parts ...interface{}) (*SetPattern, error) {
 			pattern = t
 		case PathElement:
 			pattern = PathPattern{PathElement: t}
+		case *value.FieldList:
+			if len(*t) == 0 {
+				return nil, fmt.Errorf("associative list key type path elements must have at least one key (got zero)")
+			}
+			pattern = PathPattern{PathElement: PathElement{Key: t}}
+		case value.Value:
+			pattern = PathPattern{PathElement: PathElement{Value: &t}}
 		case string:
 			pattern = PathPattern{PathElement: PathElement{FieldName: &t}}
 		case int:
@@ -639,7 +653,7 @@ func (s *SetNodeMap) Leaves() *SetNodeMap {
 	return out
 }
 
-// Filter defines an interface for filtering a set.
+// Filter defines an interface for excluding field paths from a set.
 // NewExcludeFilter can be used to create a filter that removes
 // excluded field paths.
 // NewPatternFilter can be used to create a filter that removes all fields except
