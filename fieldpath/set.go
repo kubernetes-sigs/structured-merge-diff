@@ -147,9 +147,9 @@ func MustPrefixPattern(parts ...interface{}) *SetPattern {
 	return result
 }
 
-// PrefixPattern creates a SetPattern that matches all field paths prefixed by the given list of path parts.
-// The parts may be PathPatterns, PathElements, strings (for field names) or ints (for array indices).
-// `MatchAnyPathElement()` may be used to "wildcard" match any PathElement at that position in the field path.
+// PrefixPattern creates a SetPattern that matches all field paths prefixed by the given list of pattern path parts.
+// The pattern parts may be PathPatterns, PathElements, strings (for field names) or ints (for array indices).
+// `MatchAnyPathElement()` may be used as a pattern path part to wildcard match a field path part.
 func PrefixPattern(parts ...interface{}) (*SetPattern, error) {
 	current := MatchAnySet() // match all field patch suffixes
 	for i := len(parts) - 1; i >= 0; i-- {
@@ -190,24 +190,25 @@ func MatchAnySet() *SetPattern {
 // SetPattern defines a pattern that matches fields in a Set.
 // SetPattern is structured much like a Set but with wildcard support.
 type SetPattern struct {
-	// Wildcard indicates that all members and children are matched.
-	// If set, the Members and Children fields are ignored.
+	// Wildcard indicates that all members and children are included in the match.
+	// If set, the Members field is ignored.
 	Wildcard bool
-	// Members provides patterns to match the Members of a Set.
-	// If any PatchPattern is a wildcard, then all members of a Set are matched.
-	// Otherwise, if any PathPattern is Equal to a member of a Set, that member is matched.
+	// Members provides patterns to match the members of a Set.
 	Members []*MemberSetPattern
 }
 
-// MemberSetPattern defines a pattern that matches the Members of a Set.
-// MemberSetPattern is structured much like the elements of a SetNodeMap, but with wildcard support.
+// MemberSetPattern defines a pattern that matches the members of a Set.
+// MemberSetPattern is structured much like the elements of a SetNodeMap, but
+// with wildcard support.
 type MemberSetPattern struct {
-	// Path provides a pattern to match Members of a Set.
-	// If Path is a wildcard, all Members of a Set are matched.
-	// Otherwise, the Member of a Set with a path that is Equal to this Path is matched.
+	// Path provides a pattern to match members of a Set.
+	// If Path is a wildcard, all members of a Set are included in the match.
+	// Otherwise, if any Path is Equal to a member of a Set, that member is
+	// included in the match and the children of that member are matched
+	// against the Child pattern.
 	Path PathPattern
 
-	// Child provides a pattern to use for Member of a Set that were matched by this MemberSetPattern's Path.
+	// Child provides a pattern to use for the children of matched members of a Set.
 	Child *SetPattern
 }
 
@@ -217,11 +218,12 @@ type PathPattern struct {
 	// If set, PathElement is ignored.
 	Wildcard bool
 
-	// PathElement matches another PathElement if it is Equal to this PathElement.
+	// PathElement indicates that a PathElement is matched if it is Equal
+	// to this PathElement.
 	PathElement
 }
 
-// FilterByPattern returns a Set with only fields that match the pattern.
+// FilterByPattern returns a Set with only the field paths that match the pattern.
 func (s *Set) FilterByPattern(pattern *SetPattern) *Set {
 	if pattern.Wildcard {
 		return s
@@ -582,7 +584,7 @@ func (s *SetNodeMap) EnsureNamedFieldsAreMembers(sc *schema.Schema, tr schema.Ty
 	}
 }
 
-// FilterByPattern returns a set that is filtered by the pattern.
+// FilterByPattern returns a SetNodeMap with only the field paths that match the pattern.
 func (s *SetNodeMap) FilterByPattern(pattern *SetPattern) *SetNodeMap {
 	if pattern.Wildcard {
 		return s
@@ -637,12 +639,12 @@ func (s *SetNodeMap) Leaves() *SetNodeMap {
 	return out
 }
 
-// Filter defines an interface for filtering Set.
-// NewExcludeFilter can be used to create a filter that removes fields at the
+// Filter defines an interface for filtering a set.
+// NewExcludeFilter can be used to create a filter that removes
 // excluded field paths.
 // NewPatternFilter can be used to create a filter that removes all fields except
 // the fields that match a field path pattern. PrefixPattern and MustPrefixPattern
-// can help create field path patterns.
+// can be used to define field path patterns.
 type Filter interface {
 	// Filter returns a filtered copy of the set.
 	Filter(*Set) *Set
