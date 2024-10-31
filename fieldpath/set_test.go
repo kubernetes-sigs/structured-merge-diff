@@ -988,8 +988,8 @@ func TestFilterByPattern(t *testing.T) {
 				MakePathOrDie("spec", "list", 2, "f2"),
 			),
 			filter: NewIncludeMatcherFilter(
-				MakePrefixMatcherOrDie("spec", "list", MatchAnyPathElement(), "f1"), // wildcard matches first and runs
-				MakePrefixMatcherOrDie("spec", "list", 1, "f2"),                     // already matched by wildcard so this is ignored
+				MakePrefixMatcherOrDie("spec", "list", MatchAnyPathElement(), "f1"), // takes precedence
+				MakePrefixMatcherOrDie("spec", "list", 1, "f2"),                     // ignored
 			),
 			expect: NewSet(
 				MakePathOrDie("spec", "list", 0, "f1"),

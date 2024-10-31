@@ -148,8 +148,8 @@ func MakePrefixMatcherOrDie(parts ...interface{}) *SetMatcher {
 	return result
 }
 
-// PrefixMatcher creates a SetMatcher that matches all field paths prefixed by the given list of pattern path parts.
-// The pattern parts may any of:
+// PrefixMatcher creates a SetMatcher that matches all field paths prefixed by the given list of matcher path parts.
+// The matcher parts may any of:
 //
 //   - PathElementMatcher - for wildcards, `MatchAnyPathElement()` can be used as well.
 //   - PathElement - for any path element
@@ -182,7 +182,7 @@ func PrefixMatcher(parts ...interface{}) (*SetMatcher, error) {
 			return nil, fmt.Errorf("unexpected type %T", t)
 		}
 		current = &SetMatcher{
-			Members: []*SetMemberMatcher{{
+			members: []*SetMemberMatcher{{
 				Path:  pattern,
 				Child: current,
 			}},
@@ -198,74 +198,81 @@ func MatchAnyPathElement() PathElementMatcher {
 
 // MatchAnySet returns a SetMatcher that matches any set.
 func MatchAnySet() *SetMatcher {
-	return &SetMatcher{Wildcard: true}
+	return &SetMatcher{wildcard: true}
 }
 
-// SetMatcher defines a pattern that matches fields in a Set.
+// NewSetMatcher returns a new SetMatcher.
+// Wildcard members take precedent over non-wildcard members;
+// all non-wildcard members are ignored if there is a wildcard members.
+func NewSetMatcher(wildcard bool, members ...*SetMemberMatcher) *SetMatcher {
+	sort.Sort(sortedMemberMatcher(members))
+	return &SetMatcher{wildcard: wildcard, members: members}
+}
+
+// SetMatcher defines a matcher that matches fields in a Set.
 // SetMatcher is structured much like a Set but with wildcard support.
 type SetMatcher struct {
-	// Wildcard indicates that all members and children are included in the match.
-	// If set, the Members field is ignored.
-	Wildcard bool
-	// Members provides patterns to match the members of a Set.
-	Members []*SetMemberMatcher
+	// wildcard indicates that all members and children are included in the match.
+	// If set, the members field is ignored.
+	wildcard bool
+	// members provides patterns to match the members of a Set.
+	// Wildcard members are sorted before non-wildcards and take precedent over
+	// non-wildcard members.
+	members sortedMemberMatcher
 }
 
-// Merge merges two SetMatchers into a single SetMatcher that matches the field paths of both SetMatchers.
-// During the merge, Members of s2 with the same PathElementMatcher as a member of s are merged into the member of s.
-// All other members of s2 are appended to the resulting member list in their original relative order.
-// When members are merged, the child SetMatchers are merged by calling this function recursively.
+type sortedMemberMatcher []*SetMemberMatcher
+
+func (s sortedMemberMatcher) Len() int           { return len(s) }
+func (s sortedMemberMatcher) Less(i, j int) bool { return s[i].Path.Less(s[j].Path) }
+func (s sortedMemberMatcher) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+func (s sortedMemberMatcher) Find(p PathElementMatcher) (location int, ok bool) {
+	return sort.Find(len(s), func(i int) int {
+		return s[i].Path.Compare(p)
+	})
+}
+
+// Merge merges s and s2 and returns a SetMatcher that matches all field paths matched by either s or s2.
+// During the merge, members of s and s2 with the same PathElementMatcher merged into a single member
+// with the children of each merged by calling this function recursively.
 func (s *SetMatcher) Merge(s2 *SetMatcher) *SetMatcher {
-	if s.Wildcard || s2.Wildcard {
-		return &SetMatcher{Wildcard: true}
+	if s.wildcard || s2.wildcard {
+		return NewSetMatcher(true)
 	}
-
-	// TODO: Optimize. This is O(n^2). In practice, usually a single member is being inserted at a time,
-	//       but that's still O(n). Sorting would help a ton.
-	var unionedMembers []*SetMemberMatcher
-	for _, m := range s.Members {
-		for _, m2 := range s2.Members {
-			if m.Path.PathElement.Equals(m2.Path.PathElement) && m.Path.Wildcard == m2.Path.Wildcard {
-				unionedMembers = append(unionedMembers, &SetMemberMatcher{
-					Path:  m.Path,
-					Child: m.Child.Merge(m2.Child),
-				})
-			} else {
-				unionedMembers = append(unionedMembers, m)
+	merged := make(sortedMemberMatcher, len(s.members), len(s.members)+len(s2.members))
+	copy(merged, s.members)
+	for _, m := range s2.members {
+		if i, ok := s.members.Find(m.Path); ok {
+			// since merged is a shallow copy, do not modify elements in place
+			merged[i] = &SetMemberMatcher{
+				Path:  merged[i].Path,
+				Child: merged[i].Child.Merge(m.Child),
 			}
+		} else {
+			merged = append(merged, m)
 		}
 	}
-	for _, m2 := range s2.Members {
-		for _, existing := range unionedMembers {
-			if !m2.Path.PathElement.Equals(existing.Path.PathElement) {
-				unionedMembers = append(unionedMembers, m2)
-			}
-		}
-	}
-
-	return &SetMatcher{
-		Members: unionedMembers,
-	}
+	return NewSetMatcher(false, merged...) // sort happens here
 }
 
-// SetMemberMatcher defines a pattern that matches the members of a Set.
+// SetMemberMatcher defines a matcher that matches the members of a Set.
 // SetMemberMatcher is structured much like the elements of a SetNodeMap, but
 // with wildcard support.
 type SetMemberMatcher struct {
-	// Path provides a pattern to match members of a Set.
+	// Path provides a matcher to match members of a Set.
 	// If Path is a wildcard, all members of a Set are included in the match.
 	// Otherwise, if any Path is Equal to a member of a Set, that member is
 	// included in the match and the children of that member are matched
-	// against the Child pattern.
+	// against the Child matcher.
 	Path PathElementMatcher
 
-	// Child provides a pattern to use for the children of matched members of a Set.
+	// Child provides a matcher to use for the children of matched members of a Set.
 	Child *SetMatcher
 }
 
-// PathElementMatcher defined a match pattern for a PathElement.
+// PathElementMatcher defined a match matcher for a PathElement.
 type PathElementMatcher struct {
-	// Wildcard indicates that all PathElements are matched by this pattern.
+	// Wildcard indicates that all PathElements are matched by this matcher.
 	// If set, PathElement is ignored.
 	Wildcard bool
 
@@ -274,15 +281,37 @@ type PathElementMatcher struct {
 	PathElement
 }
 
+func (p PathElementMatcher) Equals(p2 PathElementMatcher) bool {
+	return p.Wildcard != p2.Wildcard && p.PathElement.Equals(p2.PathElement)
+}
+
+func (p PathElementMatcher) Less(p2 PathElementMatcher) bool {
+	if p.Wildcard && !p2.Wildcard {
+		return true
+	} else if p2.Wildcard {
+		return false
+	}
+	return p.PathElement.Less(p2.PathElement)
+}
+
+func (p PathElementMatcher) Compare(p2 PathElementMatcher) int {
+	if p.Wildcard && !p2.Wildcard {
+		return -1
+	} else if p2.Wildcard {
+		return 1
+	}
+	return p.PathElement.Compare(p2.PathElement)
+}
+
 // FilterIncludeMatches returns a Set with only the field paths that match.
 func (s *Set) FilterIncludeMatches(pattern *SetMatcher) *Set {
-	if pattern.Wildcard {
+	if pattern.wildcard {
 		return s
 	}
 
 	members := PathElementSet{}
 	for _, m := range s.Members.members {
-		for _, pm := range pattern.Members {
+		for _, pm := range pattern.members {
 			if pm.Path.Wildcard || pm.Path.PathElement.Equals(m) {
 				members.Insert(m)
 				break
@@ -635,15 +664,15 @@ func (s *SetNodeMap) EnsureNamedFieldsAreMembers(sc *schema.Schema, tr schema.Ty
 	}
 }
 
-// FilterIncludeMatches returns a SetNodeMap with only the field paths that match the pattern.
+// FilterIncludeMatches returns a SetNodeMap with only the field paths that match the matcher.
 func (s *SetNodeMap) FilterIncludeMatches(pattern *SetMatcher) *SetNodeMap {
-	if pattern.Wildcard {
+	if pattern.wildcard {
 		return s
 	}
 
 	var out sortedSetNode
 	for _, member := range s.members {
-		for _, c := range pattern.Members {
+		for _, c := range pattern.members {
 			if c.Path.Wildcard || c.Path.PathElement.Equals(member.pathElement) {
 				childSet := member.set.FilterIncludeMatches(c.Child)
 				if childSet.Size() > 0 {
@@ -694,7 +723,7 @@ func (s *SetNodeMap) Leaves() *SetNodeMap {
 // NewExcludeSetFilter can be used to create a filter that removes
 // specific field paths and all of their children.
 // NewIncludeMatcherFilter can be used to create a filter that removes all fields except
-// the fields that match a field path pattern. PrefixMatcher and MakePrefixMatcherOrDie
+// the fields that match a field path matcher. PrefixMatcher and MakePrefixMatcherOrDie
 // can be used to define field path patterns.
 type Filter interface {
 	// Filter returns a filtered copy of the set.
@@ -723,24 +752,25 @@ func (t excludeFilter) Filter(set *Set) *Set {
 	return set.RecursiveDifference(t.excludeSet)
 }
 
-// NewIncludeMatcherFilter returns a filter that only includes field paths that match the pattern.
-// PrefixMatcher and MakePrefixMatcherOrDie can help create basic SetPatterns.
-func NewIncludeMatcherFilter(patterns ...*SetMatcher) Filter {
-	if len(patterns) == 0 {
-		return includeMatcherFilter{&SetMatcher{Wildcard: true}}
+// NewIncludeMatcherFilter returns a filter that only includes field paths that match.
+// If no matchers are provided, the filter includes all field paths.
+// PrefixMatcher and MakePrefixMatcherOrDie can help create basic matcher.
+func NewIncludeMatcherFilter(matchers ...*SetMatcher) Filter {
+	if len(matchers) == 0 {
+		return includeMatcherFilter{&SetMatcher{wildcard: true}}
 	}
-	pattern := patterns[0]
-	for i := 1; i < len(patterns); i++ {
-		pattern = pattern.Merge(patterns[i])
+	matcher := matchers[0]
+	for i := 1; i < len(matchers); i++ {
+		matcher = matcher.Merge(matchers[i])
 	}
 
-	return includeMatcherFilter{pattern}
+	return includeMatcherFilter{matcher}
 }
 
 type includeMatcherFilter struct {
-	pattern *SetMatcher
+	matcher *SetMatcher
 }
 
 func (pf includeMatcherFilter) Filter(set *Set) *Set {
-	return set.FilterIncludeMatches(pf.pattern)
+	return set.FilterIncludeMatches(pf.matcher)
 }
