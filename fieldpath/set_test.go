@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"fmt"
 	"math/rand"
+	"sigs.k8s.io/structured-merge-diff/v4/value"
 	"testing"
 
 	"sigs.k8s.io/structured-merge-diff/v4/schema"
@@ -761,9 +762,10 @@ func TestFilterByPattern(t *testing.T) {
 		name   string
 		input  *Set
 		expect *Set
+		filter Filter
 	}{
 		{
-			name: "exact match",
+			name: "container resize fields: exact match",
 			input: NewSet(
 				MakePathOrDie("spec"),
 				MakePathOrDie("spec", "containers"),
@@ -781,6 +783,7 @@ func TestFilterByPattern(t *testing.T) {
 				MakePathOrDie("spec", "containers", 1, "resources", "limits"),
 				MakePathOrDie("spec", "containers", 1, "resources", "limits", "cpu"),
 			),
+			filter: NewIncludeMatcherFilter(MakePrefixMatcherOrDie("spec", "containers", MatchAnyPathElement(), "resources")),
 			expect: NewSet(
 				MakePathOrDie("spec"),
 				MakePathOrDie("spec", "containers"),
@@ -800,29 +803,31 @@ func TestFilterByPattern(t *testing.T) {
 			),
 		},
 		{
-			name: "filter status and metadata",
+			name: "container resize fields: filter status and metadata",
 			input: NewSet(
 				MakePathOrDie("spec"),
 				MakePathOrDie("status"),
 				MakePathOrDie("metadata"),
 			),
+			filter: NewIncludeMatcherFilter(MakePrefixMatcherOrDie("spec", "containers", MatchAnyPathElement(), "resources")),
 			expect: NewSet(
 				MakePathOrDie("spec"),
 			),
 		},
 		{
-			name: "filter non-container spec fields",
+			name: "container resize fields: filter non-container spec fields",
 			input: NewSet(
 				MakePathOrDie("spec"),
 				MakePathOrDie("spec", "volumes"),
 				MakePathOrDie("spec", "hostNetwork"),
 			),
+			filter: NewIncludeMatcherFilter(MakePrefixMatcherOrDie("spec", "containers", MatchAnyPathElement(), "resources")),
 			expect: NewSet(
 				MakePathOrDie("spec"),
 			),
 		},
 		{
-			name: "filter non-resource container fields",
+			name: "container resize fields: filter non-resource container fields",
 			input: NewSet(
 				MakePathOrDie("spec"),
 				MakePathOrDie("spec", "containers"),
@@ -830,18 +835,173 @@ func TestFilterByPattern(t *testing.T) {
 				MakePathOrDie("spec", "containers", 0, "workingDir"),
 				MakePathOrDie("spec", "containers", 0, "resources"),
 			),
+			filter: NewIncludeMatcherFilter(MakePrefixMatcherOrDie("spec", "containers", MatchAnyPathElement(), "resources")),
 			expect: NewSet(
 				MakePathOrDie("spec"),
 				MakePathOrDie("spec", "containers"),
 				MakePathOrDie("spec", "containers", 0, "resources"),
 			),
 		},
+		{
+			name: "filter listMap key",
+			input: NewSet(
+				MakePathOrDie("spec"),
+				MakePathOrDie("spec", "listMap",
+					&value.FieldList{
+						{Name: "key1", Value: value.NewValueInterface("value1")},
+						{Name: "key2", Value: value.NewValueInterface("value2")},
+					}),
+				MakePathOrDie("spec", "listMap",
+					&value.FieldList{
+						{Name: "key1", Value: value.NewValueInterface("value1")},
+						{Name: "key2", Value: value.NewValueInterface("value2")},
+					}, "field"),
+				MakePathOrDie("spec", "listMap",
+					&value.FieldList{
+						{Name: "key1", Value: value.NewValueInterface("valueX")},
+						{Name: "key2", Value: value.NewValueInterface("valueY")},
+					}, "field"),
+			),
+			filter: NewIncludeMatcherFilter(MakePrefixMatcherOrDie("spec", "listMap", &value.FieldList{
+				{Name: "key1", Value: value.NewValueInterface("value1")},
+				{Name: "key2", Value: value.NewValueInterface("value2")},
+			})),
+			expect: NewSet(
+				MakePathOrDie("spec"),
+				MakePathOrDie("spec", "listMap",
+					&value.FieldList{
+						{Name: "key1", Value: value.NewValueInterface("value1")},
+						{Name: "key2", Value: value.NewValueInterface("value2")},
+					}),
+				MakePathOrDie("spec", "listMap",
+					&value.FieldList{
+						{Name: "key1", Value: value.NewValueInterface("value1")},
+						{Name: "key2", Value: value.NewValueInterface("value2")},
+					}, "field"),
+			),
+		},
+		{
+			name: "filter listMap key",
+			input: NewSet(
+				MakePathOrDie("spec"),
+				MakePathOrDie("spec", "listMap",
+					&value.FieldList{
+						{Name: "key1", Value: value.NewValueInterface("value1")},
+						{Name: "key2", Value: value.NewValueInterface("value2")},
+					}),
+				MakePathOrDie("spec", "listMap",
+					&value.FieldList{
+						{Name: "key1", Value: value.NewValueInterface("value1")},
+						{Name: "key2", Value: value.NewValueInterface("value2")},
+					}, "field"),
+				MakePathOrDie("spec", "listMap",
+					&value.FieldList{
+						{Name: "key1", Value: value.NewValueInterface("valueX")},
+						{Name: "key2", Value: value.NewValueInterface("valueY")},
+					}, "field"),
+			),
+			filter: NewIncludeMatcherFilter(MakePrefixMatcherOrDie("spec", "listMap", &value.FieldList{
+				{Name: "key1", Value: value.NewValueInterface("value1")},
+				{Name: "key2", Value: value.NewValueInterface("value2")},
+			})),
+			expect: NewSet(
+				MakePathOrDie("spec"),
+				MakePathOrDie("spec", "listMap",
+					&value.FieldList{
+						{Name: "key1", Value: value.NewValueInterface("value1")},
+						{Name: "key2", Value: value.NewValueInterface("value2")},
+					}),
+				MakePathOrDie("spec", "listMap",
+					&value.FieldList{
+						{Name: "key1", Value: value.NewValueInterface("value1")},
+						{Name: "key2", Value: value.NewValueInterface("value2")},
+					}, "field"),
+			),
+		},
+		{
+			name: "filter value",
+			input: NewSet(
+				MakePathOrDie("spec"),
+				MakePathOrDie("spec", "set", value.NewValueInterface("v1")),
+				MakePathOrDie("spec", "set", value.NewValueInterface("v2")),
+			),
+			filter: NewIncludeMatcherFilter(MakePrefixMatcherOrDie("spec", "set", value.NewValueInterface("v1"))),
+			expect: NewSet(
+				MakePathOrDie("spec"),
+				MakePathOrDie("spec", "set", value.NewValueInterface("v1")),
+			),
+		},
+		{
+			name: "filter by index",
+			input: NewSet(
+				MakePathOrDie("spec"),
+				MakePathOrDie("spec", "list", 0, "value"),
+				MakePathOrDie("spec", "list", 1, "value"),
+			),
+			filter: NewIncludeMatcherFilter(MakePrefixMatcherOrDie("spec", "list", 1, "value")),
+			expect: NewSet(
+				MakePathOrDie("spec"),
+				MakePathOrDie("spec", "list", 1, "value"),
+			),
+		},
+		{
+			name: "multiple index matchers",
+			input: NewSet(
+				MakePathOrDie("spec"),
+				MakePathOrDie("spec", "list", 0, "value"),
+				MakePathOrDie("spec", "list", 1, "value"),
+			),
+			filter: NewIncludeMatcherFilter(
+				MakePrefixMatcherOrDie("spec", "list", 0, "value"),
+				MakePrefixMatcherOrDie("spec", "list", 1, "value"),
+			),
+			expect: NewSet(
+				MakePathOrDie("spec"),
+				MakePathOrDie("spec", "list", 0, "value"),
+				MakePathOrDie("spec", "list", 1, "value"),
+			),
+		},
+		{
+			name: "multiple field matchers",
+			input: NewSet(
+				MakePathOrDie("spec", "f1", "f11"),
+				MakePathOrDie("spec", "f2", "f21"),
+				MakePathOrDie("spec", "f3", "f31"),
+			),
+			filter: NewIncludeMatcherFilter(
+				MakePrefixMatcherOrDie("spec", "f1"),
+				MakePrefixMatcherOrDie("spec", "f3"),
+			),
+			expect: NewSet(
+				MakePathOrDie("spec", "f1", "f11"),
+				MakePathOrDie("spec", "f3", "f31"),
+			),
+		},
+		{
+			name: "wildcard takes precedence",
+			input: NewSet(
+				MakePathOrDie("spec", "list", 0, "f1"),
+				MakePathOrDie("spec", "list", 0, "f2"),
+				MakePathOrDie("spec", "list", 1, "f1"),
+				MakePathOrDie("spec", "list", 1, "f2"),
+				MakePathOrDie("spec", "list", 2, "f1"),
+				MakePathOrDie("spec", "list", 2, "f2"),
+			),
+			filter: NewIncludeMatcherFilter(
+				MakePrefixMatcherOrDie("spec", "list", MatchAnyPathElement(), "f1"), // wildcard matches first and runs
+				MakePrefixMatcherOrDie("spec", "list", 1, "f2"),                     // already matched by wildcard so this is ignored
+			),
+			expect: NewSet(
+				MakePathOrDie("spec", "list", 0, "f1"),
+				MakePathOrDie("spec", "list", 1, "f1"),
+				MakePathOrDie("spec", "list", 2, "f1"),
+			),
+		},
 	}
 
 	for _, tc := range testCases {
-		filter := NewPatternFilter(MustPrefixPattern("spec", "containers", MatchAnyPathElement(), "resources"))
 		t.Run(tc.name, func(t *testing.T) {
-			filtered := filter.Filter(tc.input)
+			filtered := tc.filter.Filter(tc.input)
 			if !filtered.Equals(tc.expect) {
 				t.Errorf("Expected:\n%v\n\nbut got:\n%v", tc.expect, filtered)
 			}

@@ -51,7 +51,7 @@ func TestIgnoredFields(t *testing.T) {
 				),
 			},
 			IgnoreFilter: map[fieldpath.APIVersion]fieldpath.Filter{
-				"v1": fieldpath.NewExcludeFilter(_NS(
+				"v1": fieldpath.NewExcludeSetFilter(_NS(
 					_P("string"),
 				)),
 			},
@@ -76,7 +76,7 @@ func TestIgnoredFields(t *testing.T) {
 				),
 			},
 			IgnoreFilter: map[fieldpath.APIVersion]fieldpath.Filter{
-				"v1": fieldpath.NewExcludeFilter(_NS(
+				"v1": fieldpath.NewExcludeSetFilter(_NS(
 					_P("obj"),
 				)),
 			},
@@ -107,7 +107,7 @@ func TestIgnoredFields(t *testing.T) {
 				),
 			},
 			IgnoreFilter: map[fieldpath.APIVersion]fieldpath.Filter{
-				"v1": fieldpath.NewExcludeFilter(_NS(
+				"v1": fieldpath.NewExcludeSetFilter(_NS(
 					_P("string"),
 				)),
 			},
@@ -132,7 +132,7 @@ func TestIgnoredFields(t *testing.T) {
 				),
 			},
 			IgnoreFilter: map[fieldpath.APIVersion]fieldpath.Filter{
-				"v1": fieldpath.NewExcludeFilter(_NS(
+				"v1": fieldpath.NewExcludeSetFilter(_NS(
 					_P("obj"),
 				)),
 			},
@@ -206,16 +206,16 @@ func TestFilteredFieldsUsesVersions(t *testing.T) {
 				),
 			},
 			IgnoreFilter: map[fieldpath.APIVersion]fieldpath.Filter{
-				"v1": fieldpath.NewExcludeFilter(_NS(
+				"v1": fieldpath.NewExcludeSetFilter(_NS(
 					_P("mapOfMapsRecursive", "c"),
 				)),
-				"v2": fieldpath.NewExcludeFilter(_NS(
+				"v2": fieldpath.NewExcludeSetFilter(_NS(
 					_P("mapOfMapsRecursive", "cc"),
 				)),
-				"v3": fieldpath.NewExcludeFilter(_NS(
+				"v3": fieldpath.NewExcludeSetFilter(_NS(
 					_P("mapOfMapsRecursive", "ccc"),
 				)),
-				"v4": fieldpath.NewExcludeFilter(_NS(
+				"v4": fieldpath.NewExcludeSetFilter(_NS(
 					_P("mapOfMapsRecursive", "cccc"),
 				)),
 			},
@@ -274,7 +274,7 @@ func TestFilteredFieldsUsesVersions(t *testing.T) {
 				),
 			},
 			IgnoreFilter: map[fieldpath.APIVersion]fieldpath.Filter{
-				"v2": fieldpath.NewExcludeFilter(_NS(
+				"v2": fieldpath.NewExcludeSetFilter(_NS(
 					_P("mapOfMapsRecursive", "c"),
 				)),
 			},
@@ -333,7 +333,7 @@ func TestFilteredFieldsUsesVersions(t *testing.T) {
 				),
 			},
 			IgnoreFilter: map[fieldpath.APIVersion]fieldpath.Filter{
-				"v2": fieldpath.NewExcludeFilter(_NS(
+				"v2": fieldpath.NewExcludeSetFilter(_NS(
 					_P("mapOfMapsRecursive", "c"),
 				)),
 			},
