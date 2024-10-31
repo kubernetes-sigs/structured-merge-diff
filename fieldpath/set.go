@@ -153,7 +153,7 @@ func MakePrefixMatcherOrDie(parts ...interface{}) *SetMatcher {
 //
 //   - PathElementMatcher - for wildcards, `MatchAnyPathElement()` can be used as well.
 //   - PathElement - for any path element
-//   - value.FieldList - for associative list keys
+//   - value.FieldList - for listMap keys
 //   - value.Value - for scalar list elements
 //   - string - For field names
 //   - int - for array indices
@@ -164,19 +164,25 @@ func PrefixMatcher(parts ...interface{}) (*SetMatcher, error) {
 		var pattern PathElementMatcher
 		switch t := part.(type) {
 		case PathElementMatcher:
+			// any path matcher, including wildcard
 			pattern = t
 		case PathElement:
+			// any path element
 			pattern = PathElementMatcher{PathElement: t}
 		case *value.FieldList:
+			// a listMap key
 			if len(*t) == 0 {
 				return nil, fmt.Errorf("associative list key type path elements must have at least one key (got zero)")
 			}
 			pattern = PathElementMatcher{PathElement: PathElement{Key: t}}
 		case value.Value:
+			// a scalar or set-type list element
 			pattern = PathElementMatcher{PathElement: PathElement{Value: &t}}
 		case string:
+			// a plain field name
 			pattern = PathElementMatcher{PathElement: PathElement{FieldName: &t}}
 		case int:
+			// a plain list index
 			pattern = PathElementMatcher{PathElement: PathElement{Index: &t}}
 		default:
 			return nil, fmt.Errorf("unexpected type %T", t)
@@ -270,7 +276,7 @@ type SetMemberMatcher struct {
 	Child *SetMatcher
 }
 
-// PathElementMatcher defined a match matcher for a PathElement.
+// PathElementMatcher defined a path matcher for a PathElement.
 type PathElementMatcher struct {
 	// Wildcard indicates that all PathElements are matched by this matcher.
 	// If set, PathElement is ignored.
