@@ -23,7 +23,7 @@ import (
 	. "sigs.k8s.io/structured-merge-diff/v4/internal/fixture"
 )
 
-func TestIgnoredFields(t *testing.T) {
+func TestIgnoreFilter(t *testing.T) {
 	tests := map[string]TestCase{
 		"update_does_not_own_ignored": {
 			APIVersion: "v1",
@@ -135,6 +135,131 @@ func TestIgnoredFields(t *testing.T) {
 				"v1": fieldpath.NewExcludeSetFilter(_NS(
 					_P("obj"),
 				)),
+			},
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			if err := test.Test(DeducedParser); err != nil {
+				t.Fatal("Should fail:", err)
+			}
+		})
+	}
+}
+
+func TestIgnoredFields(t *testing.T) {
+	tests := map[string]TestCase{
+		"update_does_not_own_ignored": {
+			APIVersion: "v1",
+			Ops: []Operation{
+				Update{
+					Manager:    "default",
+					APIVersion: "v1",
+					Object: `
+						numeric: 1
+						string: "some string"
+					`,
+				},
+			},
+			Object: `
+				numeric: 1
+				string: "some string"
+			`,
+			Managed: fieldpath.ManagedFields{
+				"default": fieldpath.NewVersionedSet(
+					_NS(
+						_P("numeric"),
+					),
+					"v1",
+					false,
+				),
+			},
+			IgnoredFields: map[fieldpath.APIVersion]*fieldpath.Set{
+				"v1": _NS(
+					_P("string"),
+				),
+			},
+		},
+		"update_does_not_own_deep_ignored": {
+			APIVersion: "v1",
+			Ops: []Operation{
+				Update{
+					Manager:    "default",
+					APIVersion: "v1",
+					Object:     `{"numeric": 1, "obj": {"string": "foo", "numeric": 2}}`,
+				},
+			},
+			Object: `{"numeric": 1, "obj": {"string": "foo", "numeric": 2}}`,
+			Managed: fieldpath.ManagedFields{
+				"default": fieldpath.NewVersionedSet(
+					_NS(
+						_P("numeric"),
+					),
+					"v1",
+					false,
+				),
+			},
+			IgnoredFields: map[fieldpath.APIVersion]*fieldpath.Set{
+				"v1": _NS(
+					_P("obj"),
+				),
+			},
+		},
+		"apply_does_not_own_ignored": {
+			APIVersion: "v1",
+			Ops: []Operation{
+				Apply{
+					Manager:    "default",
+					APIVersion: "v1",
+					Object: `
+						numeric: 1
+						string: "some string"
+					`,
+				},
+			},
+			Object: `
+				numeric: 1
+				string: "some string"
+			`,
+			Managed: fieldpath.ManagedFields{
+				"default": fieldpath.NewVersionedSet(
+					_NS(
+						_P("numeric"),
+					),
+					"v1",
+					true,
+				),
+			},
+			IgnoredFields: map[fieldpath.APIVersion]*fieldpath.Set{
+				"v1": _NS(
+					_P("string"),
+				),
+			},
+		},
+		"apply_does_not_own_deep_ignored": {
+			APIVersion: "v1",
+			Ops: []Operation{
+				Apply{
+					Manager:    "default",
+					APIVersion: "v1",
+					Object:     `{"numeric": 1, "obj": {"string": "foo", "numeric": 2}}`,
+				},
+			},
+			Object: `{"numeric": 1, "obj": {"string": "foo", "numeric": 2}}`,
+			Managed: fieldpath.ManagedFields{
+				"default": fieldpath.NewVersionedSet(
+					_NS(
+						_P("numeric"),
+					),
+					"v1",
+					true,
+				),
+			},
+			IgnoredFields: map[fieldpath.APIVersion]*fieldpath.Set{
+				"v1": _NS(
+					_P("obj"),
+				),
 			},
 		},
 	}
