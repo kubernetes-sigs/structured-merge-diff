@@ -32,6 +32,14 @@ const (
 	AllowDuplicates ValidationOptions = iota
 )
 
+// ExtractItemsOptions is the list of all the options available when extracting items.
+type ExtractItemsOptions int
+
+const (
+	// AppendKeyFields means that when extracting items, the key field would also be included.
+	AppendKeyFields ExtractItemsOptions = iota
+)
+
 // AsTyped accepts a value and a type and returns a TypedValue. 'v' must have
 // type 'typeName' in the schema. An error is returned if the v doesn't conform
 // to the schema.
@@ -187,7 +195,33 @@ func (tv TypedValue) RemoveItems(items *fieldpath.Set) *TypedValue {
 }
 
 // ExtractItems returns a value with only the provided list or map items extracted from the value.
-func (tv TypedValue) ExtractItems(items *fieldpath.Set) *TypedValue {
+func (tv TypedValue) ExtractItems(items *fieldpath.Set, opts ...ExtractItemsOptions) *TypedValue {
+	for _, opt := range opts {
+		switch opt {
+		case AppendKeyFields:
+			tvPathSet, err := tv.ToFieldSet()
+			if err != nil {
+				continue
+			}
+			keyFieldPathSet := fieldpath.NewSet()
+			items.Iterate(func(path fieldpath.Path) {
+				if !tvPathSet.Has(path) {
+					return
+				}
+				for i, pe := range path {
+					if pe.Key == nil {
+						continue
+					}
+					for _, keyField := range *pe.Key {
+						keyName := keyField.Name
+						keyFieldPath := append(path[:i+1:i+1], fieldpath.PathElement{FieldName: &keyName})
+						keyFieldPathSet.Insert(keyFieldPath)
+					}
+				}
+			})
+			items = items.Union(keyFieldPathSet)
+		}
+	}
 	tv.value = removeItemsWithSchema(tv.value, items, tv.schema, tv.typeRef, true)
 	return &tv
 }
