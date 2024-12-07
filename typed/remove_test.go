@@ -148,27 +148,6 @@ var associativeAndAtomicSchema = `types:
     elementType:
       scalar: string
 `
-var atomicTypesSchema = `types:
-- name: myRoot
-  map:
-    fields:
-    - name: atomicMap
-      type:
-        namedType: myAtomicMap
-    - name: atomicList
-      type:
-        namedType: mySequence
-- name: myAtomicMap
-  map:
-    elementType:
-      scalar: string
-    elementRelationship: atomic
-- name: mySequence
-  list:
-    elementType:
-      scalar: string
-    elementRelationship: atomic
-`
 
 var nestedTypesSchema = `types:
 - name: type
