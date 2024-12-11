@@ -148,27 +148,6 @@ var associativeAndAtomicSchema = `types:
     elementType:
       scalar: string
 `
-var atomicTypesSchema = `types:
-- name: myRoot
-  map:
-    fields:
-    - name: atomicMap
-      type:
-        namedType: myAtomicMap
-    - name: atomicList
-      type:
-        namedType: mySequence
-- name: myAtomicMap
-  map:
-    elementType:
-      scalar: string
-    elementRelationship: atomic
-- name: mySequence
-  list:
-    elementType:
-      scalar: string
-    elementRelationship: atomic
-`
 
 var nestedTypesSchema = `types:
 - name: type
@@ -899,6 +878,119 @@ func (tt reversibleExtractTestCase) test(t *testing.T) {
 // you receive back the initial partially specified object.
 func TestReversibleExtract(t *testing.T) {
 	for _, tt := range reversibleExtractCases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tt.test(t)
+		})
+	}
+}
+
+type extractWithKeysTestCase struct {
+	name         string
+	rootTypeName string
+	schema       typed.YAMLObject
+	triplets     []extractTriplet
+}
+
+type extractTriplet struct {
+	object     typed.YAMLObject
+	set        *fieldpath.Set
+	wantOutput interface{}
+}
+
+var extractWithKeysCases = []extractWithKeysTestCase{{
+	name:         "associativeAndAtomicSchema",
+	rootTypeName: "myRoot",
+	schema:       typed.YAMLObject(associativeAndAtomicSchema),
+	triplets: []extractTriplet{
+		{
+			// extract with all key fields included
+			object: `{"list":[{"key":"nginx","id":1,"nv":2}]}`,
+			set: _NS(
+				_P("list", _KBF("key", "nginx", "id", 1), "key"),
+				_P("list", _KBF("key", "nginx", "id", 1), "id"),
+			),
+			wantOutput: typed.YAMLObject(`{"list":[{"key":"nginx","id":1}]}`),
+		},
+		{
+			// extract no key field included
+			object: `{"list":[{"key":"nginx","id":1,"nv":2}]}`,
+			set: _NS(
+				_P("list", _KBF("key", "nginx", "id", 1), "nv"),
+			),
+			wantOutput: typed.YAMLObject(`{"list":[{"key":"nginx","id":1, "nv":2}]}`),
+		},
+		{
+			// extract with partial keys included
+			object: `{"list":[{"key":"nginx","id":1,"nv":2}]}`,
+			set: _NS(
+				_P("list", _KBF("key", "nginx", "id", 1), "nv"),
+				_P("list", _KBF("key", "nginx", "id", 1), "id"),
+			),
+			wantOutput: typed.YAMLObject(`{"list":[{"key":"nginx","id":1, "nv":2}]}`),
+		},
+		{
+			// extract with null field value
+			object: `{"list":[{"key":"nginx","id":1,"nv":2}]}`,
+			set: _NS(
+				_P("list", _KBF("key", "nginx", "id", 1), "value"),
+			),
+			wantOutput: map[string]interface{}{
+				"list": []interface{}{nil},
+			},
+		},
+	},
+}}
+
+func (tt extractWithKeysTestCase) test(t *testing.T) {
+	parser, err := typed.NewParser(tt.schema)
+	if err != nil {
+		t.Fatalf("failed to create schema: %v", err)
+	}
+	pt := parser.Type(tt.rootTypeName)
+
+	for i, triplet := range tt.triplets {
+		triplet := triplet
+		t.Run(fmt.Sprintf("%v-valid-%v", tt.name, i), func(t *testing.T) {
+			t.Parallel()
+			// source typedValue obj
+			tv, err := pt.FromYAML(triplet.object)
+			if err != nil {
+				t.Fatal(err)
+			}
+			gotExtracted := tv.ExtractItems(triplet.set, typed.WithAppendKeyFields())
+
+			switch triplet.wantOutput.(type) {
+			case typed.YAMLObject:
+				wantOut, err := pt.FromYAML(triplet.wantOutput.(typed.YAMLObject))
+				if err != nil {
+					t.Fatalf("unable to parser/validate removeOutput yaml: %v\n%v", err, triplet.wantOutput)
+				}
+
+				if !value.Equals(gotExtracted.AsValue(), wantOut.AsValue()) {
+					t.Errorf("ExtractItems expected\n%v\nbut got\n%v\n",
+						value.ToString(wantOut.AsValue()), value.ToString(gotExtracted.AsValue()),
+					)
+				}
+			default:
+				// The extracted result
+				wantOut := value.NewValueInterface(triplet.wantOutput)
+				if !value.Equals(gotExtracted.AsValue(), wantOut) {
+					t.Errorf("ExtractItems expected\n%v\nbut got\n%v\n",
+						value.ToString(wantOut), value.ToString(gotExtracted.AsValue()),
+					)
+				}
+			}
+		})
+	}
+}
+
+// TestExtractWithKeys ensures that when you extract
+// items from an object with the AppendKeyField option,
+// the key fields are also included in the output.
+func TestExtractWithKeys(t *testing.T) {
+	for _, tt := range extractWithKeysCases {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
