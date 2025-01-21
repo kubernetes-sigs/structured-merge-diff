@@ -24,7 +24,7 @@ usage() {
     echo "   -t <revision>: Report changes in code up to and including this revision."
     echo "                  Default is the current working tree instead of a revision."
     echo "   -r <revision>: Report changes in code added since this revision."
-    echo "                  Default is the common base of origin/master and HEAD."
+    echo "                  Default is the common base of master and HEAD."
     exit 1
 }
 
@@ -53,34 +53,67 @@ if [ "$#" -ge 1 ]; then
     TARGET_DIR="$1"
 fi
 
-# Check for apidiff tool, install it if not found
-if ! command -v "${API_DIFF_TOOL}" &> /dev/null; then
-    echo "Installing apidiff into ${GOBIN}."
-    go install golang.org/x/exp/cmd/apidiff@latest
-fi
+# Debug print to see all traps
+trap -p
 
-# Fetch common base if -r is not set
-if [ -z "${REFERENCE_REVISION}" ]; then
-    echo "Determining common base with origin/master..."
-    REFERENCE_REVISION=$(git merge-base origin/master HEAD)
-fi
+# Step 1: Create a temporary directory structure under _output
+mkdir -p "_output"
+TMP_DIR=$(mktemp -d "_output/apidiff.XXXXXX")
+TMP_DIR=$(cd "${TMP_DIR}" && pwd)  # Convert to absolute path
+TEMP_GOBIN="${TMP_DIR}/gobin"
+TEMP_WORKTREES="${TMP_DIR}/worktrees"
+mkdir -p "${TEMP_GOBIN}" "${TEMP_WORKTREES}"
 
-# Step 1: Create a temporary directory for worktrees
-TMP_DIR=$(mktemp -d)
+# Single trap for cleanup
 trap 'cleanup' EXIT
 
+# shellcheck disable=SC2317
 cleanup() {
     # Remove all created worktrees
     for worktree in "${WORKTREES[@]}"; do
         git worktree remove --force "$worktree"
     done
-
-    # Remove temporary directory
+    # Remove temporary directory with all contents
     rm -rf "${TMP_DIR}"
 }
 
+# Update GOBIN to use temporary location
+if ! command -v "${API_DIFF_TOOL}" &> /dev/null; then
+    echo "Installing apidiff into ${TEMP_GOBIN}"
+    GOBIN="${TEMP_GOBIN}" go install golang.org/x/exp/cmd/apidiff@latest
+    # Add GOBIN to PATH
+    export PATH=$PATH:${TEMP_GOBIN}
+fi
+
+# Set target revision: PULL_PULL_SHA > target > HEAD
+if [ -z "${TARGET_REVISION}" ] && [ -n "${PULL_PULL_SHA:-}" ]; then
+    TARGET_REVISION="${PULL_PULL_SHA}"
+elif [ -z "${TARGET_REVISION}" ]; then
+    TARGET_REVISION="HEAD"
+fi
+
+# Verify target commit exists
+TARGET_REVISION="$(git rev-parse --verify "${TARGET_REVISION}")"
+
+# Try to determine base revision if not explicitly set
+if [ -z "${REFERENCE_REVISION}" ]; then
+    if [ -n "${PULL_BASE_SHA:-}" ]; then
+        # Use PULL_BASE_SHA directly as the base
+        REFERENCE_REVISION="${PULL_BASE_SHA}"
+    else
+        # Fall back to merge-base with origin/master
+        if ! REFERENCE_REVISION="$(git merge-base origin/master "${TARGET_REVISION}")"; then
+            echo "Error: Could not determine base revision. Please configure git remote 'origin' or use -r explicitly." >&2
+            exit 1
+        fi
+    fi
+fi
+
+# Verify base commit exists
+REFERENCE_REVISION="$(git rev-parse --verify "${REFERENCE_REVISION}")"
+
 # Step 2: Export API snapshot for the reference revision
-REF_WORKTREE="${TMP_DIR}/ref"
+REF_WORKTREE="${TEMP_WORKTREES}/ref"
 echo "Creating Git worktree for reference revision: ${REFERENCE_REVISION}"
 git worktree add "${REF_WORKTREE}" "${REFERENCE_REVISION}" --quiet
 WORKTREES+=("${REF_WORKTREE}")
@@ -90,7 +123,7 @@ pushd "${REF_WORKTREE}" > /dev/null
 popd > /dev/null
 
 # Step 3: Export API snapshot for the target revision
-TGT_WORKTREE="${TMP_DIR}/target"
+TGT_WORKTREE="${TEMP_WORKTREES}/target"
 if [ -n "${TARGET_REVISION}" ]; then
     echo "Creating Git worktree for target revision: ${TARGET_REVISION}"
     git worktree add "${TGT_WORKTREE}" "${TARGET_REVISION}" --quiet
