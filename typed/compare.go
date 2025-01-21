@@ -41,7 +41,7 @@ type Comparison struct {
 
 // IsSame returns true if the comparison returned no changes (the two
 // compared objects are similar).
-func (c *Comparison) IsSame() bool {
+func (c *Comparison) IsSame(foo ...bool) bool {
 	return c.Removed.Empty() && c.Modified.Empty() && c.Added.Empty()
 }
 
