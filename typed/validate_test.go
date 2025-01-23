@@ -33,6 +33,8 @@ type validationTestCase struct {
 	invalidObjects []typed.YAMLObject
 	// duplicatesObjects are valid with AllowDuplicates validation, invalid otherwise.
 	duplicatesObjects []typed.YAMLObject
+	// markerObjects are valid with AllowMarkers validation, invalid otherwise
+	markerObjects []typed.YAMLObject
 }
 
 var validationCases = []validationTestCase{{
@@ -154,6 +156,7 @@ var validationCases = []validationTestCase{{
 		`{"setNumeric":["a"]}`,
 		`{"setNumeric":[[]]}`,
 		`{"setNumeric":[{}]}`,
+		`{"setNumeric":[{"k8s_io__value":"invalid"}]}`, // invalid marker value
 	}, duplicatesObjects: []typed.YAMLObject{
 		`{"setStr":["a","a"]}`,
 		`{"setBool":[true,false,true]}`,
@@ -237,6 +240,41 @@ var validationCases = []validationTestCase{{
 	}, duplicatesObjects: []typed.YAMLObject{
 		`{"list":[{"key":"a","id":1},{"key":"a","id":1}]}`,
 	},
+}, {
+	name:         "marker values",
+	rootTypeName: "withMarkers",
+	schema: `types:
+- name: withMarkers
+  map:
+    fields:
+    - name: field
+      type:
+        scalar: string
+    - name: list
+      type:
+        list:
+          elementType:
+            scalar: string
+          elementRelationship: atomic
+    - name: nested
+      type:
+        map:
+          elementType:
+            scalar: string
+`,
+	invalidObjects: []typed.YAMLObject{
+		// These are invalid both with and without AllowMarkers.
+		// When AllowMarkers is set, the marker values are allowed but the values are invalid.
+		// When AllowMarkers is not set, the marker values are invalid according to the schema.
+		`{"field": {"k8s_io__value": "invalid"}}`,
+		`{"list": [{"k8s_io__value": "wrong"}]}`,
+		`{"nested": {"key": {"k8s_io__value": "bad"}}}`,
+	},
+	markerObjects: []typed.YAMLObject{
+		`{"field": {"k8s_io__value": "unset"}}`,
+		`{"list": [{"k8s_io__value": "unset"}]}`,
+		`{"nested": {"key": {"k8s_io__value": "unset"}}}`,
+	},
 }}
 
 func (tt validationTestCase) test(t *testing.T) {
@@ -246,44 +284,68 @@ func (tt validationTestCase) test(t *testing.T) {
 	}
 	pt := parser.Type(tt.rootTypeName)
 
-	for i, v := range tt.validObjects {
-		v := v
-		t.Run(fmt.Sprintf("%v-valid-%v", tt.name, i), func(t *testing.T) {
-			t.Parallel()
-			_, err := pt.FromYAML(v)
-			if err != nil {
-				t.Errorf("failed to parse/validate yaml: %v\n%v", err, v)
-			}
-		})
+	for _, enableUnsetMarkers := range []bool{false, true} {
+		options := []typed.ValidationOptions{}
+		if enableUnsetMarkers {
+			options = append(options, typed.AllowMarkers)
+		}
+		for i, v := range tt.validObjects {
+			v := v
+			t.Run(fmt.Sprintf("%v-valid-%v", tt.name, i), func(t *testing.T) {
+				t.Parallel()
+				_, err := pt.FromYAML(v, options...)
+				if err != nil {
+					t.Errorf("failed to parse/validate yaml: %v\n%v", err, v)
+				}
+			})
+		}
+
+		for i, iv := range tt.invalidObjects {
+			iv := iv
+			t.Run(fmt.Sprintf("%v-invalid-%v", tt.name, i), func(t *testing.T) {
+				t.Parallel()
+				_, err := pt.FromYAML(iv, options...)
+				if err == nil {
+					t.Fatalf("Object should fail:\n%v", iv)
+				}
+				if strings.Contains(err.Error(), "invalid atom") {
+					t.Errorf("Error should be useful, but got: %v\n%v", err, iv)
+				}
+			})
+		}
+		for i, iv := range tt.duplicatesObjects {
+			iv := iv
+			t.Run(fmt.Sprintf("%v-duplicates-%v", tt.name, i), func(t *testing.T) {
+				t.Parallel()
+				_, err := pt.FromYAML(iv, options...)
+				if err == nil {
+					t.Fatalf("Object should fail:\n%v", iv)
+				}
+				if strings.Contains(err.Error(), "invalid atom") {
+					t.Errorf("Error should be useful, but got: %v\n%v", err, iv)
+				}
+				_, err = pt.FromYAML(iv, append(options, typed.AllowDuplicates)...)
+				if err != nil {
+					t.Errorf("failed to parse/validate yaml: %v\n%v", err, iv)
+				}
+			})
+		}
 	}
 
-	for i, iv := range tt.invalidObjects {
-		iv := iv
-		t.Run(fmt.Sprintf("%v-invalid-%v", tt.name, i), func(t *testing.T) {
+	for i, mv := range tt.markerObjects {
+		mv := mv
+		t.Run(fmt.Sprintf("%v-markers-%v", tt.name, i), func(t *testing.T) {
 			t.Parallel()
-			_, err := pt.FromYAML(iv)
+			// Should fail without AllowMarkers
+			_, err := pt.FromYAML(mv)
 			if err == nil {
-				t.Fatalf("Object should fail:\n%v", iv)
+				t.Fatalf("Object should fail without AllowMarkers:\n%v", mv)
 			}
-			if strings.Contains(err.Error(), "invalid atom") {
-				t.Errorf("Error should be useful, but got: %v\n%v", err, iv)
-			}
-		})
-	}
-	for i, iv := range tt.duplicatesObjects {
-		iv := iv
-		t.Run(fmt.Sprintf("%v-duplicates-%v", tt.name, i), func(t *testing.T) {
-			t.Parallel()
-			_, err := pt.FromYAML(iv)
-			if err == nil {
-				t.Fatalf("Object should fail:\n%v", iv)
-			}
-			if strings.Contains(err.Error(), "invalid atom") {
-				t.Errorf("Error should be useful, but got: %v\n%v", err, iv)
-			}
-			_, err = pt.FromYAML(iv, typed.AllowDuplicates)
+
+			// Should succeed with AllowMarkers
+			_, err = pt.FromYAML(mv, typed.AllowMarkers)
 			if err != nil {
-				t.Errorf("failed to parse/validate yaml: %v\n%v", err, iv)
+				t.Errorf("failed to parse/validate yaml with AllowMarkers: %v\n%v", err, mv)
 			}
 		})
 	}

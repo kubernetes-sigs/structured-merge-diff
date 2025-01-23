@@ -17,6 +17,7 @@ limitations under the License.
 package typed
 
 import (
+	"fmt"
 	"sync"
 
 	"sigs.k8s.io/structured-merge-diff/v4/fieldpath"
@@ -30,6 +31,12 @@ type ValidationOptions int
 const (
 	// AllowDuplicates means that sets and associative lists can have duplicate similar items.
 	AllowDuplicates ValidationOptions = iota
+
+	// AllowMarkers allows marker values to be present in the object.
+	// If this option is set, the caller is responsible for separating the
+	// markers from the object before the object is merged with a resource.
+	// See `ExtractMarkers()` and the `Markers` struct it returns for more details.
+	AllowMarkers ValidationOptions = iota
 )
 
 // extractItemsOptions is the options available when extracting items.
@@ -108,6 +115,8 @@ func (tv TypedValue) Validate(opts ...ValidationOptions) error {
 		switch opt {
 		case AllowDuplicates:
 			w.allowDuplicates = true
+		case AllowMarkers:
+			w.allowMarkers = true
 		}
 	}
 	defer w.finished()
@@ -126,6 +135,42 @@ func (tv TypedValue) ToFieldSet() (*fieldpath.Set, error) {
 		return nil, errs
 	}
 	return w.set, nil
+}
+
+// ExtractMarkers finds and all marker values in TypedValue.
+// It returns a copy of the TypedValue without the marker values, as well as a set of field paths of the markers that were found.
+func (tv TypedValue) ExtractMarkers() (value *TypedValue, markers *Markers, err error) {
+	unsetMarkers, orphanedFields, err := func() (markedAsUnset *fieldpath.Set, toClear *fieldpath.Set, err error) {
+		w := tv.markerExtractorWalker()
+		defer w.finished()
+		if errs := w.extractMarkers(); len(errs) != 0 {
+			return nil, nil, errs
+		}
+		return w.unsetMarkers, w.orphanedFields, nil
+	}()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to extract markers: %v", err)
+	}
+
+	value = &tv
+	if !unsetMarkers.Empty() || !orphanedFields.Empty() {
+		// Remove all marker fields, as well as any other fields orphaned by the removal of the markers.
+		value = tv.RemoveItems(unsetMarkers.Union(orphanedFields))
+	}
+
+	return value, &Markers{Unset: unsetMarkers}, nil
+}
+
+// Markers provides the markers found in a TypedValue.
+type Markers struct {
+	// Unset markers indicate that a field is both unset and owned by the field manager that unset the field.
+	// Defaulting is performed after fields are unset, in which case the field manager that unset the field becomes the owner
+	// of the defaulted value.
+	// Unset markers represent fields values of the form "{k8s_io__value: unset}"
+	// and associative map entries of the form "{keyField1: keyValue1, ..., keyFieldN: keyValueN, k8s_io__value: unset}".
+	// Unset markers may only be used for fields that may be owned individually such as scalars, atomic lists and maps,
+	// and associative map entries.
+	Unset *fieldpath.Set
 }
 
 // Merge returns the result of merging tv and pso ("partially specified
