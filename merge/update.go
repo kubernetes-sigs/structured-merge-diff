@@ -15,6 +15,7 @@ package merge
 
 import (
 	"fmt"
+
 	"sigs.k8s.io/structured-merge-diff/v4/fieldpath"
 	"sigs.k8s.io/structured-merge-diff/v4/typed"
 	"sigs.k8s.io/structured-merge-diff/v4/value"
@@ -66,10 +67,12 @@ type Updater struct {
 	// Deprecated: This will eventually become private.
 	IgnoreFilter map[fieldpath.APIVersion]fieldpath.Filter
 
+	FilterUnsetMarkers bool
+
 	returnInputOnNoop bool
 }
 
-func (s *Updater) update(oldObject, newObject *typed.TypedValue, version fieldpath.APIVersion, managers fieldpath.ManagedFields, workflow string, force bool) (fieldpath.ManagedFields, *typed.Comparison, error) {
+func (s *Updater) update(oldObject, newObject *typed.TypedValue, version fieldpath.APIVersion, managers fieldpath.ManagedFields, workflow string, force bool, markers *typed.Markers) (fieldpath.ManagedFields, *typed.Comparison, error) {
 	conflicts := fieldpath.ManagedFields{}
 	removed := fieldpath.ManagedFields{}
 	compare, err := oldObject.Compare(newObject)
@@ -127,7 +130,14 @@ func (s *Updater) update(oldObject, newObject *typed.TypedValue, version fieldpa
 			}
 		}
 
+		// Modified and added fields that are owned by another manager are conflicts.
 		conflictSet := managerSet.Set().Intersection(compare.Modified.Union(compare.Added))
+
+		if markers != nil && !markers.Unset.Empty() {
+			// Removals of fields using "{k8s_io__value: unset}", that are owned by another manager, are conflicts.
+			conflictSet = conflictSet.Union(markers.Unset.Intersection(compare.Removed))
+		}
+
 		if !conflictSet.Empty() {
 			conflicts[manager] = fieldpath.NewVersionedSet(conflictSet, managerSet.APIVersion(), false)
 		}
@@ -169,7 +179,7 @@ func (s *Updater) Update(liveObject, newObject *typed.TypedValue, version fieldp
 	if err != nil {
 		return nil, fieldpath.ManagedFields{}, err
 	}
-	managers, compare, err := s.update(liveObject, newObject, version, managers, manager, true)
+	managers, compare, err := s.update(liveObject, newObject, version, managers, manager, true, nil)
 	if err != nil {
 		return nil, fieldpath.ManagedFields{}, err
 	}
@@ -202,23 +212,67 @@ func (s *Updater) Update(liveObject, newObject *typed.TypedValue, version fieldp
 	return newObject, managers, nil
 }
 
+type applyOptions struct {
+	allowUnsetMarkers bool
+}
+
+type ApplyOption = func(opts *applyOptions) *applyOptions
+
+// AllowUnsetMarkers allows the caller to specify "{k8s_io__value: unset}" in the config object to
+// indicate that the field should be unset.
+func AllowUnsetMarkers() ApplyOption {
+	return func(opts *applyOptions) *applyOptions {
+		opts.allowUnsetMarkers = true
+		return opts
+	}
+}
+
 // Apply should be called when Apply is run, given the current object as
 // well as the configuration that is applied. This will merge the object
 // and return it.
-func (s *Updater) Apply(liveObject, configObject *typed.TypedValue, version fieldpath.APIVersion, managers fieldpath.ManagedFields, manager string, force bool) (*typed.TypedValue, fieldpath.ManagedFields, error) {
+func (s *Updater) Apply(liveObject, configObject *typed.TypedValue, version fieldpath.APIVersion, managers fieldpath.ManagedFields, manager string, force bool, opts ...ApplyOption) (*typed.TypedValue, fieldpath.ManagedFields, error) {
+	applyOpts := &applyOptions{}
+	for _, opt := range opts {
+		opt(applyOpts)
+	}
+
 	var err error
 	managers, err = s.reconcileManagedFieldsWithSchemaChanges(liveObject, managers)
 	if err != nil {
 		return nil, fieldpath.ManagedFields{}, err
 	}
+	lastSet := managers[manager]
+
+	var markers *typed.Markers
+	if applyOpts.allowUnsetMarkers {
+		// Separate the markers from the configObject.
+		// The resulting configObject contain any markers and may be merged with the liveObject.
+		// The markers must contain a set of any fields the applier has declared as unset.
+		configObject, markers, err = configObject.ExtractMarkers()
+		if err != nil {
+			return nil, fieldpath.ManagedFields{}, fmt.Errorf("failed to exract apply markers: %v", err)
+		}
+	}
+	set, err := configObject.ToFieldSet()
+	if err != nil {
+		return nil, fieldpath.ManagedFields{}, fmt.Errorf("failed to get field set: %v", err)
+	}
+
+	if markers != nil && !markers.Unset.Empty() {
+		// Items unset using markers are tracked as managed fields.
+		// That is, an item marked as unset indicates that the field manager "owns the opinion that the field is unset".
+		// If the field is owned by another manager this will result in a conflict.
+		set = set.Union(markers.Unset)
+	}
+
 	newObject, err := liveObject.Merge(configObject)
 	if err != nil {
 		return nil, fieldpath.ManagedFields{}, fmt.Errorf("failed to merge config: %v", err)
 	}
-	lastSet := managers[manager]
-	set, err := configObject.ToFieldSet()
-	if err != nil {
-		return nil, fieldpath.ManagedFields{}, fmt.Errorf("failed to get field set: %v", err)
+
+	if markers != nil && !markers.Unset.Empty() {
+		// Remove field marked as unset from the object.
+		newObject = newObject.RemoveItems(markers.Unset)
 	}
 
 	if s.IgnoredFields != nil && s.IgnoreFilter != nil {
@@ -234,11 +288,12 @@ func (s *Updater) Apply(liveObject, configObject *typed.TypedValue, version fiel
 		set = ignoreFilter.Filter(set)
 	}
 	managers[manager] = fieldpath.NewVersionedSet(set, version, true)
+
 	newObject, err = s.prune(newObject, managers, manager, lastSet)
 	if err != nil {
 		return nil, fieldpath.ManagedFields{}, fmt.Errorf("failed to prune fields: %v", err)
 	}
-	managers, _, err = s.update(liveObject, newObject, version, managers, manager, force)
+	managers, _, err = s.update(liveObject, newObject, version, managers, manager, force, markers)
 	if err != nil {
 		return nil, fieldpath.ManagedFields{}, err
 	}
@@ -253,6 +308,7 @@ func (s *Updater) Apply(liveObject, configObject *typed.TypedValue, version fiel
 // * applyingManager didn't apply it this time
 // * no other applier claims to manage it
 func (s *Updater) prune(merged *typed.TypedValue, managers fieldpath.ManagedFields, applyingManager string, lastSet fieldpath.VersionedSet) (*typed.TypedValue, error) {
+	// TODO: Generalize this function to take markers of any kind.
 	if lastSet == nil || lastSet.Set().Empty() {
 		return merged, nil
 	}
