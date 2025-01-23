@@ -17,6 +17,7 @@ limitations under the License.
 package merge_test
 
 import (
+	"fmt"
 	"testing"
 
 	"sigs.k8s.io/structured-merge-diff/v4/fieldpath"
@@ -537,9 +538,7 @@ func TestDeduced(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			if err := test.Test(DeducedParser); err != nil {
-				t.Fatal(err)
-			}
+			test.TestOptionCombinations(t, DeducedParser)
 		})
 	}
 }
@@ -608,19 +607,25 @@ func BenchmarkDeducedSimple(b *testing.B) {
 		},
 	}
 
-	// Make sure this passes...
-	if err := test.Test(DeducedParser); err != nil {
-		b.Fatal(err)
-	}
+	for _, enableUnsetMarkers := range []bool{false, true} {
+		test.EnableUnsetMarkers = enableUnsetMarkers
 
-	test.PreprocessOperations(DeducedParser)
+		b.Run(fmt.Sprintf("EnableUnsetMarkers=%t", enableUnsetMarkers), func(b *testing.B) {
+			// Make sure this passes...
+			if err := test.Test(DeducedParser); err != nil {
+				b.Fatal(err)
+			}
 
-	b.ReportAllocs()
-	b.ResetTimer()
-	for n := 0; n < b.N; n++ {
-		if err := test.Bench(DeducedParser); err != nil {
-			b.Fatal(err)
-		}
+			test.PreprocessOperations(DeducedParser)
+
+			b.ReportAllocs()
+			b.ResetTimer()
+			for n := 0; n < b.N; n++ {
+				if err := test.Bench(DeducedParser); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
 	}
 }
 
@@ -720,19 +725,25 @@ func BenchmarkDeducedNested(b *testing.B) {
 		APIVersion: "v1",
 	}
 
-	// Make sure this passes...
-	if err := test.Test(DeducedParser); err != nil {
-		b.Fatal(err)
-	}
+	for _, enableUnsetMarkers := range []bool{false, true} {
+		test.EnableUnsetMarkers = enableUnsetMarkers
 
-	test.PreprocessOperations(DeducedParser)
+		b.Run(fmt.Sprintf("EnableUnsetMarkers=%t", enableUnsetMarkers), func(b *testing.B) {
+			// Make sure this passes...
+			if err := test.Test(DeducedParser); err != nil {
+				b.Fatal(err)
+			}
 
-	b.ReportAllocs()
-	b.ResetTimer()
-	for n := 0; n < b.N; n++ {
-		if err := test.Bench(DeducedParser); err != nil {
-			b.Fatal(err)
-		}
+			test.PreprocessOperations(DeducedParser)
+
+			b.ReportAllocs()
+			b.ResetTimer()
+			for n := 0; n < b.N; n++ {
+				if err := test.Bench(DeducedParser); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
 	}
 }
 
@@ -832,18 +843,24 @@ func BenchmarkDeducedNestedAcrossVersion(b *testing.B) {
 		APIVersion: "v1",
 	}
 
-	// Make sure this passes...
-	if err := test.Test(DeducedParser); err != nil {
-		b.Fatal(err)
-	}
+	for _, enableUnsetMarkers := range []bool{false, true} {
+		test.EnableUnsetMarkers = enableUnsetMarkers
 
-	test.PreprocessOperations(DeducedParser)
+		b.Run(fmt.Sprintf("EnableUnsetMarkers=%t", enableUnsetMarkers), func(b *testing.B) {
+			// Make sure this passes...
+			if err := test.Test(DeducedParser); err != nil {
+				b.Fatal(err)
+			}
 
-	b.ReportAllocs()
-	b.ResetTimer()
-	for n := 0; n < b.N; n++ {
-		if err := test.Bench(DeducedParser); err != nil {
-			b.Fatal(err)
-		}
+			test.PreprocessOperations(DeducedParser)
+
+			b.ReportAllocs()
+			b.ResetTimer()
+			for n := 0; n < b.N; n++ {
+				if err := test.Bench(DeducedParser); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
 	}
 }
