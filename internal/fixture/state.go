@@ -19,6 +19,8 @@ package fixture
 import (
 	"bytes"
 	"fmt"
+	"strings"
+	"testing"
 
 	"github.com/google/go-cmp/cmp"
 
@@ -58,10 +60,12 @@ var DeducedParser = SameVersionParser{
 // one can use the SameVersionParser or the DeducedParser types defined
 // in this package.
 type State struct {
-	Live     *typed.TypedValue
-	Parser   Parser
-	Managers fieldpath.ManagedFields
-	Updater  *merge.Updater
+	Live              *typed.TypedValue
+	Parser            Parser
+	Managers          fieldpath.ManagedFields
+	Updater           *merge.Updater
+	ApplyOptions      []merge.ApplyOption
+	ValidationOptions []typed.ValidationOptions
 }
 
 // FixTabsOrDie counts the number of tab characters preceding the first
@@ -147,7 +151,7 @@ func (s *State) ApplyObject(tv *typed.TypedValue, version fieldpath.APIVersion, 
 	if err != nil {
 		return err
 	}
-	new, managers, err := s.Updater.Apply(s.Live, tv, version, s.Managers, manager, force)
+	new, managers, err := s.Updater.Apply(s.Live, tv, version, s.Managers, manager, force, s.ApplyOptions...)
 	if err != nil {
 		return err
 	}
@@ -160,7 +164,7 @@ func (s *State) ApplyObject(tv *typed.TypedValue, version fieldpath.APIVersion, 
 
 // Apply the passed in object to the current state
 func (s *State) Apply(obj typed.YAMLObject, version fieldpath.APIVersion, manager string, force bool) error {
-	tv, err := s.Parser.Type(string(version)).FromYAML(FixTabsOrDie(obj))
+	tv, err := s.Parser.Type(string(version)).FromYAML(FixTabsOrDie(obj), s.ValidationOptions...)
 	if err != nil {
 		return err
 	}
@@ -263,6 +267,7 @@ type Apply struct {
 	APIVersion fieldpath.APIVersion
 	Object     typed.YAMLObject
 	Conflicts  merge.Conflicts
+	Error      string
 }
 
 var _ Operation = &Apply{}
@@ -276,7 +281,7 @@ func (a Apply) run(state *State) error {
 }
 
 func (a Apply) preprocess(parser Parser) (Operation, error) {
-	tv, err := parser.Type(string(a.APIVersion)).FromYAML(FixTabsOrDie(a.Object))
+	tv, err := parser.Type(string(a.APIVersion)).FromYAML(FixTabsOrDie(a.Object), typed.AllowMarkers)
 	if err != nil {
 		return nil, err
 	}
@@ -285,6 +290,7 @@ func (a Apply) preprocess(parser Parser) (Operation, error) {
 		APIVersion: a.APIVersion,
 		Object:     tv,
 		Conflicts:  a.Conflicts,
+		Error:      a.Error,
 	}, nil
 }
 
@@ -293,15 +299,26 @@ type ApplyObject struct {
 	APIVersion fieldpath.APIVersion
 	Object     *typed.TypedValue
 	Conflicts  merge.Conflicts
+	Error      string
 }
 
 var _ Operation = &ApplyObject{}
 
 func (a ApplyObject) run(state *State) error {
 	err := state.ApplyObject(a.Object, a.APIVersion, a.Manager, false)
+
+	if a.Error != "" {
+		if err == nil {
+			return fmt.Errorf("expected error %q but got none", a.Error)
+		}
+		if !strings.Contains(err.Error(), a.Error) {
+			return fmt.Errorf("expected error to contain %q but got %q", a.Error, err.Error())
+		}
+		return nil
+	}
 	if err != nil {
 		if _, ok := err.(merge.Conflicts); !ok || a.Conflicts == nil {
-			return err
+			return fmt.Errorf("unexpected error: %v", err)
 		}
 	}
 	if a.Conflicts != nil {
@@ -318,6 +335,7 @@ func (a ApplyObject) run(state *State) error {
 			)
 		}
 	}
+
 	return nil
 }
 
@@ -544,11 +562,39 @@ type TestCase struct {
 	// IgnoredFields containing the set to ignore for every version.
 	// IgnoredFields may not be set if IgnoreFilter is set.
 	IgnoredFields map[fieldpath.APIVersion]*fieldpath.Set
+
+	EnableUnsetMarkers bool
+
+	// Error is a string the expected error message must contain for the test to pass.
+	Error string
 }
 
 // Test runs the test-case using the given parser and a dummy converter.
+// If Error is not empty, it will check that the error matches the expected error.
+// If Error is empty, it will return any error that occurs.
 func (tc TestCase) Test(parser Parser) error {
-	return tc.TestWithConverter(parser, &dummyConverter{})
+	err := tc.TestWithConverter(parser, &dummyConverter{})
+	if len(tc.Error) > 0 {
+		if err == nil {
+			return fmt.Errorf("expected error %q but got none", tc.Error)
+		}
+		if !strings.Contains(err.Error(), tc.Error) {
+			return fmt.Errorf("expected error to contain %q but got %q", tc.Error, err.Error())
+		}
+		return nil // error matches Error as expected
+	}
+	return err
+}
+
+func (tc TestCase) TestOptionCombinations(t *testing.T, parser Parser) {
+	for _, enableUnsetMarkers := range []bool{false, true} {
+		tc.EnableUnsetMarkers = enableUnsetMarkers
+		t.Run(fmt.Sprintf("EnableUnsetMarkers=%t", enableUnsetMarkers), func(t *testing.T) {
+			if err := tc.Test(parser); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
 }
 
 // Bench runs the test-case using the given parser and a dummy converter, but
@@ -580,18 +626,24 @@ func (tc TestCase) BenchWithConverter(parser Parser, converter merge.Converter) 
 		IgnoredFields:     tc.IgnoredFields,
 		ReturnInputOnNoop: tc.ReturnInputOnNoop,
 	}
+
 	state := State{
 		Updater: updaterBuilder.BuildUpdater(),
 		Parser:  parser,
 	}
-	// We currently don't have any test that converts, we can take
-	// care of that later.
+
+	if tc.EnableUnsetMarkers {
+		state.ApplyOptions = []merge.ApplyOption{merge.AllowUnsetMarkers()}
+		state.ValidationOptions = []typed.ValidationOptions{typed.AllowMarkers}
+	}
+
 	for i, ops := range tc.Ops {
 		err := ops.run(&state)
 		if err != nil {
 			return fmt.Errorf("failed operation %d: %v", i, err)
 		}
 	}
+
 	return nil
 }
 
@@ -603,10 +655,17 @@ func (tc TestCase) TestWithConverter(parser Parser, converter merge.Converter) e
 		IgnoredFields:     tc.IgnoredFields,
 		ReturnInputOnNoop: tc.ReturnInputOnNoop,
 	}
+
 	state := State{
 		Updater: updaterBuilder.BuildUpdater(),
 		Parser:  parser,
 	}
+
+	if tc.EnableUnsetMarkers {
+		state.ApplyOptions = []merge.ApplyOption{merge.AllowUnsetMarkers()}
+		state.ValidationOptions = []typed.ValidationOptions{typed.AllowMarkers}
+	}
+
 	for i, ops := range tc.Ops {
 		err := ops.run(&state)
 		if err != nil {

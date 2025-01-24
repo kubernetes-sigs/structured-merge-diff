@@ -1,7 +1,6 @@
 package typed_test
 
 import (
-	"strings"
 	"testing"
 
 	"sigs.k8s.io/structured-merge-diff/v4/internal/fixture"
@@ -38,10 +37,8 @@ func TestInvalidOverride(t *testing.T) {
 			},
 		},
 		APIVersion: "v1",
+		Error:      "no type found matching: inlined type",
 	}
 
-	if err := test.Test(sameVersionParser); err == nil ||
-		!strings.Contains(err.Error(), "no type found matching: inlined type") {
-		t.Fatal(err)
-	}
+	test.TestOptionCombinations(t, sameVersionParser)
 }

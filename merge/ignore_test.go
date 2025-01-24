@@ -141,9 +141,7 @@ func TestIgnoreFilter(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			if err := test.Test(DeducedParser); err != nil {
-				t.Fatal("Should fail:", err)
-			}
+			test.TestOptionCombinations(t, DeducedParser)
 		})
 	}
 }
@@ -266,9 +264,7 @@ func TestIgnoredFields(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			if err := test.Test(DeducedParser); err != nil {
-				t.Fatal("Should fail:", err)
-			}
+			test.TestOptionCombinations(t, DeducedParser)
 		})
 	}
 }

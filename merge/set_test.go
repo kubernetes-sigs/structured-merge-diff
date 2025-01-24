@@ -586,9 +586,7 @@ func TestUpdateSet(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			if err := test.Test(setFieldsParser); err != nil {
-				t.Fatal(err)
-			}
+			test.TestOptionCombinations(t, setFieldsParser)
 		})
 	}
 }

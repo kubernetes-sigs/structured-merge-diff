@@ -17,6 +17,7 @@ limitations under the License.
 package merge_test
 
 import (
+	"fmt"
 	"testing"
 
 	"sigs.k8s.io/structured-merge-diff/v4/fieldpath"
@@ -502,9 +503,7 @@ func TestUpdateLeaf(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			if err := test.Test(leafFieldsParser); err != nil {
-				t.Fatal(err)
-			}
+			test.TestOptionCombinations(t, leafFieldsParser)
 		})
 	}
 }
@@ -573,18 +572,24 @@ func BenchmarkLeafConflictAcrossVersion(b *testing.B) {
 		},
 	}
 
-	// Make sure this passes...
-	if err := test.Test(leafFieldsParser); err != nil {
-		b.Fatal(err)
-	}
+	for _, enableUnsetMarkers := range []bool{false, true} {
+		test.EnableUnsetMarkers = enableUnsetMarkers
 
-	test.PreprocessOperations(leafFieldsParser)
+		b.Run(fmt.Sprintf("EnableUnsetMarkers=%t", enableUnsetMarkers), func(b *testing.B) {
+			// Make sure this passes...
+			if err := test.Test(leafFieldsParser); err != nil {
+				b.Fatal(err)
+			}
 
-	b.ReportAllocs()
-	b.ResetTimer()
-	for n := 0; n < b.N; n++ {
-		if err := test.Bench(leafFieldsParser); err != nil {
-			b.Fatal(err)
-		}
+			test.PreprocessOperations(leafFieldsParser)
+
+			b.ReportAllocs()
+			b.ResetTimer()
+			for n := 0; n < b.N; n++ {
+				if err := test.Bench(leafFieldsParser); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
 	}
 }

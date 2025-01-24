@@ -34,6 +34,7 @@ func (tv TypedValue) walker() *validatingObjectWalker {
 	v.schema = tv.schema
 	v.typeRef = tv.typeRef
 	v.allowDuplicates = false
+	v.allowMarkers = false
 	if v.allocator == nil {
 		v.allocator = value.NewFreelistAllocator()
 	}
@@ -53,6 +54,10 @@ type validatingObjectWalker struct {
 	// If set to true, duplicates will be allowed in
 	// associativeLists/sets.
 	allowDuplicates bool
+
+	// If set to true, marker values such as "{k8s_io__value: unset}" will be
+	// allowed in the object.
+	allowMarkers bool
 
 	// Allocate only as many walkers as needed for the depth by storing them here.
 	spareWalkers *[]*validatingObjectWalker
@@ -117,6 +122,12 @@ func validateScalar(t *schema.Scalar, v value.Value, prefix string) (errs Valida
 }
 
 func (v *validatingObjectWalker) doScalar(t *schema.Scalar) ValidationErrors {
+	if v.allowMarkers {
+		if ok, errs := checkMarker(v.value); ok {
+			return errs
+		}
+	}
+
 	if errs := validateScalar(t, v.value, ""); len(errs) > 0 {
 		return errs
 	}
@@ -128,6 +139,12 @@ func (v *validatingObjectWalker) visitListItems(t *schema.List, list value.List)
 	for i := 0; i < list.Length(); i++ {
 		child := list.AtUsing(v.allocator, i)
 		defer v.allocator.Free(child)
+		if v.allowMarkers {
+			if ok, markerErrs := checkMarker(child); ok {
+				errs = append(errs, markerErrs...)
+				continue // skip normal list item validation for markers
+			}
+		}
 		var pe fieldpath.PathElement
 		if t.ElementRelationship != schema.Associative {
 			pe.Index = &i
@@ -155,6 +172,12 @@ func (v *validatingObjectWalker) visitListItems(t *schema.List, list value.List)
 }
 
 func (v *validatingObjectWalker) doList(t *schema.List) (errs ValidationErrors) {
+	if v.allowMarkers {
+		if ok, errs := checkMarker(v.value); ok {
+			return errs
+		}
+	}
+
 	list, err := listValue(v.allocator, v.value)
 	if err != nil {
 		return errorf(err.Error())
@@ -174,6 +197,10 @@ func (v *validatingObjectWalker) visitMapItems(t *schema.Map, m value.Map) (errs
 	m.IterateUsing(v.allocator, func(key string, val value.Value) bool {
 		pe := fieldpath.PathElement{FieldName: &key}
 		tr := t.ElementType
+		if v.allowMarkers && key == markerKey {
+			errs = append(errs, checkMarkerValue(val)...)
+			return true // skip normal map value validation for markers
+		}
 		if sf, ok := t.FindField(key); ok {
 			tr = sf.Type
 		} else if (t.ElementType == schema.TypeRef{}) {
@@ -202,4 +229,24 @@ func (v *validatingObjectWalker) doMap(t *schema.Map) (errs ValidationErrors) {
 	errs = v.visitMapItems(t, m)
 
 	return errs
+}
+
+// checkMarker returns true if the value is a marker and false otherwise.
+// If the value is a marker, it returns any validation errors for the marker value.
+func checkMarker(v value.Value) (bool, ValidationErrors) {
+	if !v.IsMap() {
+		return false, nil
+	}
+	m := v.AsMap()
+	if v, ok := m.Get(markerKey); ok {
+		return true, checkMarkerValue(v)
+	}
+	return false, nil
+}
+
+func checkMarkerValue(v value.Value) ValidationErrors {
+	if !v.IsString() || v.AsString() != unsetMarkerValue {
+		return errorf("expected marker value, got %v", v)
+	}
+	return nil
 }
