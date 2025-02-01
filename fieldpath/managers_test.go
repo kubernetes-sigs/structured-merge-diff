@@ -17,7 +17,6 @@ limitations under the License.
 package fieldpath_test
 
 import (
-	"fmt"
 	"reflect"
 	"testing"
 
@@ -155,7 +154,7 @@ func TestManagersEquals(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		t.Run(fmt.Sprintf(test.name), func(t *testing.T) {
+		t.Run(test.name, func(t *testing.T) {
 			want := test.out
 			got := test.lhs.Difference(test.rhs)
 			if !reflect.DeepEqual(want, got) {
@@ -273,7 +272,7 @@ func TestManagersDifference(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		t.Run(fmt.Sprintf(test.name), func(t *testing.T) {
+		t.Run(test.name, func(t *testing.T) {
 			equal := test.lhs.Equals(test.rhs)
 			if test.equal && !equal {
 				difference := test.lhs.Difference(test.rhs)
