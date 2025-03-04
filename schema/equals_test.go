@@ -22,47 +22,47 @@ import (
 	"testing"
 	"testing/quick"
 
-	fuzz "github.com/google/gofuzz"
+	"sigs.k8s.io/randfill"
 )
 
-func fuzzInterface(i *interface{}, c fuzz.Continue) {
+func fuzzInterface(i *interface{}, c randfill.Continue) {
 	m := map[string]string{}
-	c.Fuzz(&m)
+	c.Fill(&m)
 	*i = &m
 }
 
 func (*Schema) Generate(rand *rand.Rand, size int) reflect.Value {
 	s := Schema{}
-	f := fuzz.New().RandSource(rand).MaxDepth(4)
-	f.Fuzz(&s)
+	f := randfill.New().RandSource(rand).MaxDepth(4)
+	f.Fill(&s)
 	return reflect.ValueOf(&s)
 }
 
 func (*Map) Generate(rand *rand.Rand, size int) reflect.Value {
 	m := Map{}
-	f := fuzz.New().RandSource(rand).MaxDepth(4).Funcs(fuzzInterface)
-	f.Fuzz(&m)
+	f := randfill.New().RandSource(rand).MaxDepth(4).Funcs(fuzzInterface)
+	f.Fill(&m)
 	return reflect.ValueOf(&m)
 }
 
 func (TypeDef) Generate(rand *rand.Rand, size int) reflect.Value {
 	td := TypeDef{}
-	f := fuzz.New().RandSource(rand).MaxDepth(4)
-	f.Fuzz(&td)
+	f := randfill.New().RandSource(rand).MaxDepth(4)
+	f.Fill(&td)
 	return reflect.ValueOf(td)
 }
 
 func (Atom) Generate(rand *rand.Rand, size int) reflect.Value {
 	a := Atom{}
-	f := fuzz.New().RandSource(rand).MaxDepth(4)
-	f.Fuzz(&a)
+	f := randfill.New().RandSource(rand).MaxDepth(4)
+	f.Fill(&a)
 	return reflect.ValueOf(a)
 }
 
 func (StructField) Generate(rand *rand.Rand, size int) reflect.Value {
 	a := StructField{}
-	f := fuzz.New().RandSource(rand).MaxDepth(4).Funcs(fuzzInterface)
-	f.Fuzz(&a)
+	f := randfill.New().RandSource(rand).MaxDepth(4).Funcs(fuzzInterface)
+	f.Fill(&a)
 	return reflect.ValueOf(a)
 }
 
