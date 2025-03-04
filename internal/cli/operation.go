@@ -153,7 +153,7 @@ func (c compare) Execute(w io.Writer) error {
 	// TODO: I think it'd be neat if we actually emitted a machine-readable
 	// format.
 
-	_, err = fmt.Fprintf(w, got.String())
+	_, err = fmt.Fprint(w, got.String())
 
 	return err
 }
