@@ -237,9 +237,7 @@ func TestMultipleAppliersSet(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			if err := test.Test(associativeListParser); err != nil {
-				t.Fatal(err)
-			}
+			test.TestOptionCombinations(t, associativeListParser)
 		})
 	}
 }
@@ -1108,9 +1106,7 @@ func TestMultipleAppliersNestedType(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			if err := test.Test(nestedTypeParser); err != nil {
-				t.Fatal(err)
-			}
+			test.TestOptionCombinations(t, nestedTypeParser)
 		})
 	}
 }
@@ -1226,9 +1222,7 @@ func TestMultipleAppliersDeducedType(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			if err := test.Test(DeducedParser); err != nil {
-				t.Fatal(err)
-			}
+			test.TestOptionCombinations(t, DeducedParser)
 		})
 	}
 }
@@ -1708,9 +1702,7 @@ func TestMultipleApplierAtomicMaps(t *testing.T) {
 	}
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			if err := test.Test(atomicMapParser); err != nil {
-				t.Fatal(err)
-			}
+			test.TestOptionCombinations(t, atomicMapParser)
 		})
 	}
 }

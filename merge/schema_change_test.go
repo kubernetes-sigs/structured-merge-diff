@@ -172,9 +172,7 @@ func TestGranularToAtomicSchemaChanges(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			if err := test.Test(structParser); err != nil {
-				t.Fatal(err)
-			}
+			test.TestOptionCombinations(t, structParser)
 		})
 	}
 }
@@ -246,9 +244,7 @@ func TestAtomicToGranularSchemaChanges(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			if err := test.Test(structWithAtomicParser); err != nil {
-				t.Fatal(err)
-			}
+			test.TestOptionCombinations(t, structWithAtomicParser)
 		})
 	}
 }

@@ -167,9 +167,7 @@ func TestDefaultKeysFlat(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			if err := test.Test(portListParser); err != nil {
-				t.Fatal(err)
-			}
+			test.TestOptionCombinations(t, portListParser)
 		})
 	}
 }
@@ -187,6 +185,7 @@ func TestDefaultKeysFlatErrors(t *testing.T) {
 					`,
 				},
 			},
+			Error: `associative list with keys has an element that omits key field "port"`,
 		},
 		"apply_missing_defaulted_key_ambiguous_A": {
 			Ops: []Operation{
@@ -200,6 +199,7 @@ func TestDefaultKeysFlatErrors(t *testing.T) {
 					`,
 				},
 			},
+			Error: ` .containerPorts: duplicate entries for key [port=80,protocol="TCP"]`,
 		},
 		"apply_missing_defaulted_key_ambiguous_B": {
 			Ops: []Operation{
@@ -214,13 +214,12 @@ func TestDefaultKeysFlatErrors(t *testing.T) {
 					`,
 				},
 			},
+			Error: ` .containerPorts: duplicate entries for key [port=80,protocol="TCP"]`,
 		},
 	}
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			if test.Test(portListParser) == nil {
-				t.Fatal("Should fail")
-			}
+			test.TestOptionCombinations(t, portListParser)
 		})
 	}
 }
@@ -381,9 +380,7 @@ func TestDefaultKeysNested(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			if err := test.Test(bookParser); err != nil {
-				t.Fatal(err)
-			}
+			test.TestOptionCombinations(t, bookParser)
 		})
 	}
 }
