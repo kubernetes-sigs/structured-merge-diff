@@ -144,6 +144,7 @@ func TestTimeToUnstructured(t *testing.T) {
 
 func TestTypeReflectEntryOf(t *testing.T) {
 	testString := ""
+	testCustomType := customOmitZeroType{}
 	tests := map[string]struct {
 		arg  interface{}
 		want *TypeReflectCacheEntry
@@ -196,6 +197,62 @@ func TestTypeReflectEntryOf(t *testing.T) {
 				},
 			},
 		},
+		"StructWith*StringFieldOmitzero": {
+			arg: struct {
+				F1 *string `json:"f1,omitzero"`
+			}{},
+			want: &TypeReflectCacheEntry{
+				structFields: map[string]*FieldCacheEntry{
+					"f1": {
+						JsonName:  "f1",
+						omitzero:  func(v reflect.Value) bool { return v.IsZero() },
+						fieldPath: [][]int{{0}},
+						fieldType: reflect.TypeOf(&testString),
+						TypeEntry: &TypeReflectCacheEntry{},
+					},
+				},
+				orderedStructFields: []*FieldCacheEntry{
+					{
+						JsonName:  "f1",
+						omitzero:  func(v reflect.Value) bool { return v.IsZero() },
+						fieldPath: [][]int{{0}},
+						fieldType: reflect.TypeOf(&testString),
+						TypeEntry: &TypeReflectCacheEntry{},
+					},
+				},
+			},
+		},
+		"StructWith*CustomFieldOmitzero": {
+			arg: struct {
+				F1 customOmitZeroType `json:"f1,omitzero"`
+			}{},
+			want: &TypeReflectCacheEntry{
+				structFields: map[string]*FieldCacheEntry{
+					"f1": {
+						JsonName:  "f1",
+						omitzero:  func(v reflect.Value) bool { return false },
+						fieldPath: [][]int{{0}},
+						fieldType: reflect.TypeOf(testCustomType),
+						TypeEntry: &TypeReflectCacheEntry{
+							structFields:        map[string]*FieldCacheEntry{},
+							orderedStructFields: []*FieldCacheEntry{},
+						},
+					},
+				},
+				orderedStructFields: []*FieldCacheEntry{
+					{
+						JsonName:  "f1",
+						omitzero:  func(v reflect.Value) bool { return false },
+						fieldPath: [][]int{{0}},
+						fieldType: reflect.TypeOf(testCustomType),
+						TypeEntry: &TypeReflectCacheEntry{
+							structFields:        map[string]*FieldCacheEntry{},
+							orderedStructFields: []*FieldCacheEntry{},
+						},
+					},
+				},
+			},
+		},
 		"StructWithInlinedField": {
 			arg: struct {
 				F1 string `json:",inline"`
@@ -208,10 +265,52 @@ func TestTypeReflectEntryOf(t *testing.T) {
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			if got := TypeReflectEntryOf(reflect.TypeOf(tt.arg)); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("TypeReflectEntryOf() = %v, want %v", got, tt.want)
+			got := TypeReflectEntryOf(reflect.TypeOf(tt.arg))
+
+			// evaluate non-comparable omitzero functions
+			for k, v := range got.structFields {
+				compareOmitZero(t, v.fieldType, v.omitzero, tt.want.structFields[k].omitzero)
+			}
+			for i, v := range got.orderedStructFields {
+				compareOmitZero(t, v.fieldType, v.omitzero, tt.want.orderedStructFields[i].omitzero)
+			}
+
+			// clear non-comparable omitzero functions
+			for k, v := range got.structFields {
+				v.omitzero = nil
+				tt.want.structFields[k].omitzero = nil
+			}
+			for i, v := range got.orderedStructFields {
+				v.omitzero = nil
+				tt.want.orderedStructFields[i].omitzero = nil
+			}
+
+			// compare remaining fields
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("TypeReflectEntryOf() got\n%#v\nwant\n%#v", got, tt.want)
 			}
 		})
+	}
+}
+
+type customOmitZeroType struct {
+}
+
+func (c *customOmitZeroType) IsZero() bool {
+	return false
+}
+
+func compareOmitZero(t *testing.T, fieldType reflect.Type, got, want func(reflect.Value) bool) {
+	t.Helper()
+	if (want == nil) != (got == nil) {
+		t.Fatalf("wanted omitzero=%v, got omitzero=%v", (want == nil), (got == nil))
+	}
+	if want == nil {
+		return
+	}
+	v := reflect.New(fieldType).Elem()
+	if e, a := want(v), got(v); e != a {
+		t.Fatalf("wanted omitzero()=%v, got omitzero()=%v", e, a)
 	}
 }
 
