@@ -23,8 +23,9 @@ import (
 	"strconv"
 	"strings"
 
-	jsoniter "sigs.k8s.io/structured-merge-diff/v6/internal/third_party/jsoniter"
 	"sigs.k8s.io/structured-merge-diff/v6/value"
+
+	"sigs.k8s.io/structured-merge-diff/v6/internal/third_party/jsoniter"
 )
 
 var ErrUnknownPathElementType = errors.New("unknown path element type")
