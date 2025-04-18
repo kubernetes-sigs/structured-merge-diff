@@ -3,10 +3,11 @@ package test
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/json-iterator/go"
+	"testing"
+
 	"github.com/modern-go/reflect2"
 	"github.com/stretchr/testify/require"
-	"testing"
+	"sigs.k8s.io/structured-merge-diff/v6/internal/third_party/jsoniter"
 )
 
 type unmarshalCase struct {

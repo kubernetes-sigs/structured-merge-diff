@@ -2,10 +2,11 @@ package test
 
 import (
 	"encoding/json"
-	"github.com/json-iterator/go"
 	"io/ioutil"
 	"os"
 	"testing"
+
+	"sigs.k8s.io/structured-merge-diff/v6/internal/third_party/jsoniter"
 )
 
 //func Test_large_file(t *testing.T) {

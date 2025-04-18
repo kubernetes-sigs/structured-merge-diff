@@ -1,9 +1,10 @@
 package extra
 
 import (
-	"github.com/json-iterator/go"
 	"strings"
 	"unicode"
+
+	"sigs.k8s.io/structured-merge-diff/v6/internal/third_party/jsoniter"
 )
 
 // SupportPrivateFields include private fields when encoding/decoding

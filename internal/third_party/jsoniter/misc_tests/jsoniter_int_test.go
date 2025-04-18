@@ -1,3 +1,4 @@
+//go:build go1.8
 // +build go1.8
 
 package misc_tests
@@ -11,8 +12,8 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/json-iterator/go"
 	"github.com/stretchr/testify/require"
+	"sigs.k8s.io/structured-merge-diff/v6/internal/third_party/jsoniter"
 )
 
 func Test_read_uint64_invalid(t *testing.T) {
@@ -130,10 +131,12 @@ func TestIterator_ReadInt_chunkedInput(t *testing.T) {
 }
 
 // jsonFloatIntArray generates JSON array where every
-//  - even item is float 0.1
-//  - odd item is integer 0
 //
-//  [0.1, 0, 0.1, 0]
+//   - even item is float 0.1
+//
+//   - odd item is integer 0
+//
+//     [0.1, 0, 0.1, 0]
 func jsonFloatIntArray(t *testing.T, numberOfItems int) []byte {
 	t.Helper()
 	numbers := make([]jsoniter.Any, numberOfItems)

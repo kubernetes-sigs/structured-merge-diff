@@ -3,12 +3,13 @@ package test
 import (
 	"bytes"
 	"fmt"
-	"github.com/json-iterator/go"
-	"github.com/stretchr/testify/require"
 	"strconv"
 	"testing"
 	"time"
 	"unsafe"
+
+	"github.com/stretchr/testify/require"
+	"sigs.k8s.io/structured-merge-diff/v6/internal/third_party/jsoniter"
 )
 
 func Test_customize_type_decoder(t *testing.T) {
@@ -52,7 +53,7 @@ type CustomEncoderAttachmentTestStruct struct {
 	Value int32 `json:"value"`
 }
 
-type CustomEncoderAttachmentTestStructEncoder struct {}
+type CustomEncoderAttachmentTestStructEncoder struct{}
 
 func (c *CustomEncoderAttachmentTestStructEncoder) Encode(ptr unsafe.Pointer, stream *jsoniter.Stream) {
 	attachVal, ok := stream.Attachment.(int)

@@ -23,7 +23,7 @@ import (
 	"strconv"
 	"strings"
 
-	jsoniter "github.com/json-iterator/go"
+	jsoniter "sigs.k8s.io/structured-merge-diff/v6/internal/third_party/jsoniter"
 	"sigs.k8s.io/structured-merge-diff/v6/value"
 )
 

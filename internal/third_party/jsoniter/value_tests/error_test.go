@@ -1,10 +1,11 @@
 package test
 
 import (
-	"github.com/json-iterator/go"
-	"github.com/stretchr/testify/require"
 	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/require"
+	"sigs.k8s.io/structured-merge-diff/v6/internal/third_party/jsoniter"
 )
 
 func Test_errorInput(t *testing.T) {

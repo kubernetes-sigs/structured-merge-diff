@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	jsoniter "github.com/json-iterator/go"
 	"github.com/stretchr/testify/require"
+	jsoniter "sigs.k8s.io/structured-merge-diff/v6/internal/third_party/jsoniter"
 )
 
 var marshalConfig = jsoniter.Config{

@@ -1,9 +1,10 @@
 package extra
 
 import (
-	"github.com/json-iterator/go"
 	"strings"
 	"unicode"
+
+	"sigs.k8s.io/structured-merge-diff/v6/internal/third_party/jsoniter"
 )
 
 // SetNamingStrategy rename struct fields uniformly
@@ -18,7 +19,7 @@ type namingStrategyExtension struct {
 
 func (extension *namingStrategyExtension) UpdateStructDescriptor(structDescriptor *jsoniter.StructDescriptor) {
 	for _, binding := range structDescriptor.Fields {
-		if unicode.IsLower(rune(binding.Field.Name()[0])) || binding.Field.Name()[0] == '_'{
+		if unicode.IsLower(rune(binding.Field.Name()[0])) || binding.Field.Name()[0] == '_' {
 			continue
 		}
 		tag, hastag := binding.Field.Tag().Lookup("json")

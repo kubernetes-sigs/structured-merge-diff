@@ -21,7 +21,7 @@ import (
 	"io"
 	"unsafe"
 
-	jsoniter "github.com/json-iterator/go"
+	jsoniter "sigs.k8s.io/structured-merge-diff/v6/internal/third_party/jsoniter"
 )
 
 func (s *Set) ToJSON() ([]byte, error) {

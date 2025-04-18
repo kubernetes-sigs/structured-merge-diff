@@ -22,7 +22,7 @@ import (
 	"io"
 	"strings"
 
-	jsoniter "github.com/json-iterator/go"
+	jsoniter "sigs.k8s.io/structured-merge-diff/v6/internal/third_party/jsoniter"
 
 	yaml "sigs.k8s.io/yaml/goyaml.v2"
 )

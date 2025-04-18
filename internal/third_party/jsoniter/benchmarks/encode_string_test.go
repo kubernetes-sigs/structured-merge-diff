@@ -2,8 +2,9 @@ package test
 
 import (
 	"bytes"
-	"github.com/json-iterator/go"
 	"testing"
+
+	"sigs.k8s.io/structured-merge-diff/v6/internal/third_party/jsoniter"
 )
 
 func Benchmark_encode_string_with_SetEscapeHTML(b *testing.B) {

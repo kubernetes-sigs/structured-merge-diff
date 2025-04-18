@@ -3,11 +3,11 @@ package test
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/json-iterator/go"
 	"testing"
-	"github.com/stretchr/testify/require"
-)
 
+	"github.com/stretchr/testify/require"
+	"sigs.k8s.io/structured-merge-diff/v6/internal/third_party/jsoniter"
+)
 
 type Foo struct {
 	Bar interface{}
@@ -19,11 +19,10 @@ func (f Foo) MarshalJSON() ([]byte, error) {
 	return buf.Bytes(), err
 }
 
-
 // Standard Encoder has trailing newline.
 func TestEncodeMarshalJSON(t *testing.T) {
 
-	foo := Foo {
+	foo := Foo{
 		Bar: 123,
 	}
 	should := require.New(t)

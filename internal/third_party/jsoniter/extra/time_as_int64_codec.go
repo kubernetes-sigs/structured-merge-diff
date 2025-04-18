@@ -1,9 +1,10 @@
 package extra
 
 import (
-	"github.com/json-iterator/go"
 	"time"
 	"unsafe"
+
+	"sigs.k8s.io/structured-merge-diff/v6/internal/third_party/jsoniter"
 )
 
 // RegisterTimeAsInt64Codec encode/decode time since number of unit since epoch. the precision is the unit.

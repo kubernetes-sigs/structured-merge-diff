@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"testing"
 
-	jsoniter "github.com/json-iterator/go"
+	jsoniter "sigs.k8s.io/structured-merge-diff/v6/internal/third_party/jsoniter"
 )
 
 func Benchmark_stream_encode_big_object(b *testing.B) {

@@ -3,8 +3,8 @@ package any_tests
 import (
 	"testing"
 
-	"github.com/json-iterator/go"
 	"github.com/stretchr/testify/require"
+	"sigs.k8s.io/structured-merge-diff/v6/internal/third_party/jsoniter"
 )
 
 // if must be valid is useless, just drop this test

@@ -1,9 +1,10 @@
 package any_tests
 
 import (
-	"github.com/json-iterator/go"
-	"github.com/stretchr/testify/require"
 	"testing"
+
+	"github.com/stretchr/testify/require"
+	"sigs.k8s.io/structured-merge-diff/v6/internal/third_party/jsoniter"
 )
 
 func Test_read_null_as_any(t *testing.T) {

@@ -1,4 +1,5 @@
-//+build go1.8
+//go:build go1.8
+// +build go1.8
 
 package test
 
@@ -8,8 +9,8 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	"github.com/json-iterator/go"
 	"github.com/stretchr/testify/require"
+	"sigs.k8s.io/structured-merge-diff/v6/internal/third_party/jsoniter"
 )
 
 func Test_new_encoder(t *testing.T) {

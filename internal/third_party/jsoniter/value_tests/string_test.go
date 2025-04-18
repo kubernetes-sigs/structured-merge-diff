@@ -2,9 +2,10 @@ package test
 
 import (
 	"encoding/json"
-	"github.com/json-iterator/go"
 	"testing"
 	"unicode/utf8"
+
+	"sigs.k8s.io/structured-merge-diff/v6/internal/third_party/jsoniter"
 )
 
 func init() {
