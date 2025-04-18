@@ -1,4 +1,4 @@
-module sigs.k8s.io/structured-merge-diff/v4
+module sigs.k8s.io/structured-merge-diff/v6
 
 require (
 	github.com/google/go-cmp v0.5.9

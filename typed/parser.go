@@ -19,8 +19,8 @@ package typed
 import (
 	"fmt"
 
-	"sigs.k8s.io/structured-merge-diff/v4/schema"
-	"sigs.k8s.io/structured-merge-diff/v4/value"
+	"sigs.k8s.io/structured-merge-diff/v6/schema"
+	"sigs.k8s.io/structured-merge-diff/v6/value"
 	yaml "sigs.k8s.io/yaml/goyaml.v2"
 )
 
