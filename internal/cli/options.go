@@ -24,7 +24,7 @@ import (
 	"io/ioutil"
 	"os"
 
-	"sigs.k8s.io/structured-merge-diff/v4/typed"
+	"sigs.k8s.io/structured-merge-diff/v6/typed"
 )
 
 var (

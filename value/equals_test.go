@@ -21,7 +21,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"sigs.k8s.io/structured-merge-diff/v4/value"
+	"sigs.k8s.io/structured-merge-diff/v6/value"
 	yaml "sigs.k8s.io/yaml/goyaml.v2"
 )
 
