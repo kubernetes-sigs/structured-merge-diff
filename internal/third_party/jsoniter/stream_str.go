@@ -253,6 +253,10 @@ func writeStringSlowPathWithHTMLEscaped(stream *Stream, i int, s string, valLen 
 			switch b {
 			case '\\', '"':
 				stream.writeTwoBytes('\\', b)
+			case '\b':
+				stream.writeTwoBytes('\\', 'b')
+			case '\f':
+				stream.writeTwoBytes('\\', 'f')
 			case '\n':
 				stream.writeTwoBytes('\\', 'n')
 			case '\r':
@@ -343,6 +347,10 @@ func writeStringSlowPath(stream *Stream, i int, s string, valLen int) {
 			switch b {
 			case '\\', '"':
 				stream.writeTwoBytes('\\', b)
+			case '\b':
+				stream.writeTwoBytes('\\', 'b')
+			case '\f':
+				stream.writeTwoBytes('\\', 'f')
 			case '\n':
 				stream.writeTwoBytes('\\', 'n')
 			case '\r':
