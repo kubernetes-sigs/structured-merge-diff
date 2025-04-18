@@ -57,7 +57,7 @@ func init() {
         "2018-12-14": true
     	}`,
 	}, unmarshalCase{
-		ptr: (*map[customKey]string)(nil),
+		ptr:   (*map[customKey]string)(nil),
 		input: `{"foo": "bar"}`,
 	})
 }
