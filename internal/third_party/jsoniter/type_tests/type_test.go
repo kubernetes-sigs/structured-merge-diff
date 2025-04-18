@@ -9,7 +9,9 @@ import (
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
-	fuzz "github.com/google/gofuzz"
+
+	"sigs.k8s.io/randfill"
+
 	"sigs.k8s.io/structured-merge-diff/v6/internal/third_party/jsoniter"
 )
 
@@ -31,11 +33,11 @@ func Test_symmetric(t *testing.T) {
 	for _, testCase := range testCases {
 		valType := reflect.TypeOf(testCase).Elem()
 		t.Run(valType.String(), func(t *testing.T) {
-			fz := fuzz.New().MaxDepth(10).NilChance(0.3)
+			fz := randfill.New().MaxDepth(10).NilChance(0.3)
 			for i := 0; i < 100; i++ {
 				beforePtrVal := reflect.New(valType)
 				beforePtr := beforePtrVal.Interface()
-				fz.Fuzz(beforePtr)
+				fz.Fill(beforePtr)
 				before := beforePtrVal.Elem().Interface()
 
 				jbStd, err := json.Marshal(before)
@@ -86,11 +88,11 @@ func Test_asymmetric(t *testing.T) {
 	for _, testCase := range asymmetricTestCases {
 		fromType := reflect.TypeOf(testCase[0]).Elem()
 		toType := reflect.TypeOf(testCase[1]).Elem()
-		fz := fuzz.New().MaxDepth(10).NilChance(0.3)
+		fz := randfill.New().MaxDepth(10).NilChance(0.3)
 		for i := 0; i < 100; i++ {
 			beforePtrVal := reflect.New(fromType)
 			beforePtr := beforePtrVal.Interface()
-			fz.Fuzz(beforePtr)
+			fz.Fill(beforePtr)
 			before := beforePtrVal.Elem().Interface()
 
 			jbStd, err := json.Marshal(before)
