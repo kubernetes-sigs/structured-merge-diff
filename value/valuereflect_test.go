@@ -222,8 +222,11 @@ type T struct {
 
 type emptyStruct struct{}
 type testBasicStruct struct {
-	I int64 `json:"int"`
+	I int64 `json:"int,omitempty"`
 	S string
+}
+type testNestedStruct struct {
+	Nested *testBasicStruct `json:"nested,omitempty"`
 }
 type testOmitStruct struct {
 	I int64 `json:"-"`
@@ -239,6 +242,10 @@ type testOmitemptyStruct struct {
 }
 type testEmbeddedStruct struct {
 	*testBasicStruct `json:",inline"`
+}
+type testEmbedOmitemtpyStruct struct {
+	testBasicStruct `json:",inline,omitempty"`
+	S               string
 }
 
 func TestReflectStruct(t *testing.T) {
@@ -267,6 +274,12 @@ func TestReflectStruct(t *testing.T) {
 			expectedUnstructured: map[string]interface{}{"int": int64(10), "S": "string"},
 		},
 		{
+			name:                 "nested omitempty",
+			val:                  testNestedStruct{},
+			expectedMap:          map[string]interface{}{},
+			expectedUnstructured: map[string]interface{}{},
+		},
+		{
 			name:                 "omit",
 			val:                  testOmitStruct{I: 10, S: "string"},
 			expectedMap:          map[string]interface{}{"S": "string"},
@@ -289,6 +302,12 @@ func TestReflectStruct(t *testing.T) {
 			val:                  testEmbeddedStruct{&testBasicStruct{I: 10, S: "string"}},
 			expectedMap:          map[string]interface{}{"int": int64(10), "S": "string"},
 			expectedUnstructured: map[string]interface{}{"int": int64(10), "S": "string"},
+		},
+		{
+			name:                 "embedded omitempty",
+			val:                  &testEmbedOmitemtpyStruct{S: "string"},
+			expectedMap:          map[string]interface{}{"S": "string"},
+			expectedUnstructured: map[string]interface{}{"S": "string"},
 		},
 	}
 

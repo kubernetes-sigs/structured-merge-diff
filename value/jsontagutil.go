@@ -106,6 +106,8 @@ func isEmpty(v reflect.Value) bool {
 		return v.Float() == 0
 	case reflect.Interface, reflect.Ptr:
 		return v.IsNil()
+	case reflect.Struct:
+		return v.IsZero()
 	case reflect.Chan, reflect.Func:
 		panic(fmt.Sprintf("unsupported type: %v", v.Type()))
 	}
