@@ -233,7 +233,6 @@ func TestSetIterSize(t *testing.T) {
 	)
 
 	s2 := NewSet()
-
 	addedCount := 0
 	s1.Iterate(func(p Path) {
 		if s2.Size() != addedCount {
@@ -245,6 +244,19 @@ func TestSetIterSize(t *testing.T) {
 		s2.Insert(p)
 		addedCount++
 	})
+
+	s2 = NewSet()
+	addedCount = 0
+	for p := range s1.All() {
+		if s2.Size() != addedCount {
+			t.Errorf("added %v items to set, but size is %v", addedCount, s2.Size())
+		}
+		if addedCount > 0 == s2.Empty() {
+			t.Errorf("added %v items to set, but s2.Empty() is %v", addedCount, s2.Empty())
+		}
+		s2.Insert(p)
+		addedCount++
+	}
 
 	if !s1.Equals(s2) {
 		// No point in using String() if iterate is broken...
@@ -748,6 +760,19 @@ func TestSetNodeMapIterate(t *testing.T) {
 		iteratedElements[pe.String()] = true
 	})
 
+	if len(iteratedElements) != toAdd {
+		t.Errorf("expected %v elements to be iterated over, got %v", toAdd, len(iteratedElements))
+	}
+	for _, pe := range addedElements {
+		if _, ok := iteratedElements[pe]; !ok {
+			t.Errorf("expected to have iterated over %v, but never did", pe)
+		}
+	}
+
+	iteratedElements = make(map[string]bool, toAdd)
+	for pe := range set.All() {
+		iteratedElements[pe.String()] = true
+	}
 	if len(iteratedElements) != toAdd {
 		t.Errorf("expected %v elements to be iterated over, got %v", toAdd, len(iteratedElements))
 	}
