@@ -33,6 +33,10 @@ func TestPathElementSet(t *testing.T) {
 	if !s2.Has(PathElement{}) {
 		t.Errorf("expected to have something: %#v", s2)
 	}
+	c2 := s2.Copy()
+	if !c2.Equals(s2) {
+		t.Errorf("expected copy to equal original: %#v, %#v", s2, c2)
+	}
 
 	n1 := "aoeu"
 	n2 := "asdf"
@@ -60,6 +64,20 @@ func TestPathElementSet(t *testing.T) {
 		}
 		i++
 	})
+	i = 0
+	for pe := range s2.All() {
+		e, a := expected[i], pe.FieldName
+		if e == nil || a == nil {
+			if e != a {
+				t.Errorf("index %v wanted %#v, got %#v", i, e, a)
+			}
+		} else {
+			if *e != *a {
+				t.Errorf("index %v wanted %#v, got %#v", i, *e, *a)
+			}
+		}
+		i++
+	}
 }
 
 func strptr(s string) *string { return &s }
@@ -67,6 +85,9 @@ func intptr(i int) *int       { return &i }
 func valptr(i interface{}) *value.Value {
 	v := value.NewValueInterface(i)
 	return &v
+}
+func val(i interface{}) value.Value {
+	return value.NewValueInterface(i)
 }
 
 func TestPathElementLess(t *testing.T) {
@@ -84,71 +105,71 @@ func TestPathElementLess(t *testing.T) {
 			eq:   true,
 		}, {
 			name: "FieldName-1",
-			a:    PathElement{FieldName: strptr("anteater")},
-			b:    PathElement{FieldName: strptr("zebra")},
+			a:    FieldNameElement("anteater"),
+			b:    FieldNameElement("zebra"),
 		}, {
 			name: "FieldName-2",
-			a:    PathElement{FieldName: strptr("bee")},
-			b:    PathElement{FieldName: strptr("bee")},
+			a:    FieldNameElement("bee"),
+			b:    FieldNameElement("bee"),
 			eq:   true,
 		}, {
 			name: "FieldName-3",
-			a:    PathElement{FieldName: strptr("capybara")},
-			b:    PathElement{Key: KeyByFields("dog", 3)},
+			a:    FieldNameElement("capybara"),
+			b:    KeyElementByFields("dog", 3),
 		}, {
 			name: "FieldName-4",
-			a:    PathElement{FieldName: strptr("elephant")},
-			b:    PathElement{Value: valptr(4)},
+			a:    FieldNameElement("elephant"),
+			b:    ValueElement(val(4)),
 		}, {
 			name: "FieldName-5",
-			a:    PathElement{FieldName: strptr("falcon")},
-			b:    PathElement{Index: intptr(5)},
+			a:    FieldNameElement("falcon"),
+			b:    IndexElement(5),
 		}, {
 			name: "Key-1",
-			a:    PathElement{Key: KeyByFields("goat", 1)},
-			b:    PathElement{Key: KeyByFields("goat", 1)},
+			a:    KeyElementByFields("goat", 1),
+			b:    KeyElementByFields("goat", 1),
 			eq:   true,
 		}, {
 			name: "Key-2",
-			a:    PathElement{Key: KeyByFields("horse", 1)},
-			b:    PathElement{Key: KeyByFields("horse", 2)},
+			a:    KeyElementByFields("horse", 1),
+			b:    KeyElementByFields("horse", 2),
 		}, {
 			name: "Key-3",
-			a:    PathElement{Key: KeyByFields("ibex", 1)},
-			b:    PathElement{Key: KeyByFields("jay", 1)},
+			a:    KeyElementByFields("ibex", 1),
+			b:    KeyElementByFields("jay", 1),
 		}, {
 			name: "Key-4",
-			a:    PathElement{Key: KeyByFields("kite", 1)},
-			b:    PathElement{Key: KeyByFields("kite", 1, "kite-2", 1)},
+			a:    KeyElementByFields("kite", 1),
+			b:    KeyElementByFields("kite", 1, "kite-2", 1),
 		}, {
 			name: "Key-5",
-			a:    PathElement{Key: KeyByFields("kite", 1)},
-			b:    PathElement{Value: valptr(1)},
+			a:    KeyElementByFields("kite", 1),
+			b:    ValueElement(val(1)),
 		}, {
 			name: "Key-6",
-			a:    PathElement{Key: KeyByFields("kite", 1)},
-			b:    PathElement{Index: intptr(5)},
+			a:    KeyElementByFields("kite", 1),
+			b:    IndexElement(5),
 		}, {
 			name: "Value-1",
-			a:    PathElement{Value: valptr(1)},
-			b:    PathElement{Value: valptr(2)},
+			a:    ValueElement(val(1)),
+			b:    ValueElement(val(2)),
 		}, {
 			name: "Value-2",
-			a:    PathElement{Value: valptr(1)},
-			b:    PathElement{Value: valptr(1)},
+			a:    ValueElement(val(1)),
+			b:    ValueElement(val(1)),
 			eq:   true,
 		}, {
 			name: "Value-3",
-			a:    PathElement{Value: valptr(1)},
-			b:    PathElement{Index: intptr(1)},
+			a:    ValueElement(val(1)),
+			b:    IndexElement(1),
 		}, {
 			name: "Index-1",
-			a:    PathElement{Index: intptr(1)},
-			b:    PathElement{Index: intptr(2)},
+			a:    IndexElement(1),
+			b:    IndexElement(2),
 		}, {
 			name: "Index-2",
-			a:    PathElement{Index: intptr(1)},
-			b:    PathElement{Index: intptr(1)},
+			a:    IndexElement(1),
+			b:    IndexElement(1),
 			eq:   true,
 		},
 	}

@@ -18,6 +18,7 @@ package fieldpath
 
 import (
 	"fmt"
+	"iter"
 	"sort"
 	"strings"
 
@@ -45,6 +46,15 @@ func NewSet(paths ...Path) *Set {
 		s.Insert(p)
 	}
 	return s
+}
+
+// Copy returns a copy of the Set.
+// This is not a full deep copy as any contained value.Value is not copied.
+func (s *Set) Copy() *Set {
+	return &Set{
+		Members:  s.Members.Copy(),
+		Children: s.Children.Copy(),
+	}
 }
 
 // Insert adds the field identified by `p` to the set. Important: parent fields
@@ -386,6 +396,15 @@ func (s *Set) Iterate(f func(Path)) {
 	s.iteratePrefix(Path{}, f)
 }
 
+// All iterates over each Path in the set (preorder DFS).
+func (s *Set) All() iter.Seq[Path] {
+	return func(yield func(Path) bool) {
+		s.Iterate(func(p Path) {
+			yield(p)
+		})
+	}
+}
+
 func (s *Set) iteratePrefix(prefix Path, f func(Path)) {
 	s.Members.Iterate(func(pe PathElement) { f(append(prefix, pe)) })
 	s.Children.iteratePrefix(prefix, f)
@@ -454,6 +473,16 @@ type sortedSetNode []setNode
 func (s sortedSetNode) Len() int           { return len(s) }
 func (s sortedSetNode) Less(i, j int) bool { return s[i].pathElement.Less(s[j].pathElement) }
 func (s sortedSetNode) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+
+// Copy returns a copy of the SetNodeMap.
+// This is not a full deep copy as any contained value.Value is not copied.
+func (s *SetNodeMap) Copy() SetNodeMap {
+	out := make(sortedSetNode, len(s.members))
+	for i, v := range s.members {
+		out[i] = setNode{pathElement: v.pathElement.Copy(), set: v.set.Copy()}
+	}
+	return SetNodeMap{members: out}
+}
 
 // Descend adds pe to the set if necessary, returning the associated subset.
 func (s *SetNodeMap) Descend(pe PathElement) *Set {
@@ -702,6 +731,15 @@ func (s *SetNodeMap) FilterIncludeMatches(pattern *SetMatcher) *SetNodeMap {
 func (s *SetNodeMap) Iterate(f func(PathElement)) {
 	for _, n := range s.members {
 		f(n.pathElement)
+	}
+}
+
+// All iterates over each PathElement in the set.
+func (s *SetNodeMap) All() iter.Seq[PathElement] {
+	return func(yield func(PathElement) bool) {
+		s.Iterate(func(pe PathElement) {
+			yield(pe)
+		})
 	}
 }
 
