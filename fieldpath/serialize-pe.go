@@ -55,11 +55,6 @@ var (
 	peKeySepBytes   = []byte{peKey, peSeparator}
 )
 
-// writeValueToEncoder writes a value to an Encoder.
-func writeValueToEncoder(v value.Value, enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, v.Unstructured(), json.Deterministic(true))
-}
-
 // FieldListFromJSON is a helper function for reading a JSON document.
 func fieldListFromJSON(input []byte) (value.FieldList, error) {
 	parser := jsontext.NewDecoder(bytes.NewBuffer(input))
@@ -145,58 +140,38 @@ func DeserializePathElement(s string) (PathElement, error) {
 	}
 }
 
-type PathElementSerializer struct {
-	buffer  bytes.Buffer
-	encoder jsontext.Encoder
-}
-
 // SerializePathElement serializes a path element
 func SerializePathElement(pe PathElement) (string, error) {
-	byteVal, err := (&PathElementSerializer{}).serialize(pe)
-	return string(byteVal), err
-}
-
-func (pes *PathElementSerializer) serialize(pe PathElement) (string, error) {
-	pes.buffer.Reset()
+	builder := strings.Builder{}
 
 	switch {
 	case pe.FieldName != nil:
-		if _, err := pes.buffer.Write(peFieldSepBytes); err != nil {
+		if _, err := builder.Write(peFieldSepBytes); err != nil {
 			return "", err
 		}
-		pes.buffer.WriteString(*pe.FieldName)
+		builder.WriteString(*pe.FieldName)
 	case pe.Key != nil:
-		if _, err := pes.buffer.Write(peKeySepBytes); err != nil {
+		if _, err := builder.Write(peKeySepBytes); err != nil {
 			return "", err
 		}
-		pes.encoder.Reset(&pes.buffer)
-		pes.encoder.WriteToken(jsontext.BeginObject)
-		for _, f := range *pe.Key {
-			if err := pes.encoder.WriteToken(jsontext.String(f.Name)); err != nil {
-				return "", err
-			}
-			if err := writeValueToEncoder(f.Value, &pes.encoder); err != nil {
-				return "", err
-			}
+		if err := json.MarshalWrite(&builder, *pe.Key, json.Deterministic(true)); err != nil {
+			return "", err
 		}
-		pes.encoder.WriteToken(jsontext.EndObject)
 	case pe.Value != nil:
-		if _, err := pes.buffer.Write(peValueSepBytes); err != nil {
+		if _, err := builder.Write(peValueSepBytes); err != nil {
 			return "", err
 		}
-		pes.encoder.Reset(&pes.buffer)
-		if err := writeValueToEncoder(*pe.Value, &pes.encoder); err != nil {
+		if err := json.MarshalWrite(&builder, (*pe.Value).Unstructured(), json.Deterministic(true)); err != nil {
 			return "", err
 		}
 	case pe.Index != nil:
-		if _, err := pes.buffer.Write(peIndexSepBytes); err != nil {
+		if _, err := builder.Write(peIndexSepBytes); err != nil {
 			return "", err
 		}
-		pes.buffer.WriteString(strconv.Itoa(*pe.Index))
+		builder.WriteString(strconv.Itoa(*pe.Index))
 	default:
 		return "", errors.New("invalid PathElement")
 	}
 
-	// TODO: is there a way to not emit newlines
-	return strings.TrimSpace(pes.buffer.String()), nil
+	return builder.String(), nil
 }

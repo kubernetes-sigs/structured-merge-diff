@@ -17,7 +17,6 @@ limitations under the License.
 package value
 
 import (
-	"bytes"
 	"fmt"
 	"strings"
 
@@ -92,8 +91,7 @@ func FromJSONFast(input []byte) (Value, error) {
 
 // ToJSON is a helper function for producing a JSon document.
 func ToJSON(v Value) ([]byte, error) {
-	jsonBytes, err := json.Marshal(v.Unstructured(), json.Deterministic(true))
-	return bytes.TrimSpace(jsonBytes), err
+	return json.Marshal(v.Unstructured(), json.Deterministic(true))
 }
 
 // ToYAML marshals a value as YAML.
