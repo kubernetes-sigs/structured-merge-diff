@@ -17,10 +17,10 @@ limitations under the License.
 package fieldpath
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/go-json-experiment/json"
 	"sigs.k8s.io/structured-merge-diff/v6/value"
@@ -97,36 +97,45 @@ func DeserializePathElement(s string) (PathElement, error) {
 
 // SerializePathElement serializes a path element
 func SerializePathElement(pe PathElement) (string, error) {
-	builder := strings.Builder{}
+	builder := bytes.Buffer{}
+	if err := serializePathElementBuilder(pe, &builder); err != nil {
+		return "", err
+	}
+	return builder.String(), nil
+}
 
+func serializePathElementBuilder(pe PathElement, builder *bytes.Buffer) error {
 	switch {
 	case pe.FieldName != nil:
 		if _, err := builder.Write(peFieldSepBytes); err != nil {
-			return "", err
+			return err
 		}
-		builder.WriteString(*pe.FieldName)
+		if _, err := builder.WriteString(*pe.FieldName); err != nil {
+			return err
+		}
 	case pe.Key != nil:
 		if _, err := builder.Write(peKeySepBytes); err != nil {
-			return "", err
+			return err
 		}
-		if err := json.MarshalWrite(&builder, *pe.Key, json.Deterministic(true)); err != nil {
-			return "", err
+		if err := json.MarshalWrite(builder, pe.Key, json.Deterministic(true)); err != nil {
+			return err
 		}
 	case pe.Value != nil:
 		if _, err := builder.Write(peValueSepBytes); err != nil {
-			return "", err
+			return err
 		}
-		if err := json.MarshalWrite(&builder, (*pe.Value).Unstructured(), json.Deterministic(true)); err != nil {
-			return "", err
+		if err := json.MarshalWrite(builder, (*pe.Value).Unstructured(), json.Deterministic(true)); err != nil {
+			return err
 		}
 	case pe.Index != nil:
 		if _, err := builder.Write(peIndexSepBytes); err != nil {
-			return "", err
+			return err
 		}
-		builder.WriteString(strconv.Itoa(*pe.Index))
+		if _, err := builder.WriteString(strconv.Itoa(*pe.Index)); err != nil {
+			return err
+		}
 	default:
-		return "", errors.New("invalid PathElement")
+		return errors.New("invalid PathElement")
 	}
-
-	return builder.String(), nil
+	return nil
 }

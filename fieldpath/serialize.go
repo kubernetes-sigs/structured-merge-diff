@@ -17,9 +17,11 @@ limitations under the License.
 package fieldpath
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"sort"
+	"sync"
 
 	"github.com/go-json-experiment/json"
 	"github.com/go-json-experiment/json/jsontext"
@@ -33,13 +35,24 @@ func (s *Set) ToJSONStream(w io.Writer) error {
 	return json.MarshalWrite(w, (*setContentsV1)(s))
 }
 
+var pool = sync.Pool{
+	New: func() any {
+		return &bytes.Buffer{}
+	},
+}
+
 func writePathKey(enc *jsontext.Encoder, pe PathElement) error {
-	key, err := SerializePathElement(pe)
-	if err != nil {
+	builder := pool.Get().(*bytes.Buffer)
+	defer func() {
+		builder.Reset()
+		pool.Put(builder)
+	}()
+
+	if err := serializePathElementBuilder(pe, builder); err != nil {
 		return err
 	}
 
-	if err := enc.WriteToken(jsontext.String(key)); err != nil {
+	if err := enc.WriteToken(jsontext.String(builder.String())); err != nil {
 		return err
 	}
 	return nil
