@@ -19,6 +19,9 @@ package value
 import (
 	"sort"
 	"strings"
+
+	"github.com/go-json-experiment/json"
+	"github.com/go-json-experiment/json/jsontext"
 )
 
 // Field is an individual key-value pair.
@@ -30,6 +33,21 @@ type Field struct {
 // FieldList is a list of key-value pairs. Each field is expected to
 // have a different name.
 type FieldList []Field
+
+func (fl FieldList) MarshalJSONTo(enc *jsontext.Encoder) error {
+	enc.WriteToken(jsontext.BeginObject)
+	for _, f := range fl {
+		if err := enc.WriteToken(jsontext.String(f.Name)); err != nil {
+			return err
+		}
+		if err := json.MarshalEncode(enc, f.Value.Unstructured(), json.Deterministic(true)); err != nil {
+			return err
+		}
+	}
+	enc.WriteToken(jsontext.EndObject)
+
+	return nil
+}
 
 // Copy returns a copy of the FieldList.
 // Values are not copied.

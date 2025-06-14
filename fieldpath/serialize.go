@@ -17,50 +17,24 @@ limitations under the License.
 package fieldpath
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"sort"
-	"sync"
-	"unicode"
 
+	"github.com/go-json-experiment/json"
 	"github.com/go-json-experiment/json/jsontext"
 )
 
 func (s *Set) ToJSON() ([]byte, error) {
-	buf := bytes.Buffer{}
-	enc := jsontext.Encoder{}
-	enc.Reset(&buf)
-	if err := s.emitContentsV1(false, &enc); err != nil {
-		return nil, err
-	}
-	return bytes.TrimSpace(buf.Bytes()), nil
+	return json.Marshal((*setContentsV1)(s))
 }
 
 func (s *Set) ToJSONStream(w io.Writer) error {
-	buf := bytes.Buffer{}
-	enc := jsontext.Encoder{}
-	enc.Reset(&buf)
-	if err := s.emitContentsV1(false, &enc); err != nil {
-		return err
-	}
-	bufLen := len(bytes.TrimRightFunc(buf.Bytes(), unicode.IsSpace))
-	buf.Truncate(bufLen)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-var pool = sync.Pool{
-	New: func() any {
-		return &PathElementSerializer{}
-	},
+	return json.MarshalWrite(w, (*setContentsV1)(s))
 }
 
 func writePathKey(enc *jsontext.Encoder, pe PathElement) error {
-	pes := pool.Get().(*PathElementSerializer)
-	defer pool.Put(pes)
-
-	key, err := pes.serialize(pe)
+	key, err := SerializePathElement(pe)
 	if err != nil {
 		return err
 	}
@@ -71,7 +45,13 @@ func writePathKey(enc *jsontext.Encoder, pe PathElement) error {
 	return nil
 }
 
-func (s *Set) emitContentsV1(includeSelf bool, om *jsontext.Encoder) error {
+type setContentsV1 Set
+
+func (s *setContentsV1) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return s.emitContentsV1(false, enc)
+}
+
+func (s *setContentsV1) emitContentsV1(includeSelf bool, om *jsontext.Encoder) error {
 	if err := om.WriteToken(jsontext.BeginObject); err != nil {
 		return err
 	}
@@ -103,7 +83,7 @@ func (s *Set) emitContentsV1(includeSelf bool, om *jsontext.Encoder) error {
 			if err := writePathKey(om, cpe); err != nil {
 				return err
 			}
-			if err := s.Children.members[ci].set.emitContentsV1(c == 0, om); err != nil {
+			if err := (*setContentsV1)(s.Children.members[ci].set).emitContentsV1(c == 0, om); err != nil {
 				return err
 			}
 
@@ -134,7 +114,7 @@ func (s *Set) emitContentsV1(includeSelf bool, om *jsontext.Encoder) error {
 		if err := writePathKey(om, cpe); err != nil {
 			return err
 		}
-		if err := s.Children.members[ci].set.emitContentsV1(false, om); err != nil {
+		if err := (*setContentsV1)(s.Children.members[ci].set).emitContentsV1(false, om); err != nil {
 			return err
 		}
 
