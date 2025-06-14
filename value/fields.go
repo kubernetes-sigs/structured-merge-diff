@@ -17,6 +17,8 @@ limitations under the License.
 package value
 
 import (
+	"fmt"
+	"io"
 	"sort"
 	"strings"
 
@@ -34,9 +36,9 @@ type Field struct {
 // have a different name.
 type FieldList []Field
 
-func (fl FieldList) MarshalJSONTo(enc *jsontext.Encoder) error {
+func (fl *FieldList) MarshalJSONTo(enc *jsontext.Encoder) error {
 	enc.WriteToken(jsontext.BeginObject)
-	for _, f := range fl {
+	for _, f := range *fl {
 		if err := enc.WriteToken(jsontext.String(f.Name)); err != nil {
 			return err
 		}
@@ -45,6 +47,48 @@ func (fl FieldList) MarshalJSONTo(enc *jsontext.Encoder) error {
 		}
 	}
 	enc.WriteToken(jsontext.EndObject)
+
+	return nil
+}
+
+// FieldListFromJSON is a helper function for reading a JSON document.
+func (fl *FieldList) UnmarshalJSONFrom(parser *jsontext.Decoder) error {
+	if objStart, err := parser.ReadToken(); err != nil {
+		return fmt.Errorf("parsing JSON: %v", err)
+	} else if objStart.Kind() != jsontext.BeginObject.Kind() {
+		return fmt.Errorf("expected object")
+	}
+
+	var fields FieldList
+	for {
+		if parser.PeekKind() == jsontext.EndObject.Kind() {
+			if _, err := parser.ReadToken(); err != nil {
+				return fmt.Errorf("parsing JSON: %v", err)
+			}
+			break
+		}
+
+		rawKey, err := parser.ReadToken()
+		if err == io.EOF {
+			return fmt.Errorf("unexpected EOF")
+		} else if err != nil {
+			return fmt.Errorf("parsing JSON: %v", err)
+		}
+
+		k := rawKey.String()
+
+		var v any
+		if err := json.UnmarshalDecode(parser, &v); err == io.EOF {
+			return fmt.Errorf("unexpected EOF")
+		} else if err != nil {
+			return fmt.Errorf("parsing JSON: %v", err)
+		}
+
+		fields = append(fields, Field{Name: k, Value: NewValueInterface(v)})
+	}
+
+	fields.Sort()
+	*fl = fields
 
 	return nil
 }

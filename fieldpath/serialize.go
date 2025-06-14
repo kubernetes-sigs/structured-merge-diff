@@ -128,24 +128,21 @@ func (s *setContentsV1) emitContentsV1(includeSelf bool, om *jsontext.Encoder) e
 	return nil
 }
 
-// FromJSON clears s and reads a JSON formatted set structure.
-func (s *Set) FromJSON(r io.Reader) error {
-	parser := jsontext.NewDecoder(r)
-
-	found, _, err := readIterV1(parser)
+func (s *setContentsV1) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	found, _, err := s.readIterV1(dec)
 	if err != nil {
 		return err
 	} else if found == nil {
-		*s = Set{}
+		*(*Set)(s) = Set{}
 	} else {
-		*s = *found
+		*(*Set)(s) = *found
 	}
 	return nil
 }
 
 // returns true if this subtree is also (or only) a member of parent; s is nil
 // if there are no further children.
-func readIterV1(parser *jsontext.Decoder) (children *Set, isMember bool, err error) {
+func (s *setContentsV1) readIterV1(parser *jsontext.Decoder) (children *Set, isMember bool, err error) {
 	if objStart, err := parser.ReadToken(); err != nil {
 		return nil, false, fmt.Errorf("parsing JSON: %v", err)
 	} else if objStart.Kind() != jsontext.BeginObject.Kind() {
@@ -188,7 +185,7 @@ func readIterV1(parser *jsontext.Decoder) (children *Set, isMember bool, err err
 			return nil, false, fmt.Errorf("parsing key as path element: %v", err)
 		}
 
-		grandChildren, isChildMember, err := readIterV1(parser)
+		grandChildren, isChildMember, err := s.readIterV1(parser)
 		if err != nil {
 			return nil, false, fmt.Errorf("parsing value as set: %v", err)
 		}
@@ -225,4 +222,9 @@ func readIterV1(parser *jsontext.Decoder) (children *Set, isMember bool, err err
 	}
 
 	return children, isMember, nil
+}
+
+// FromJSON clears s and reads a JSON formatted set structure.
+func (s *Set) FromJSON(r io.Reader) error {
+	return json.UnmarshalRead(r, (*setContentsV1)(s))
 }
