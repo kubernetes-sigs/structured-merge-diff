@@ -235,6 +235,81 @@ var nestedTypesSchema = `types:
     elementRelationship: associative
 `
 
+var emptyStructSchema = `types:
+- name: Resource
+  map:
+    fields:
+    - name: name
+      type:
+        scalar: string
+    - name: config
+      type:
+        namedType: Config
+    - name: optionalConfig
+      type:
+        namedType: Config
+- name: Config
+  map:
+    fields:
+    - name: value
+      type:
+        scalar: string
+- name: NestedResource
+  map:
+    fields:
+    - name: outer
+      type:
+        namedType: Outer
+- name: Outer
+  map:
+    fields:
+    - name: inner
+      type:
+        namedType: Inner
+- name: Inner
+  map:
+    fields:
+    - name: value
+      type:
+        scalar: string
+- name: ListResource
+  map:
+    fields:
+    - name: name
+      type:
+        scalar: string
+    - name: items
+      type:
+        list:
+          elementType:
+            scalar: string
+          elementRelationship: associative
+    - name: optionalItems
+      type:
+        list:
+          elementType:
+            scalar: string
+          elementRelationship: associative
+- name: AtomicResource
+  map:
+    fields:
+    - name: name
+      type:
+        scalar: string
+    - name: atomicList
+      type:
+        list:
+          elementType:
+            scalar: string
+          elementRelationship: atomic
+    - name: atomicMap
+      type:
+        map:
+          elementType:
+            scalar: string
+          elementRelationship: atomic
+`
+
 var removeCases = []removeTestCase{{
 	name:         "simple pair",
 	rootTypeName: "stringPair",
@@ -675,6 +750,87 @@ var removeCases = []removeTestCase{{
 		),
 		`{"mapOfMapsRecursive":{"a":{"b":null}}}`,
 		`{"mapOfMapsRecursive": {"a":{"b":{"c":null}}}}`,
+	}},
+}, {
+	name:         "empty struct preservation",
+	rootTypeName: "Resource",
+	schema:       typed.YAMLObject(emptyStructSchema),
+	quadruplets: []removeQuadruplet{{
+		// Test empty struct is preserved (not converted to null) during extraction
+		`{"name":"test","config":{}}`,
+		_NS(_P("name"), _P("config")),
+		``,
+		`{"name":"test","config":{}}`,
+	}, {
+		// Test empty struct vs null distinction
+		`{"name":"test","config":{},"optionalConfig":null}`,
+		_NS(_P("config"), _P("optionalConfig")),
+		`{"name":"test"}`,
+		`{"config":{},"optionalConfig":null}`,
+	}, {
+		// Test removing empty struct
+		`{"name":"test","config":{}}`,
+		_NS(_P("config")),
+		`{"name":"test"}`,
+		`{"config":{}}`,
+	}, {
+		// Test extracting only name, leaving empty struct
+		`{"name":"test","config":{}}`,
+		_NS(_P("name")),
+		`{"config":{}}`,
+		`{"name":"test"}`,
+	}},
+}, {
+	name:         "empty list preservation",
+	rootTypeName: "ListResource",
+	schema:       typed.YAMLObject(emptyStructSchema),
+	quadruplets: []removeQuadruplet{{
+		// Test empty list is preserved (not converted to null) during extraction
+		`{"name":"test","items":[]}`,
+		_NS(_P("name"), _P("items")),
+		``,
+		`{"name":"test","items":[]}`,
+	}, {
+		// Test empty list vs null distinction
+		`{"name":"test","items":[],"optionalItems":null}`,
+		_NS(_P("items"), _P("optionalItems")),
+		`{"name":"test"}`,
+		`{"items":[],"optionalItems":null}`,
+	}, {
+		// Test removing empty list
+		`{"name":"test","items":[]}`,
+		_NS(_P("items")),
+		`{"name":"test"}`,
+		`{"items":[]}`,
+	}, {
+		// Test extracting only name, leaving empty list
+		`{"name":"test","items":[]}`,
+		_NS(_P("name")),
+		`{"items":[]}`,
+		`{"name":"test"}`,
+	}},
+}, {
+	name:         "atomic types empty preservation",
+	rootTypeName: "AtomicResource",
+	schema:       typed.YAMLObject(emptyStructSchema),
+	quadruplets: []removeQuadruplet{{
+		// Test empty atomic list is preserved during extraction
+		`{"name":"test","atomicList":[]}`,
+		_NS(_P("atomicList")),
+		`{"name":"test"}`,
+		`{"atomicList":[]}`,
+	}, {
+		// Test empty atomic map is preserved during extraction
+		`{"name":"test","atomicMap":{}}`,
+		_NS(_P("atomicMap")),
+		`{"name":"test"}`,
+		`{"atomicMap":{}}`,
+	}, {
+		// Test extracting both name and empty atomic types
+		`{"name":"test","atomicList":[],"atomicMap":{}}`,
+		_NS(_P("name"), _P("atomicList"), _P("atomicMap")),
+		``,
+		`{"name":"test","atomicList":[],"atomicMap":{}}`,
 	}},
 }}
 
