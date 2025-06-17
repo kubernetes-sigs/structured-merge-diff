@@ -675,6 +675,38 @@ var removeCases = []removeTestCase{{
 		),
 		`{"mapOfMapsRecursive":{"a":{"b":null}}}`,
 		`{"mapOfMapsRecursive": {"a":{"b":{"c":null}}}}`,
+	}, {
+		// empty list
+		`{"listOfLists": []}`,
+		_NS(
+			_P("listOfLists"),
+		),
+		``,
+		`{"listOfLists": []}`,
+	}, {
+		// null list
+		`{"listOfLists": null}`,
+		_NS(
+			_P("listOfLists"),
+		),
+		``,
+		`{"listOfLists": null}`,
+	}, {
+		// empty map
+		`{"mapOfMaps": {}}`,
+		_NS(
+			_P("mapOfMaps"),
+		),
+		``,
+		`{"mapOfMaps": {}}`,
+	}, {
+		// nil map
+		`{"mapOfMaps": null}`,
+		_NS(
+			_P("mapOfMaps"),
+		),
+		``,
+		`{"mapOfMaps": null}`,
 	}},
 }}
 

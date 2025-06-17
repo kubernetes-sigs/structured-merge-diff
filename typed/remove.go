@@ -58,6 +58,10 @@ func (w *removingWalker) doList(t *schema.List) (errs ValidationErrors) {
 	defer w.allocator.Free(l)
 	// If list is null or empty just return
 	if l == nil || l.Length() == 0 {
+		// For extraction, we just return the value as is (which is nil or empty). For extraction the difference matters.
+		if w.shouldExtract {
+			w.out = w.value.Unstructured()
+		}
 		return nil
 	}
 
@@ -113,6 +117,10 @@ func (w *removingWalker) doMap(t *schema.Map) ValidationErrors {
 	}
 	// If map is null or empty just return
 	if m == nil || m.Empty() {
+		// For extraction, we just return the value as is (which is nil or empty). For extraction the difference matters.
+		if w.shouldExtract {
+			w.out = w.value.Unstructured()
+		}
 		return nil
 	}
 
