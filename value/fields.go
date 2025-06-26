@@ -32,6 +32,62 @@ type Field struct {
 	Value Value
 }
 
+type MarshalValue struct {
+	Value *Value
+}
+
+func (mv MarshalValue) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return valueMarshalJSONTo(enc, *mv.Value)
+}
+
+func valueMarshalJSONTo(enc *jsontext.Encoder, v Value) error {
+	switch {
+	case v.IsNull():
+		return enc.WriteToken(jsontext.Null)
+	case v.IsFloat():
+		return enc.WriteToken(jsontext.Float(v.AsFloat()))
+	case v.IsInt():
+		return enc.WriteToken(jsontext.Int(v.AsInt()))
+	case v.IsString():
+		return enc.WriteToken(jsontext.String(v.AsString()))
+	case v.IsBool():
+		return enc.WriteToken(jsontext.Bool(v.AsBool()))
+	case v.IsList():
+		if err := enc.WriteToken(jsontext.BeginArray); err != nil {
+			return err
+		}
+		list := v.AsList()
+		for i := 0; i < list.Length(); i++ {
+			if err := valueMarshalJSONTo(enc, list.At(i)); err != nil {
+				return err
+			}
+		}
+		return enc.WriteToken(jsontext.EndArray)
+	case v.IsMap():
+		if err := enc.WriteToken(jsontext.BeginObject); err != nil {
+			return err
+		}
+		var iterErr error
+		v.AsMap().Iterate(func(k string, v Value) bool {
+			if err := enc.WriteToken(jsontext.String(k)); err != nil {
+				iterErr = err
+				return false
+			}
+			if err := valueMarshalJSONTo(enc, v); err != nil {
+				iterErr = err
+				return false
+			}
+			return true
+		})
+		if iterErr != nil {
+			return iterErr
+		}
+		return enc.WriteToken(jsontext.EndObject)
+	default:
+		return json.MarshalEncode(enc, v.Unstructured(), json.Deterministic(true))
+	}
+}
+
 // FieldList is a list of key-value pairs. Each field is expected to
 // have a different name.
 type FieldList []Field
@@ -42,7 +98,7 @@ func (fl *FieldList) MarshalJSONTo(enc *jsontext.Encoder) error {
 		if err := enc.WriteToken(jsontext.String(f.Name)); err != nil {
 			return err
 		}
-		if err := json.MarshalEncode(enc, f.Value.Unstructured(), json.Deterministic(true)); err != nil {
+		if err := valueMarshalJSONTo(enc, f.Value); err != nil {
 			return err
 		}
 	}
