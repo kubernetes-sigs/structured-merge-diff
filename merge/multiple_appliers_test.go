@@ -22,12 +22,12 @@ import (
 	"strings"
 	"testing"
 
+	yaml "go.yaml.in/yaml/v2"
 	"sigs.k8s.io/structured-merge-diff/v6/fieldpath"
 	. "sigs.k8s.io/structured-merge-diff/v6/internal/fixture"
 	"sigs.k8s.io/structured-merge-diff/v6/merge"
 	"sigs.k8s.io/structured-merge-diff/v6/typed"
 	"sigs.k8s.io/structured-merge-diff/v6/value"
-	yaml "sigs.k8s.io/yaml/goyaml.v2"
 )
 
 func TestMultipleAppliersSet(t *testing.T) {

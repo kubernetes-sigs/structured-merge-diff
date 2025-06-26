@@ -24,8 +24,8 @@ import (
 
 	"sigs.k8s.io/structured-merge-diff/v6/value"
 
+	yaml "go.yaml.in/yaml/v2"
 	"sigs.k8s.io/structured-merge-diff/v6/schema"
-	yaml "sigs.k8s.io/yaml/goyaml.v2"
 )
 
 type randomPathAlphabet []PathElement

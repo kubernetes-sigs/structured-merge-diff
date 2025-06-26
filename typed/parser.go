@@ -19,9 +19,9 @@ package typed
 import (
 	"fmt"
 
+	yaml "go.yaml.in/yaml/v2"
 	"sigs.k8s.io/structured-merge-diff/v6/schema"
 	"sigs.k8s.io/structured-merge-diff/v6/value"
-	yaml "sigs.k8s.io/yaml/goyaml.v2"
 )
 
 // YAMLObject is an object encoded in YAML.
