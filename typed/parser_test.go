@@ -22,8 +22,8 @@ import (
 	"strings"
 	"testing"
 
+	yaml "go.yaml.in/yaml/v2"
 	"sigs.k8s.io/structured-merge-diff/v6/typed"
-	yaml "sigs.k8s.io/yaml/goyaml.v2"
 )
 
 func testdata(file string) string {
