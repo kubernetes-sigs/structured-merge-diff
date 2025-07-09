@@ -697,6 +697,58 @@ var nestedSchema = func() (*typed.Parser, string) {
 	return parser, name
 }
 
+var associativeListSchema = func() (*typed.Parser, string) {
+	name := "type"
+	parser := mustParse(`types:
+- name: type
+  map:
+    fields:
+      - name: values
+        type:
+          list:
+            elementRelationship: associative
+            keys: ["keyAStr", "keyBInt"]
+            elementType:
+              map:
+                fields:
+                  - name: keyAStr
+                    type:
+                      scalar: string
+                  - name: keyBInt
+                    type:
+                      scalar: numeric
+                  - name: value
+                    type:
+                      scalar: numeric
+`)
+	return parser, name
+}
+
+var oldAssociativeListSchema = func() (*typed.Parser, string) {
+	name := "type"
+	//  No keyBInt yet!
+	parser := mustParse(`types:
+- name: type
+  map:
+    fields:
+      - name: values
+        type:
+          list:
+            elementRelationship: associative
+            keys: ["keyAStr"]
+            elementType:
+              map:
+                fields:
+                  - name: keyAStr
+                    type:
+                      scalar: string
+                  - name: value
+                    type:
+                      scalar: numeric
+`)
+	return parser, name
+}
+
 func mustParse(schema typed.YAMLObject) *typed.Parser {
 	parser, err := typed.NewParser(schema)
 	if err != nil {
@@ -707,12 +759,15 @@ func mustParse(schema typed.YAMLObject) *typed.Parser {
 
 func TestEnsureNamedFieldsAreMembers(t *testing.T) {
 	table := []struct {
+		schemaFn       func() (*typed.Parser, string)
+		newSchemaFn    func() (*typed.Parser, string)
 		value          typed.YAMLObject
 		expectedBefore *Set
 		expectedAfter  *Set
 	}{
 		{
-			value: `{"named": {"named": {"value": 0}}}`,
+			schemaFn: nestedSchema,
+			value:    `{"named": {"named": {"value": 0}}}`,
 			expectedBefore: NewSet(
 				_P("named", "named", "value"),
 			),
@@ -723,7 +778,8 @@ func TestEnsureNamedFieldsAreMembers(t *testing.T) {
 			),
 		},
 		{
-			value: `{"named": {"a": {"named": {"value": 42}}}, "a": {"named": {"value": 1}}}`,
+			schemaFn: nestedSchema,
+			value:    `{"named": {"a": {"named": {"value": 42}}}, "a": {"named": {"value": 1}}}`,
 			expectedBefore: NewSet(
 				_P("named", "a", "named", "value"),
 				_P("a", "named", "value"),
@@ -739,7 +795,8 @@ func TestEnsureNamedFieldsAreMembers(t *testing.T) {
 			),
 		},
 		{
-			value: `{"named": {"list": [{"keyAStr": "a", "keyBInt": 1, "named": {"value": 0}}]}}`,
+			schemaFn: nestedSchema,
+			value:    `{"named": {"list": [{"keyAStr": "a", "keyBInt": 1, "named": {"value": 0}}]}}`,
 			expectedBefore: NewSet(
 				_P("named", "list", KeyByFields("keyAStr", "a", "keyBInt", 1), "keyAStr"),
 				_P("named", "list", KeyByFields("keyAStr", "a", "keyBInt", 1), "keyBInt"),
@@ -756,11 +813,46 @@ func TestEnsureNamedFieldsAreMembers(t *testing.T) {
 				_P("named"),
 			),
 		},
+		{
+			// Generate the value using the old schema to get missing key entries,
+			// then process with new schema which has keyBInt.
+			schemaFn:    oldAssociativeListSchema,
+			newSchemaFn: associativeListSchema,
+			value:       `{"values": [{"keyAStr": "a", "value": 0}]}`,
+			expectedBefore: NewSet(
+				_P("values", KeyByFields("keyAStr", "a"), "keyAStr"),
+				_P("values", KeyByFields("keyAStr", "a"), "value"),
+				_P("values", KeyByFields("keyAStr", "a")),
+			),
+			expectedAfter: NewSet(
+				_P("values", KeyByFields("keyAStr", "a"), "keyAStr"),
+				_P("values", KeyByFields("keyAStr", "a"), "value"),
+				_P("values", KeyByFields("keyAStr", "a")),
+				_P("values"),
+			),
+		},
+		{
+			// Check that converting the value with the missing key and
+			// the recent schema doesn't add the missing key.
+			schemaFn: associativeListSchema,
+			value:    `{"values": [{"keyAStr": "a", "value": 1}]}`,
+			expectedBefore: NewSet(
+				_P("values", KeyByFields("keyAStr", "a"), "keyAStr"),
+				_P("values", KeyByFields("keyAStr", "a"), "value"),
+				_P("values", KeyByFields("keyAStr", "a")),
+			),
+			expectedAfter: NewSet(
+				_P("values", KeyByFields("keyAStr", "a"), "keyAStr"),
+				_P("values", KeyByFields("keyAStr", "a"), "value"),
+				_P("values", KeyByFields("keyAStr", "a")),
+				_P("values"),
+			),
+		},
 	}
 
 	for _, test := range table {
 		t.Run(string(test.value), func(t *testing.T) {
-			parser, typeName := nestedSchema()
+			parser, typeName := test.schemaFn()
 			typeRef := schema.TypeRef{NamedType: &typeName}
 			typedValue, err := parser.Type(typeName).FromYAML(test.value)
 			if err != nil {
@@ -780,6 +872,11 @@ func TestEnsureNamedFieldsAreMembers(t *testing.T) {
 			}
 
 			schema := &parser.Schema
+			if test.newSchemaFn != nil {
+				newParser, _ := test.newSchemaFn()
+				schema = &newParser.Schema
+			}
+
 			got := set.EnsureNamedFieldsAreMembers(schema, typeRef)
 			if !got.Equals(test.expectedAfter) {
 				t.Errorf("expected after EnsureNamedFieldsAreMembers:\n%v\n\ngot:\n%v\n\nmissing:\n%v\n\nsuperfluous:\n\n%v",

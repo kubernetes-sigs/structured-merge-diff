@@ -163,6 +163,36 @@ func TestDefaultKeysFlat(t *testing.T) {
 				),
 			},
 		},
+		"apply_missing_undefaulted_defaulted_key": {
+			Ops: []Operation{
+				Apply{
+					Manager:    "default",
+					APIVersion: "v1",
+					Object: `
+						containerPorts:
+						- protocol: TCP
+						  name: A
+					`,
+				},
+			},
+			APIVersion: "v1",
+			Object: `
+				containerPorts:
+				- protocol: TCP
+				  name: A
+			`,
+			Managed: fieldpath.ManagedFields{
+				"default": fieldpath.NewVersionedSet(
+					_NS(
+						_P("containerPorts", _KBF("protocol", "TCP")),
+						_P("containerPorts", _KBF("protocol", "TCP"), "name"),
+						_P("containerPorts", _KBF("protocol", "TCP"), "protocol"),
+					),
+					"v1",
+					true,
+				),
+			},
+		},
 	}
 
 	for name, test := range tests {
@@ -176,18 +206,6 @@ func TestDefaultKeysFlat(t *testing.T) {
 
 func TestDefaultKeysFlatErrors(t *testing.T) {
 	tests := map[string]TestCase{
-		"apply_missing_undefaulted_defaulted_key": {
-			Ops: []Operation{
-				Apply{
-					Manager:    "default",
-					APIVersion: "v1",
-					Object: `
-						containerPorts:
-						- protocol: TCP
-					`,
-				},
-			},
-		},
 		"apply_missing_defaulted_key_ambiguous_A": {
 			Ops: []Operation{
 				Apply{
