@@ -23,12 +23,6 @@ import (
 	"sigs.k8s.io/structured-merge-diff/v6/fieldpath"
 )
 
-var (
-	// Short names for readable test cases.
-	_NS = fieldpath.NewSet
-	_P  = fieldpath.MakePathOrDie
-)
-
 func TestManagersEquals(t *testing.T) {
 	tests := []struct {
 		name string
