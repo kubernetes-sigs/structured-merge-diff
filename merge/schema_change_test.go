@@ -274,9 +274,6 @@ var associativeListParserOld = func() *typed.Parser {
     - name: name
       type:
         scalar: string
-    - name: id
-      type:
-        scalar: numeric
     - name: value
       type:
         scalar: numeric
@@ -488,6 +485,224 @@ func TestAssociativeListSchemaChanges(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			if err := test.Test(associativeListParserOld); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+var associativeListParserPromoteKeyBefore = func() *typed.Parser {
+	p, err := typed.NewParser(`types:
+- name: v1
+  map:
+    fields:
+      - name: list
+        type:
+          namedType: associativeList
+- name: associativeList
+  list:
+    elementType:
+      namedType: myElement
+    elementRelationship: associative
+    keys:
+    - name
+- name: myElement
+  map:
+    fields:
+    - name: name
+      type:
+        scalar: string
+    - name: id
+      type:
+        scalar: numeric
+    - name: value
+      type:
+        scalar: numeric
+`)
+	if err != nil {
+		panic(err)
+	}
+	return p
+}()
+
+var associativeListParserPromoteKeyAfter = func() *typed.Parser {
+	p, err := typed.NewParser(`types:
+- name: v1
+  map:
+    fields:
+      - name: list
+        type:
+          namedType: associativeList
+- name: associativeList
+  list:
+    elementType:
+      namedType: myElement
+    elementRelationship: associative
+    keys:
+    - name
+    - id
+- name: myElement
+  map:
+    fields:
+    - name: name
+      type:
+        scalar: string
+    - name: id
+      type:
+        scalar: numeric
+    - name: value
+      type:
+        scalar: numeric
+`)
+	if err != nil {
+		panic(err)
+	}
+	return p
+}()
+
+func TestPromoteFieldToAssociativeListKey(t *testing.T) {
+	tests := map[string]TestCase{
+		"identical item merges": {
+			Ops: []Operation{
+				Apply{
+					Manager: "one",
+					Object: `
+						list:
+						- name: a
+						  id: 1
+						  value: 1
+					`,
+					APIVersion: "v1",
+				},
+				ChangeParser{Parser: associativeListParserPromoteKeyAfter},
+				Apply{
+					Manager: "one",
+					Object: `
+						list:
+						- name: a
+						  id: 1
+						  value: 2
+					`,
+					APIVersion: "v1",
+				},
+			},
+			Object: `
+				list:
+				- name: a
+				  id: 1
+				  value: 2
+			`,
+			APIVersion: "v1",
+			Managed: fieldpath.ManagedFields{
+				"one": fieldpath.NewVersionedSet(_NS(
+					_P("list", _KBF("name", "a", "id", float64(1))),
+					_P("list", _KBF("name", "a", "id", float64(1)), "name"),
+					_P("list", _KBF("name", "a", "id", float64(1)), "id"),
+					_P("list", _KBF("name", "a", "id", float64(1)), "value"),
+				), "v1", true),
+			},
+		},
+		"distinct item added": {
+			Ops: []Operation{
+				Apply{
+					Manager: "one",
+					Object: `
+						list:
+						- name: a
+						  id: 1
+						  value: 1
+					`,
+					APIVersion: "v1",
+				},
+				ChangeParser{Parser: associativeListParserPromoteKeyAfter},
+				Apply{
+					Manager: "one",
+					Object: `
+						list:
+						- name: a
+						  id: 1
+						  value: 1
+						- name: a
+						  id: 2
+						  value: 2
+					`,
+					APIVersion: "v1",
+				},
+			},
+			Object: `
+				list:
+				- name: a
+				  id: 1
+				  value: 1
+				- name: a
+				  id: 2
+				  value: 2
+			`,
+			APIVersion: "v1",
+			Managed: fieldpath.ManagedFields{
+				"one": fieldpath.NewVersionedSet(_NS(
+					_P("list", _KBF("name", "a", "id", float64(1))),
+					_P("list", _KBF("name", "a", "id", float64(1)), "name"),
+					_P("list", _KBF("name", "a", "id", float64(1)), "id"),
+					_P("list", _KBF("name", "a", "id", float64(1)), "value"),
+					_P("list", _KBF("name", "a", "id", float64(2))),
+					_P("list", _KBF("name", "a", "id", float64(2)), "name"),
+					_P("list", _KBF("name", "a", "id", float64(2)), "id"),
+					_P("list", _KBF("name", "a", "id", float64(2)), "value"),
+				), "v1", true),
+			},
+		},
+		"item missing new key field is distinct": {
+			Ops: []Operation{
+				Apply{
+					Manager: "one",
+					Object: `
+						list:
+						- name: a
+						  value: 1
+					`,
+					APIVersion: "v1",
+				},
+				ChangeParser{Parser: associativeListParserPromoteKeyAfter},
+				Apply{
+					Manager: "one",
+					Object: `
+						list:
+						- name: a
+						  value: 1
+						- name: a
+						  id: 2
+						  value: 2
+					`,
+					APIVersion: "v1",
+				},
+			},
+			Object: `
+				list:
+				- name: a
+				  value: 1
+				- name: a
+				  id: 2
+				  value: 2
+			`,
+			APIVersion: "v1",
+			Managed: fieldpath.ManagedFields{
+				"one": fieldpath.NewVersionedSet(_NS(
+					_P("list", _KBF("name", "a")),
+					_P("list", _KBF("name", "a"), "name"),
+					_P("list", _KBF("name", "a"), "value"),
+					_P("list", _KBF("name", "a", "id", float64(2))),
+					_P("list", _KBF("name", "a", "id", float64(2)), "name"),
+					_P("list", _KBF("name", "a", "id", float64(2)), "id"),
+					_P("list", _KBF("name", "a", "id", float64(2)), "value"),
+				), "v1", true),
+			},
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			if err := test.Test(associativeListParserPromoteKeyBefore); err != nil {
 				t.Fatal(err)
 			}
 		})
