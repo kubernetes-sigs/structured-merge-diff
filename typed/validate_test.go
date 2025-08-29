@@ -213,6 +213,7 @@ var validationCases = []validationTestCase{{
 		`{"list":[{"key":"a","id":1,"value":{"a":"a"}}]}`,
 		`{"list":[{"key":"a","id":1},{"key":"a","id":2},{"key":"b","id":1}]}`,
 		`{"atomicList":["a","a","a"]}`,
+		`{"list":[{"key":"x","value":{"a":"a"},"bv":true,"nv":3.14}]}`,
 	},
 	invalidObjects: []typed.YAMLObject{
 		`{"key":true,"value":1}`,

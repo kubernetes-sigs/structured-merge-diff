@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package fieldpath
+package fieldpath_test
 
 import (
 	"bytes"
@@ -22,10 +22,9 @@ import (
 	"math/rand"
 	"testing"
 
-	"sigs.k8s.io/structured-merge-diff/v6/value"
-
 	"sigs.k8s.io/structured-merge-diff/v6/schema"
-	yaml "sigs.k8s.io/yaml/goyaml.v2"
+	"sigs.k8s.io/structured-merge-diff/v6/typed"
+	"sigs.k8s.io/structured-merge-diff/v6/value"
 )
 
 type randomPathAlphabet []PathElement
@@ -664,80 +663,227 @@ func TestSetDifference(t *testing.T) {
 	}
 }
 
-var nestedSchema = func() (*schema.Schema, schema.TypeRef) {
-	sc := &schema.Schema{}
+var nestedSchema = func() (*typed.Parser, string) {
 	name := "type"
-	err := yaml.Unmarshal([]byte(`types:
+	parser := mustParse(`types:
 - name: type
   map:
     elementType:
       namedType: type
     fields:
+      - name: keyAStr
+        type:
+          scalar: string
+      - name: keyBInt
+        type:
+          scalar: numeric
       - name: named
         type:
           namedType: type
       - name: list
         type:
           list:
-            elementRelationShip: associative
-            keys: ["name"]
+            elementRelationship: associative
+            keys: ["keyAStr", "keyBInt"]
             elementType:
               namedType: type
+      - name: a
+        type:
+          namedType: type
       - name: value
         type:
           scalar: numeric
-`), &sc)
+`)
+	return parser, name
+}
+
+var associativeListSchema = func() (*typed.Parser, string) {
+	name := "type"
+	parser := mustParse(`types:
+- name: type
+  map:
+    fields:
+      - name: values
+        type:
+          list:
+            elementRelationship: associative
+            keys: ["keyAStr", "keyBInt"]
+            elementType:
+              map:
+                fields:
+                  - name: keyAStr
+                    type:
+                      scalar: string
+                  - name: keyBInt
+                    type:
+                      scalar: numeric
+                  - name: value
+                    type:
+                      scalar: numeric
+`)
+	return parser, name
+}
+
+var oldAssociativeListSchema = func() (*typed.Parser, string) {
+	name := "type"
+	//  No keyBInt yet!
+	parser := mustParse(`types:
+- name: type
+  map:
+    fields:
+      - name: values
+        type:
+          list:
+            elementRelationship: associative
+            keys: ["keyAStr"]
+            elementType:
+              map:
+                fields:
+                  - name: keyAStr
+                    type:
+                      scalar: string
+                  - name: value
+                    type:
+                      scalar: numeric
+`)
+	return parser, name
+}
+
+func mustParse(schema typed.YAMLObject) *typed.Parser {
+	parser, err := typed.NewParser(schema)
 	if err != nil {
 		panic(err)
 	}
-	return sc, schema.TypeRef{NamedType: &name}
+	return parser
 }
-
-var _P = MakePathOrDie
 
 func TestEnsureNamedFieldsAreMembers(t *testing.T) {
 	table := []struct {
-		set, expected *Set
+		schemaFn       func() (*typed.Parser, string)
+		newSchemaFn    func() (*typed.Parser, string)
+		value          typed.YAMLObject
+		expectedBefore *Set
+		expectedAfter  *Set
 	}{
 		{
-			set: NewSet(_P("named", "named", "value")),
-			expected: NewSet(
+			schemaFn: nestedSchema,
+			value:    `{"named": {"named": {"value": 0}}}`,
+			expectedBefore: NewSet(
+				_P("named", "named", "value"),
+			),
+			expectedAfter: NewSet(
 				_P("named", "named", "value"),
 				_P("named", "named"),
 				_P("named"),
 			),
 		},
 		{
-			set: NewSet(_P("named", "a", "named", "value"), _P("a", "named", "value"), _P("a", "b", "value")),
-			expected: NewSet(
+			schemaFn: nestedSchema,
+			value:    `{"named": {"a": {"named": {"value": 42}}}, "a": {"named": {"value": 1}}}`,
+			expectedBefore: NewSet(
+				_P("named", "a", "named", "value"),
+				_P("a", "named", "value"),
+			),
+			expectedAfter: NewSet(
 				_P("named", "a", "named", "value"),
 				_P("named", "a", "named"),
+				_P("named", "a"),
 				_P("named"),
 				_P("a", "named", "value"),
 				_P("a", "named"),
-				_P("a", "b", "value"),
+				_P("a"),
 			),
 		},
 		{
-			set: NewSet(_P("named", "list", KeyByFields("name", "a"), "named", "a", "value")),
-			expected: NewSet(
-				_P("named", "list", KeyByFields("name", "a"), "named", "a", "value"),
-				_P("named", "list", KeyByFields("name", "a"), "named"),
+			schemaFn: nestedSchema,
+			value:    `{"named": {"list": [{"keyAStr": "a", "keyBInt": 1, "named": {"value": 0}}]}}`,
+			expectedBefore: NewSet(
+				_P("named", "list", KeyByFields("keyAStr", "a", "keyBInt", 1), "keyAStr"),
+				_P("named", "list", KeyByFields("keyAStr", "a", "keyBInt", 1), "keyBInt"),
+				_P("named", "list", KeyByFields("keyAStr", "a", "keyBInt", 1), "named", "value"),
+				_P("named", "list", KeyByFields("keyAStr", "a", "keyBInt", 1)),
+			),
+			expectedAfter: NewSet(
+				_P("named", "list", KeyByFields("keyAStr", "a", "keyBInt", 1), "keyAStr"),
+				_P("named", "list", KeyByFields("keyAStr", "a", "keyBInt", 1), "keyBInt"),
+				_P("named", "list", KeyByFields("keyAStr", "a", "keyBInt", 1), "named", "value"),
+				_P("named", "list", KeyByFields("keyAStr", "a", "keyBInt", 1), "named"),
+				_P("named", "list", KeyByFields("keyAStr", "a", "keyBInt", 1)),
 				_P("named", "list"),
 				_P("named"),
+			),
+		},
+		{
+			// Generate the value using the old schema to get missing key entries,
+			// then process with new schema which has keyBInt.
+			schemaFn:    oldAssociativeListSchema,
+			newSchemaFn: associativeListSchema,
+			value:       `{"values": [{"keyAStr": "a", "value": 0}]}`,
+			expectedBefore: NewSet(
+				_P("values", KeyByFields("keyAStr", "a"), "keyAStr"),
+				_P("values", KeyByFields("keyAStr", "a"), "value"),
+				_P("values", KeyByFields("keyAStr", "a")),
+			),
+			expectedAfter: NewSet(
+				_P("values", KeyByFields("keyAStr", "a"), "keyAStr"),
+				_P("values", KeyByFields("keyAStr", "a"), "value"),
+				_P("values", KeyByFields("keyAStr", "a")),
+				_P("values"),
+			),
+		},
+		{
+			// Check that converting the value with the missing key and
+			// the recent schema doesn't add the missing key.
+			schemaFn: associativeListSchema,
+			value:    `{"values": [{"keyAStr": "a", "value": 1}]}`,
+			expectedBefore: NewSet(
+				_P("values", KeyByFields("keyAStr", "a"), "keyAStr"),
+				_P("values", KeyByFields("keyAStr", "a"), "value"),
+				_P("values", KeyByFields("keyAStr", "a")),
+			),
+			expectedAfter: NewSet(
+				_P("values", KeyByFields("keyAStr", "a"), "keyAStr"),
+				_P("values", KeyByFields("keyAStr", "a"), "value"),
+				_P("values", KeyByFields("keyAStr", "a")),
+				_P("values"),
 			),
 		},
 	}
 
 	for _, test := range table {
-		t.Run(fmt.Sprintf("%v", test.set), func(t *testing.T) {
-			got := test.set.EnsureNamedFieldsAreMembers(nestedSchema())
-			if !got.Equals(test.expected) {
-				t.Errorf("expected %v, got %v (missing: %v/superfluous: %v)",
-					test.expected,
+		t.Run(string(test.value), func(t *testing.T) {
+			parser, typeName := test.schemaFn()
+			typeRef := schema.TypeRef{NamedType: &typeName}
+			typedValue, err := parser.Type(typeName).FromYAML(test.value)
+			if err != nil {
+				t.Fatalf("unexpected error parsing test value: %v", err)
+			}
+			set, err := typedValue.ToFieldSet()
+			if err != nil {
+				t.Fatalf("unexpected error converting test value to set: %v", err)
+			}
+			if !set.Equals(test.expectedBefore) {
+				t.Errorf("expected before EnsureNamedFieldsAreMembers:\n%v\n\ngot:\n%v\n\nmissing:\n%v\n\nsuperfluous:\n\n%v",
+					test.expectedBefore,
+					set,
+					test.expectedAfter.Difference(set),
+					set.Difference(test.expectedAfter),
+				)
+			}
+
+			schema := &parser.Schema
+			if test.newSchemaFn != nil {
+				newParser, _ := test.newSchemaFn()
+				schema = &newParser.Schema
+			}
+
+			got := set.EnsureNamedFieldsAreMembers(schema, typeRef)
+			if !got.Equals(test.expectedAfter) {
+				t.Errorf("expected after EnsureNamedFieldsAreMembers:\n%v\n\ngot:\n%v\n\nmissing:\n%v\n\nsuperfluous:\n\n%v",
+					test.expectedAfter,
 					got,
-					test.expected.Difference(got),
-					got.Difference(test.expected),
+					test.expectedAfter.Difference(got),
+					got.Difference(test.expectedAfter),
 				)
 			}
 		})
