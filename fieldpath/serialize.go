@@ -19,7 +19,7 @@ package fieldpath
 import (
 	"fmt"
 	"io"
-	"sort"
+	"slices"
 	"sync"
 
 	"github.com/go-json-experiment/json"
@@ -225,8 +225,12 @@ func (s *setContentsV1) readIterV1(parser *jsontext.Decoder) (children *Set, isM
 
 	// Sort the members and children
 	if children != nil {
-		sort.Sort(children.Members.members)
-		sort.Sort(children.Children.members)
+		slices.SortFunc(children.Members.members, func(a, b PathElement) int {
+			return a.Compare(b)
+		})
+		slices.SortFunc(children.Children.members, func(a, b setNode) int {
+			return a.pathElement.Compare(b.pathElement)
+		})
 	}
 
 	if children == nil {
