@@ -32,11 +32,12 @@ type Field struct {
 	Value Value
 }
 
-type MarshalValue struct {
+// Not meant to be used by an external library.
+type FastMarshalValue struct {
 	Value *Value
 }
 
-func (mv MarshalValue) MarshalJSONTo(enc *jsontext.Encoder) error {
+func (mv FastMarshalValue) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return valueMarshalJSONTo(enc, *mv.Value)
 }
 

@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/go-json-experiment/json"
 	"sigs.k8s.io/structured-merge-diff/v6/value"
@@ -68,14 +69,15 @@ func DeserializePathElement(s string) (PathElement, error) {
 			FieldName: &str,
 		}, nil
 	case peValueSepBytes[0]:
-		v, err := value.FromJSON([]byte(rest))
-		if err != nil {
+		var v any
+		if err := json.UnmarshalRead(strings.NewReader(rest), &v); err != nil {
 			return PathElement{}, err
 		}
-		return PathElement{Value: &v}, nil
+		interfaceValue := value.NewValueInterface(v)
+		return PathElement{Value: &interfaceValue}, nil
 	case peKeySepBytes[0]:
 		var fields value.FieldList
-		if err := json.Unmarshal([]byte(rest), &fields); err != nil {
+		if err := json.UnmarshalRead(strings.NewReader(rest), &fields); err != nil {
 			return PathElement{}, err
 		}
 		return PathElement{Key: &fields}, nil
@@ -103,7 +105,7 @@ func SerializePathElement(pe PathElement) (string, error) {
 
 type pathElementSerializer struct {
 	builder   bytes.Buffer
-	fastValue value.MarshalValue
+	fastValue value.FastMarshalValue
 }
 
 func (pes *pathElementSerializer) reset() {
