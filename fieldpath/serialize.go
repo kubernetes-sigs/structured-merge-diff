@@ -17,7 +17,6 @@ limitations under the License.
 package fieldpath
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"sort"
@@ -37,22 +36,22 @@ func (s *Set) ToJSONStream(w io.Writer) error {
 
 var pool = sync.Pool{
 	New: func() any {
-		return &bytes.Buffer{}
+		return &pathElementSerializer{}
 	},
 }
 
 func writePathKey(enc *jsontext.Encoder, pe PathElement) error {
-	builder := pool.Get().(*bytes.Buffer)
+	serializer := pool.Get().(*pathElementSerializer)
 	defer func() {
-		builder.Reset()
-		pool.Put(builder)
+		serializer.reset()
+		pool.Put(serializer)
 	}()
 
-	if err := serializePathElementBuilder(pe, builder); err != nil {
+	if err := serializer.serialize(pe); err != nil {
 		return err
 	}
 
-	if err := enc.WriteToken(jsontext.String(builder.String())); err != nil {
+	if err := enc.WriteToken(jsontext.String(serializer.builder.String())); err != nil {
 		return err
 	}
 	return nil

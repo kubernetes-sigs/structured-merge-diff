@@ -54,31 +54,28 @@ var (
 
 // DeserializePathElement parses a serialized path element
 func DeserializePathElement(s string) (PathElement, error) {
-	b := []byte(s)
-	if len(b) < 2 {
+	if len(s) < 2 {
 		return PathElement{}, errors.New("key must be 2 characters long")
 	}
-	typeSep0, typeSep1, b := b[0], b[1], b[2:]
+	typeSep0, typeSep1, rest := s[0], s[1], s[2:]
 	if typeSep1 != peSeparator {
 		return PathElement{}, fmt.Errorf("missing colon: %v", s)
 	}
 	switch typeSep0 {
 	case peFieldSepBytes[0]:
-		// Slice s rather than convert b, to save on
-		// allocations.
 		str := s[2:]
 		return PathElement{
 			FieldName: &str,
 		}, nil
 	case peValueSepBytes[0]:
-		v, err := value.FromJSON(b)
+		v, err := value.FromJSON([]byte(rest))
 		if err != nil {
 			return PathElement{}, err
 		}
 		return PathElement{Value: &v}, nil
 	case peKeySepBytes[0]:
 		var fields value.FieldList
-		if err := json.Unmarshal(b, &fields); err != nil {
+		if err := json.Unmarshal([]byte(rest), &fields); err != nil {
 			return PathElement{}, err
 		}
 		return PathElement{Key: &fields}, nil
@@ -97,41 +94,52 @@ func DeserializePathElement(s string) (PathElement, error) {
 
 // SerializePathElement serializes a path element
 func SerializePathElement(pe PathElement) (string, error) {
-	builder := bytes.Buffer{}
-	if err := serializePathElementBuilder(pe, &builder); err != nil {
+	serializer := pathElementSerializer{}
+	if err := serializer.serialize(pe); err != nil {
 		return "", err
 	}
-	return builder.String(), nil
+	return serializer.builder.String(), nil
 }
 
-func serializePathElementBuilder(pe PathElement, builder *bytes.Buffer) error {
+type pathElementSerializer struct {
+	builder   bytes.Buffer
+	fastValue value.MarshalValue
+}
+
+func (pes *pathElementSerializer) reset() {
+	pes.builder.Reset()
+	pes.fastValue.Value = nil
+}
+
+func (pes *pathElementSerializer) serialize(pe PathElement) error {
 	switch {
 	case pe.FieldName != nil:
-		if _, err := builder.Write(peFieldSepBytes); err != nil {
+		if _, err := pes.builder.Write(peFieldSepBytes); err != nil {
 			return err
 		}
-		if _, err := builder.WriteString(*pe.FieldName); err != nil {
+		if _, err := pes.builder.WriteString(*pe.FieldName); err != nil {
 			return err
 		}
 	case pe.Key != nil:
-		if _, err := builder.Write(peKeySepBytes); err != nil {
+		if _, err := pes.builder.Write(peKeySepBytes); err != nil {
 			return err
 		}
-		if err := json.MarshalWrite(builder, pe.Key, json.Deterministic(true)); err != nil {
+		if err := json.MarshalWrite(&pes.builder, pe.Key, json.Deterministic(true)); err != nil {
 			return err
 		}
 	case pe.Value != nil:
-		if _, err := builder.Write(peValueSepBytes); err != nil {
+		if _, err := pes.builder.Write(peValueSepBytes); err != nil {
 			return err
 		}
-		if err := json.MarshalWrite(builder, value.MarshalValue{Value: pe.Value}, json.Deterministic(true)); err != nil {
+		pes.fastValue.Value = pe.Value
+		if err := json.MarshalWrite(&pes.builder, &pes.fastValue, json.Deterministic(true)); err != nil {
 			return err
 		}
 	case pe.Index != nil:
-		if _, err := builder.Write(peIndexSepBytes); err != nil {
+		if _, err := pes.builder.Write(peIndexSepBytes); err != nil {
 			return err
 		}
-		if _, err := builder.WriteString(strconv.Itoa(*pe.Index)); err != nil {
+		if _, err := pes.builder.WriteString(strconv.Itoa(*pe.Index)); err != nil {
 			return err
 		}
 	default:
