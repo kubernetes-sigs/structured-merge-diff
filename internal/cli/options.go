@@ -21,7 +21,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 
 	"sigs.k8s.io/structured-merge-diff/v6/typed"
@@ -76,7 +75,7 @@ func (o *Options) Resolve() (Operation, error) {
 	if o.schemaPath == "" {
 		return nil, errors.New("a schema is required")
 	}
-	b, err := ioutil.ReadFile(o.schemaPath)
+	b, err := os.ReadFile(o.schemaPath)
 	if err != nil {
 		return nil, fmt.Errorf("unable to read schema %q: %v", o.schemaPath, err)
 	}

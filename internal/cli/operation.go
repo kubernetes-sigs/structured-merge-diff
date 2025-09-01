@@ -19,7 +19,7 @@ package cli
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
+	"os"
 
 	"sigs.k8s.io/structured-merge-diff/v6/typed"
 	"sigs.k8s.io/structured-merge-diff/v6/value"
@@ -35,7 +35,7 @@ type operationBase struct {
 }
 
 func (b operationBase) parseFile(path string) (tv *typed.TypedValue, err error) {
-	bytes, err := ioutil.ReadFile(path)
+	bytes, err := os.ReadFile(path)
 	if err != nil {
 		return tv, fmt.Errorf("unable to read file %q: %v", path, err)
 	}

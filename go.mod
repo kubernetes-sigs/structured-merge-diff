@@ -3,7 +3,7 @@ module sigs.k8s.io/structured-merge-diff/v6
 require (
 	github.com/google/go-cmp v0.5.9
 	github.com/json-iterator/go v1.1.12
-	go.yaml.in/yaml/v2 v2.4.2
+	go.yaml.in/yaml/v3 v3.0.4
 	sigs.k8s.io/randfill v0.0.0-20250304075658-069ef1bbf016
 )
 

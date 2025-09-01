@@ -17,7 +17,7 @@ limitations under the License.
 package merge_test
 
 import (
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -30,7 +30,7 @@ func testdata(file string) string {
 }
 
 func read(file string) []byte {
-	s, err := ioutil.ReadFile(file)
+	s, err := os.ReadFile(file)
 	if err != nil {
 		panic(err)
 	}
