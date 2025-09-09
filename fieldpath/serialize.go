@@ -59,12 +59,15 @@ func writePathKey(enc *jsontext.Encoder, pe PathElement) error {
 
 type setContentsV1 Set
 
-func (s *setContentsV1) MarshalJSONTo(enc *jsontext.Encoder) error {
+var _ json.MarshalerTo = (*setContentsV1)(nil)
+var _ json.UnmarshalerFrom = (*setContentsV1)(nil)
+
+func (s *setContentsV1) MarshalJSONTo(enc *jsontext.Encoder, _ jsontext.Options) error {
 	return s.emitContentsV1(false, enc)
 }
 
 func (s *setContentsV1) emitContentsV1(includeSelf bool, om *jsontext.Encoder) error {
-	if err := om.WriteToken(jsontext.BeginObject); err != nil {
+	if err := om.WriteToken(jsontext.ObjectStart); err != nil {
 		return err
 	}
 
@@ -133,14 +136,14 @@ func (s *setContentsV1) emitContentsV1(includeSelf bool, om *jsontext.Encoder) e
 		ci++
 	}
 
-	if err := om.WriteToken(jsontext.EndObject); err != nil {
+	if err := om.WriteToken(jsontext.ObjectEnd); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (s *setContentsV1) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+func (s *setContentsV1) UnmarshalJSONFrom(dec *jsontext.Decoder, _ jsontext.Options) error {
 	found, _, err := s.readIterV1(dec)
 	if err != nil {
 		return err
@@ -157,12 +160,12 @@ func (s *setContentsV1) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 func (s *setContentsV1) readIterV1(parser *jsontext.Decoder) (children *Set, isMember bool, err error) {
 	if objStart, err := parser.ReadToken(); err != nil {
 		return nil, false, fmt.Errorf("parsing JSON: %v", err)
-	} else if objStart.Kind() != jsontext.BeginObject.Kind() {
+	} else if objStart.Kind() != jsontext.ObjectStart.Kind() {
 		return nil, false, fmt.Errorf("expected object")
 	}
 
 	for {
-		if parser.PeekKind() == jsontext.EndObject.Kind() {
+		if parser.PeekKind() == jsontext.ObjectEnd.Kind() {
 			if _, err := parser.ReadToken(); err != nil {
 				return nil, false, fmt.Errorf("parsing JSON: %v", err)
 			}

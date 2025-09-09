@@ -37,7 +37,9 @@ type FastMarshalValue struct {
 	Value *Value
 }
 
-func (mv FastMarshalValue) MarshalJSONTo(enc *jsontext.Encoder) error {
+var _ json.MarshalerTo = FastMarshalValue{}
+
+func (mv FastMarshalValue) MarshalJSONTo(enc *jsontext.Encoder, _ jsontext.Options) error {
 	return valueMarshalJSONTo(enc, *mv.Value)
 }
 
@@ -54,7 +56,7 @@ func valueMarshalJSONTo(enc *jsontext.Encoder, v Value) error {
 	case v.IsBool():
 		return enc.WriteToken(jsontext.Bool(v.AsBool()))
 	case v.IsList():
-		if err := enc.WriteToken(jsontext.BeginArray); err != nil {
+		if err := enc.WriteToken(jsontext.ArrayStart); err != nil {
 			return err
 		}
 		list := v.AsList()
@@ -63,9 +65,9 @@ func valueMarshalJSONTo(enc *jsontext.Encoder, v Value) error {
 				return err
 			}
 		}
-		return enc.WriteToken(jsontext.EndArray)
+		return enc.WriteToken(jsontext.ArrayEnd)
 	case v.IsMap():
-		if err := enc.WriteToken(jsontext.BeginObject); err != nil {
+		if err := enc.WriteToken(jsontext.ObjectStart); err != nil {
 			return err
 		}
 		var iterErr error
@@ -83,7 +85,7 @@ func valueMarshalJSONTo(enc *jsontext.Encoder, v Value) error {
 		if iterErr != nil {
 			return iterErr
 		}
-		return enc.WriteToken(jsontext.EndObject)
+		return enc.WriteToken(jsontext.ObjectEnd)
 	default:
 		return json.MarshalEncode(enc, v.Unstructured(), json.Deterministic(true))
 	}
@@ -93,8 +95,11 @@ func valueMarshalJSONTo(enc *jsontext.Encoder, v Value) error {
 // have a different name.
 type FieldList []Field
 
-func (fl *FieldList) MarshalJSONTo(enc *jsontext.Encoder) error {
-	enc.WriteToken(jsontext.BeginObject)
+var _ json.MarshalerTo = (*FieldList)(nil)
+var _ json.UnmarshalerFrom = (*FieldList)(nil)
+
+func (fl *FieldList) MarshalJSONTo(enc *jsontext.Encoder, _ jsontext.Options) error {
+	enc.WriteToken(jsontext.ObjectStart)
 	for _, f := range *fl {
 		if err := enc.WriteToken(jsontext.String(f.Name)); err != nil {
 			return err
@@ -103,22 +108,22 @@ func (fl *FieldList) MarshalJSONTo(enc *jsontext.Encoder) error {
 			return err
 		}
 	}
-	enc.WriteToken(jsontext.EndObject)
+	enc.WriteToken(jsontext.ObjectEnd)
 
 	return nil
 }
 
 // FieldListFromJSON is a helper function for reading a JSON document.
-func (fl *FieldList) UnmarshalJSONFrom(parser *jsontext.Decoder) error {
+func (fl *FieldList) UnmarshalJSONFrom(parser *jsontext.Decoder, _ jsontext.Options) error {
 	if objStart, err := parser.ReadToken(); err != nil {
 		return fmt.Errorf("parsing JSON: %v", err)
-	} else if objStart.Kind() != jsontext.BeginObject.Kind() {
+	} else if objStart.Kind() != jsontext.ObjectStart.Kind() {
 		return fmt.Errorf("expected object")
 	}
 
 	var fields FieldList
 	for {
-		if parser.PeekKind() == jsontext.EndObject.Kind() {
+		if parser.PeekKind() == jsontext.ObjectEnd.Kind() {
 			if _, err := parser.ReadToken(); err != nil {
 				return fmt.Errorf("parsing JSON: %v", err)
 			}
