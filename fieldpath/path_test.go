@@ -50,9 +50,66 @@ func TestPathString(t *testing.T) {
 			_V(false),
 			_V(3.14159),
 		), `.foo[="b"][=5][=false][=3.14159]`},
+		{
+			name:   "simple field",
+			fp:     MakePathOrDie("spec"),
+			expect: ".spec",
+		},
+		{
+			name: "app container image",
+			fp: MakePathOrDie(
+				"spec", "apps",
+				KeyByFields("name", "app-🚀"),
+				"container", "image",
+			),
+			expect: `.spec.apps[name="app-🚀"].container.image`,
+		},
+		{
+			name: "app port",
+			fp: MakePathOrDie(
+				"spec", "apps",
+				KeyByFields("name", "app-💻"),
+				"container", "ports",
+				KeyByFields("name", "port-🔑"),
+				"containerPort",
+			),
+			expect: ".spec.apps[name=\"app-💻\"].container.ports[name=\"port-🔑\"].containerPort",
+		},
+		{
+			name:   "field with space",
+			fp:     MakePathOrDie("spec", "field with space"),
+			expect: ".spec.field with space",
+		},
+		{
+			name: "value with space",
+			fp: MakePathOrDie(
+				"spec", "apps",
+				_V("app with space"),
+				"container", "image",
+			),
+			expect: `.spec.apps[="app with space"].container.image`,
+		},
+		{
+			name: "value with quotes",
+			fp: MakePathOrDie(
+				"spec", "apps",
+				_V("app with \"quotes\""),
+				"container", "image",
+			),
+			expect: ".spec.apps[=\"app with \\\"quotes\\\"\"].container.image",
+		},
+
+		{
+			name: "value with unicode",
+			fp: MakePathOrDie(
+				"spec", "apps",
+				_V("app-with-unicøde"),
+				"container", "image",
+			),
+			expect: ".spec.apps[=\"app-with-unicøde\"].container.image",
+		},
 	}
 	for _, tt := range table {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			got := tt.fp.String()
