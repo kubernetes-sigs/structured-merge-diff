@@ -1,14 +1,15 @@
 # See the OWNERS docs: https://go.k8s.io/owners
 
 approvers:
-  - apelisse
   - jpbetz
+  - liggitt
 emeritus_approvers:
+  - apelisse		# 2025-09-10
   - lavalamp		# 2023-05-13
   - jennybuckley	# 2021-05-13
 reviewers:
-  - apelisse
   - jefftree
+  - liggitt
   - yliaog
   - cici37
   - yongruilin
