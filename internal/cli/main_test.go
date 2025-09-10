@@ -19,7 +19,7 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"testing"
 )
@@ -130,7 +130,7 @@ func (tt *testCase) checkOutput(t *testing.T, got []byte) {
 	if tt.expectedOutputPath == "" {
 		return
 	}
-	want, err := ioutil.ReadFile(tt.expectedOutputPath)
+	want, err := os.ReadFile(tt.expectedOutputPath)
 	if err != nil {
 		t.Fatalf("couldn't read expected output %q: %v", tt.expectedOutputPath, err)
 	}
