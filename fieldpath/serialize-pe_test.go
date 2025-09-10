@@ -25,6 +25,7 @@ func TestPathElementRoundTrip(t *testing.T) {
 		`f:`,
 		`f:spec`,
 		`f:more-complicated-string`,
+		`f:abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789`,
 		`k:{"name":"my-container"}`,
 		`k:{"port":"8080","protocol":"TCP"}`,
 		`k:{"optionalField":null}`,
@@ -34,6 +35,13 @@ func TestPathElementRoundTrip(t *testing.T) {
 		`v:"some-string"`,
 		`v:1234`,
 		`v:{"some":"json"}`,
+		`k:{"name":"app-🚀"}`,
+		`k:{"name":"app-💻"}`,
+		`k:{"name":"app with-unicøde"}`,
+		`k:{"name":"你好世界"}`,
+		`k:{"name":"Привет, мир"}`,
+		`k:{"name":"नमस्ते दुनिया"}`,
+		`k:{"name":"👋"}`,
 	}
 
 	for _, test := range tests {

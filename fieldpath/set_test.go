@@ -48,17 +48,38 @@ var randomPathMaker = randomPathAlphabet(MakePathOrDie(
 	"aad",
 	"aae",
 	"aaf",
+	// All alphabets
+	"abcdefghijklmnopqrstuvwxyz",
+	"ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+	// Keys
+	KeyByFields("name", "привет"),
+	KeyByFields("name", "你好"),
+	KeyByFields("name", "こんにちは"),
+	KeyByFields("name", "안녕하세요"),
+	KeyByFields("name", "مرحبا"),
 	KeyByFields("name", "first"),
 	KeyByFields("name", "second"),
 	KeyByFields("port", 443, "protocol", "tcp"),
 	KeyByFields("port", 443, "protocol", "udp"),
+	KeyByFields("key", "value"),
+	KeyByFields("lang", "en-US"),
+	KeyByFields("unicode-key", "unicode-value-🔥"),
+	// Values
 	_V(1),
 	_V(2),
 	_V(3),
 	_V("aa"),
 	_V("ab"),
 	_V(true),
-	1, 2, 3, 4,
+	_V(0),
+	_V(-1),
+	_V(3.14159),
+	_V("string with spaces"),
+	_V("string with \"quotes\""),
+	_V("unicode-string-你好"),
+	_V(false),
+	// Indices
+	1, 2, 3, 4, 0, 5, 100, 2147483648,
 ))
 
 func BenchmarkFieldSet(b *testing.B) {
