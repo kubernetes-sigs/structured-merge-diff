@@ -80,22 +80,24 @@ func (w *removingWalker) doList(t *schema.List) (errs ValidationErrors) {
 		path, _ := fieldpath.MakePath(pe)
 		// save items on the path when we shouldExtract
 		// but ignore them when we are removing (i.e. !w.shouldExtract)
-		if w.toRemove.Has(path) {
-			if w.shouldExtract {
-				newItems = append(newItems, removeItemsWithSchema(item, w.toRemove, w.schema, t.ElementType, w.shouldExtract).Unstructured())
-			} else {
-				continue
+		itemsInToRemoveSubpaths := !w.toRemove.WithPrefix(pe).Empty()
+		if w.shouldExtract {
+			if itemInToRemoveSubpaths {
+				// Continue if there are subset paths
+				item = removeItemsWithSchema(item, w.toRemove.WithPrefix(pe), w.schema, t.ElementType, w.shouldExtract)
 			}
-		}
-		if subset := w.toRemove.WithPrefix(pe); !subset.Empty() {
-			item = removeItemsWithSchema(item, subset, w.schema, t.ElementType, w.shouldExtract)
+			if w.toRemove.Has(path) || itemInToRemoveSubpaths {
+				newItems = append(newItems, item.Unstructured())
+			}
 		} else {
-			// don't save items not on the path when we shouldExtract.
-			if w.shouldExtract {
+			if w.toRemove.Has(path) {
 				continue
 			}
+			if itemInToRemoveSubpaths {
+				item = removeItemsWithSchema(item, w.toRemove.WithPrefix(pe), w.schema, t.ElementType, w.shouldExtract)
+			}
+			newItems = append(newItems, item.Unstructured())
 		}
-		newItems = append(newItems, item.Unstructured())
 	}
 	if len(newItems) > 0 {
 		w.out = newItems
