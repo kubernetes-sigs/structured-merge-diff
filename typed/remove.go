@@ -92,7 +92,7 @@ func (w *removingWalker) doList(t *schema.List) (errs ValidationErrors) {
 			if w.toRemove.Has(path) {
 				continue
 			}
-			if !w.toRemove.WithPrefix(pe).Empty() {
+			if itemInToRemoveSubpaths {
 				item = removeItemsWithSchema(item, w.toRemove.WithPrefix(pe), w.schema, t.ElementType, w.shouldExtract)
 			}
 			newItems = append(newItems, item.Unstructured())
