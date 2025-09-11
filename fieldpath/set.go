@@ -131,7 +131,7 @@ func (s *Set) RecursiveDifference(s2 *Set) *Set {
 // "a" if it's a named fields but not "a.b" if it's a map.
 func (s *Set) EnsureNamedFieldsAreMembers(sc *schema.Schema, tr schema.TypeRef) *Set {
 	members := PathElementSet{
-		members: make(sortedPathElements, 0, s.Members.Size()+len(s.Children.members)),
+		members: make([]PathElement, 0, s.Members.Size()+len(s.Children.members)),
 	}
 	atom, _ := sc.Resolve(tr)
 	members.members = append(members.members, s.Members.members...)
@@ -463,21 +463,13 @@ type setNode struct {
 
 // SetNodeMap is a map of PathElement to subset.
 type SetNodeMap struct {
-	members sortedSetNode
+	members []setNode
 }
-
-type sortedSetNode []setNode
-
-// Implement the sort interface; this would permit bulk creation, which would
-// be faster than doing it one at a time via Insert.
-func (s sortedSetNode) Len() int           { return len(s) }
-func (s sortedSetNode) Less(i, j int) bool { return s[i].pathElement.Less(s[j].pathElement) }
-func (s sortedSetNode) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
 // Copy returns a copy of the SetNodeMap.
 // This is not a full deep copy as any contained value.Value is not copied.
 func (s *SetNodeMap) Copy() SetNodeMap {
-	out := make(sortedSetNode, len(s.members))
+	out := make([]setNode, len(s.members))
 	for i, v := range s.members {
 		out[i] = setNode{pathElement: v.pathElement.Copy(), set: v.set.Copy()}
 	}
@@ -677,7 +669,7 @@ func (s *SetNodeMap) RecursiveDifference(s2 *Set) *SetNodeMap {
 
 // EnsureNamedFieldsAreMembers returns a set that contains all the named fields along with the leaves.
 func (s *SetNodeMap) EnsureNamedFieldsAreMembers(sc *schema.Schema, tr schema.TypeRef) *SetNodeMap {
-	out := make(sortedSetNode, 0, s.Size())
+	out := make([]setNode, 0, s.Size())
 	atom, _ := sc.Resolve(tr)
 	for _, member := range s.members {
 		tr := schema.TypeRef{}
@@ -706,7 +698,7 @@ func (s *SetNodeMap) FilterIncludeMatches(pattern *SetMatcher) *SetNodeMap {
 		return s
 	}
 
-	var out sortedSetNode
+	var out []setNode
 	for _, member := range s.members {
 		for _, c := range pattern.members {
 			if c.Path.Wildcard || c.Path.PathElement.Equals(member.pathElement) {
@@ -754,7 +746,7 @@ func (s *SetNodeMap) iteratePrefix(prefix Path, f func(Path)) {
 // only setNodes with leaf PathElements.
 func (s *SetNodeMap) Leaves() *SetNodeMap {
 	out := &SetNodeMap{}
-	out.members = make(sortedSetNode, len(s.members))
+	out.members = make([]setNode, len(s.members))
 	for i, n := range s.members {
 		out.members[i] = setNode{
 			pathElement: n.pathElement,
