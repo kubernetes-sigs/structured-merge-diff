@@ -16,7 +16,9 @@ limitations under the License.
 
 package fieldpath
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestPathElementRoundTrip(t *testing.T) {
 	tests := []string{
@@ -25,8 +27,10 @@ func TestPathElementRoundTrip(t *testing.T) {
 		`f:`,
 		`f:spec`,
 		`f:more-complicated-string`,
+		`f: string-with-spaces   `,
 		`f:abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789`,
 		`k:{"name":"my-container"}`,
+		`k:{"name":"   name with spaces   "}`,
 		`k:{"port":"8080","protocol":"TCP"}`,
 		`k:{"optionalField":null}`,
 		`k:{"jsonField":{"A":1,"B":null,"C":"D","E":{"F":"G"}}}`,
@@ -35,6 +39,7 @@ func TestPathElementRoundTrip(t *testing.T) {
 		`v:"some-string"`,
 		`v:1234`,
 		`v:{"some":"json"}`,
+		`v:{"some":" some  with spaces  "}`,
 		`k:{"name":"app-🚀"}`,
 		`k:{"name":"app-💻"}`,
 		`k:{"name":"app with-unicøde"}`,
@@ -79,6 +84,7 @@ func TestDeserializePathElementError(t *testing.T) {
 		`v:`,
 		`k:invalid json`,
 		`k:{"name":invalid}`,
+		`v:{"some":" \x41"}`, // This is an invalid JSON string because \x41 is not a valid escape sequence.
 	}
 
 	for _, test := range tests {
