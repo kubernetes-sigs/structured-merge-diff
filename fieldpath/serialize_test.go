@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestSerializeV1(t *testing.T) {
@@ -51,7 +53,7 @@ func TestSerializeV1GoldenData(t *testing.T) {
 	examples := []string{
 		`{"f:aaa":{},"f:aab":{},"f:aac":{},"f:aad":{},"f:aae":{},"f:aaf":{},"k:{\"name\":\"first\"}":{},"k:{\"name\":\"second\"}":{},"k:{\"port\":443,\"protocol\":\"tcp\"}":{},"k:{\"port\":443,\"protocol\":\"udp\"}":{},"v:1":{},"v:2":{},"v:3":{},"v:\"aa\"":{},"v:\"ab\"":{},"v:true":{},"i:1":{},"i:2":{},"i:3":{},"i:4":{}}`,
 		`{"f:aaa":{"k:{\"name\":\"second\"}":{"v:3":{"f:aab":{}}},"v:3":{},"v:true":{}},"f:aab":{"f:aaa":{},"f:aaf":{"k:{\"port\":443,\"protocol\":\"udp\"}":{"k:{\"port\":443,\"protocol\":\"tcp\"}":{}}},"k:{\"name\":\"first\"}":{}},"f:aac":{"f:aaa":{"v:1":{}},"f:aac":{},"v:3":{"k:{\"name\":\"second\"}":{}}},"f:aad":{"f:aac":{"v:1":{}},"f:aaf":{"k:{\"name\":\"first\"}":{"k:{\"name\":\"first\"}":{}}},"i:1":{"i:1":{},"i:3":{"v:true":{}}}},"f:aae":{"f:aae":{},"k:{\"port\":443,\"protocol\":\"tcp\"}":{"k:{\"port\":443,\"protocol\":\"udp\"}":{}},"i:4":{"f:aaf":{}}},"f:aaf":{"i:1":{"f:aac":{}},"i:2":{},"i:3":{}},"k:{\"name\":\"first\"}":{"f:aad":{"f:aaf":{}}},"k:{\"port\":443,\"protocol\":\"tcp\"}":{"f:aaa":{"f:aad":{}}},"k:{\"port\":443,\"protocol\":\"udp\"}":{"f:aac":{},"k:{\"name\":\"first\"}":{"i:3":{}},"k:{\"port\":443,\"protocol\":\"udp\"}":{"i:4":{}}},"v:1":{"f:aac":{"i:4":{}},"f:aaf":{},"k:{\"port\":443,\"protocol\":\"tcp\"}":{}},"v:2":{"f:aad":{"f:aaf":{}},"i:1":{}},"v:3":{"f:aaa":{},"k:{\"name\":\"first\"}":{},"i:2":{}},"v:\"aa\"":{"f:aab":{"f:aaf":{}},"f:aae":{},"k:{\"name\":\"first\"}":{"f:aad":{}},"i:2":{}},"v:\"ab\"":{"f:aaf":{"i:4":{}},"k:{\"port\":443,\"protocol\":\"tcp\"}":{},"k:{\"port\":443,\"protocol\":\"udp\"}":{},"v:1":{"k:{\"port\":443,\"protocol\":\"udp\"}":{}},"i:1":{"f:aae":{"i:4":{}}}},"v:true":{"k:{\"name\":\"second\"}":{"f:aaa":{}},"i:2":{"k:{\"port\":443,\"protocol\":\"tcp\"}":{}}},"i:1":{"i:3":{"f:aaf":{}}},"i:2":{"f:aae":{},"k:{\"port\":443,\"protocol\":\"tcp\"}":{"v:1":{}}},"i:3":{"f:aab":{"v:true":{"v:\"aa\"":{}}},"f:aaf":{},"i:1":{}},"i:4":{"v:\"aa\"":{"f:aab":{"k:{\"name\":\"second\"}":{}}}}}`,
-		`{"f:spec":{".":{},"f:apps":{".":{},"k:{\"name\":\"app-💻\"}":{".":{},"f:container":{".":{},"f:image":{},"f:name":{},"f:ports":{".":{},"k:{\"name\":\"port-🔑\"}":{".":{},"f:containerPort":{},"f:name":{}}}},"f:name":{}},"k:{\"name\":\"app-🚀\"}":{".":{},"f:container":{".":{},"f:image":{},"f:name":{},"f:ports":{".":{},"k:{\"name\":\"port-✅\"}":{".":{},"f:containerPort":{},"f:name":{}}}},"f:name":{}}}}}`,
+		`{"f:spec":{".":{},"f:apps":{".":{},"k:{\"name\":\" app-💻\"}":{".":{},"f:container":{".":{},"f:image":{},"f:name":{},"f:ports":{".":{},"k:{\"name\":\"port 🔑\"}":{".":{},"f:containerPort":{},"f:name":{}}}},"f:name":{}},"k:{\"name\":\" app-🚀\"}":{".":{},"f:container":{".":{},"f:image":{},"f:name":{},"f:ports":{".":{},"k:{\"name\":\"port-✅ \"}":{".":{},"f:containerPort":{},"f:name":{}}}},"f:name":{}}}}}`,
 	}
 	for i, str := range examples {
 		t.Run(fmt.Sprintf("%v", i), func(t *testing.T) {
@@ -71,6 +73,246 @@ func TestSerializeV1GoldenData(t *testing.T) {
 	}
 }
 
+func TestDeserializeForValidNonNormalized(t *testing.T) {
+	testCases := []struct {
+		nonNormalizedString string
+		normalizedString    string
+	}{
+		{
+			nonNormalizedString: `{
+  "f:aad": {},
+  "f:aaa": {},
+  "f:aab": {},
+  "f:aac": {},
+  "f:aae": {},
+  "f:aaf": {},
+
+
+  "k:{\"name\":\"first\"}": {},
+  "k:{\"name\":\"second\"}": {},
+  "k:{\"port\":443,\"protocol\":\"tcp\"}": {},
+  "k:{ \"protocol\":\"udp\",\"port\":443}": {},
+  "v:1": {},
+
+  "v:2": {},
+  "v: 3": {},
+  "v:\"aa\"": {},
+
+  "v:\"ab\"": {},
+  "v:true": {},
+  "i:1": {},
+  	"i:2": {},
+  "i:3": {}  ,
+  "i:4":    {}
+}`,
+			normalizedString: `{"f:aaa":{},"f:aab":{},"f:aac":{},"f:aad":{},"f:aae":{},"f:aaf":{},"k:{\"name\":\"first\"}":{},"k:{\"name\":\"second\"}":{},"k:{\"port\":443,\"protocol\":\"tcp\"}":{},"k:{\"port\":443,\"protocol\":\"udp\"}":{},"v:1":{},"v:2":{},"v:3":{},"v:\"aa\"":{},"v:\"ab\"":{},"v:true":{},"i:1":{},"i:2":{},"i:3":{},"i:4":{}}`,
+		}, {
+			nonNormalizedString: `{
+  "f:aaa": {
+    "k:{\"name\":\"second\"}": {
+      "v:3": {
+        "f:aab": {}
+      }
+    },
+    "v:3": {},
+    "v:true": {}
+  },
+  "f:aab": {
+    "f:aaa": {},
+    "f:aaf": {
+      "k:{\"port\":443,\"protocol\":\"udp\"}": {
+        "k:{\"port\":443,\"protocol\":\"tcp\"}": {}
+      }
+    },
+    "k:{\"name\":\"first\"}": {}
+  },
+  "f:aac": {
+    "f:aaa": {
+      "v:1": {}
+    },
+    "f:aac": {},
+    "v:3": {
+      "k:{\"name\":\"second\"}": {}
+    }
+  },
+  "f:aad": {
+    "f:aac": {
+      "v:1": {}
+    },
+    "f:aaf": {
+      "k:{\"name\":\"first\"}": {
+        "k:{\"name\":\"first\"}": {}
+      }
+    },
+    "i:1": {
+      "i:1": {},
+      "i:3": {
+        "v:true": {}
+      }
+    }
+  },
+  "f:aae": {
+    "f:aae": {},
+    "k:{\"port\":443,\"protocol\":\"tcp\"}": {
+      "k:{\"port\":443,\"protocol\":\"udp\"}": {}
+    },
+    "i:4": {
+      "f:aaf": {}
+    }
+  },
+  "f:aaf": {
+    "i:1": {
+      "f:aac": {}
+    },
+	"i:3": {},
+    "i:2": {}
+  },
+  "k:{\"name\":\"first\"}": {
+    "f:aad": {
+      "f:aaf": {}
+    }
+  },
+  "k:{\"port\":443,\"protocol\":\"tcp\"}": {
+    "f:aaa": {
+      "f:aad": {}
+    }
+  },
+  "k:{\"port\":443,\"protocol\":\"udp\"}": {
+    "f:aac": {},
+    "k:{\"name\":\"first\"}": {
+      "i:3": {}
+    },
+    "k:{\"port\":443,\"protocol\":\"udp\"}": {
+      "i:4": {}
+    }
+  },
+   "v:2": {
+    "f:aad": {
+      "f:aaf": {}
+    },
+    "i:1": {}
+  },
+  "v:1": {
+    "f:aac": {
+      "i:4": {}
+    },
+    "f:aaf": {},
+    "k:{\"port\":443,\"protocol\":\"tcp\"}": {}
+  },
+  "v:3": {
+    "f:aaa": {},
+    "k:{\"name\":\"first\"}": {},
+    "i:2": {}
+  },
+  "v:\"aa\"": {
+    "f:aab": {
+      "f:aaf": {}
+    },
+    "f:aae": {},
+    "k:{\"name\":\"first\"}": {
+      "f:aad": {}
+    },
+    "i:2": {}
+  },
+  "v:\"ab\"": {
+    "f:aaf": {
+      "i:4": {}
+    },
+    "k:{\"port\":443,\"protocol\":\"tcp\"}": {},
+    "k:{\"port\":443,\"protocol\":\"udp\"}": {},
+    "v:1": {
+      "k:{\"port\":443,\"protocol\":\"udp\"}": {}
+    },
+    "i:1": {
+      "f:aae": {
+        "i:4": {}
+      }
+    }
+  },
+  
+  "v:true": {
+    "k:{\"name\":\"second\"}": {
+      "f:aaa": {}
+    },
+    "i:2": {
+      "k:{\"port\":443,\"protocol\":\"tcp\"}": {}
+    }
+  },
+
+  
+  "i:1": {
+    "i:3": {
+      "f:aaf": {}
+    }
+  },
+
+  "i:3": {
+    "f:aab": {
+      "v:true": {
+        "v:\"aa\"": {}
+      }
+    },
+    "f:aaf": {},
+    "i:1": {}
+  },
+
+  "i:2": {
+    "f:aae": {},
+    "k:{\"port\":443,\"protocol\":\"tcp\"}": {
+      "v:1": {}
+    }
+  },
+
+  "i:4": {
+    "v:\"aa\"": {
+      "f:aab": {
+        "k:{\"name\":\"second\"}": {}
+      }
+    }
+  }
+}`,
+			normalizedString: `{"f:aaa":{"k:{\"name\":\"second\"}":{"v:3":{"f:aab":{}}},"v:3":{},"v:true":{}},"f:aab":{"f:aaa":{},"f:aaf":{"k:{\"port\":443,\"protocol\":\"udp\"}":{"k:{\"port\":443,\"protocol\":\"tcp\"}":{}}},"k:{\"name\":\"first\"}":{}},"f:aac":{"f:aaa":{"v:1":{}},"f:aac":{},"v:3":{"k:{\"name\":\"second\"}":{}}},"f:aad":{"f:aac":{"v:1":{}},"f:aaf":{"k:{\"name\":\"first\"}":{"k:{\"name\":\"first\"}":{}}},"i:1":{"i:1":{},"i:3":{"v:true":{}}}},"f:aae":{"f:aae":{},"k:{\"port\":443,\"protocol\":\"tcp\"}":{"k:{\"port\":443,\"protocol\":\"udp\"}":{}},"i:4":{"f:aaf":{}}},"f:aaf":{"i:1":{"f:aac":{}},"i:2":{},"i:3":{}},"k:{\"name\":\"first\"}":{"f:aad":{"f:aaf":{}}},"k:{\"port\":443,\"protocol\":\"tcp\"}":{"f:aaa":{"f:aad":{}}},"k:{\"port\":443,\"protocol\":\"udp\"}":{"f:aac":{},"k:{\"name\":\"first\"}":{"i:3":{}},"k:{\"port\":443,\"protocol\":\"udp\"}":{"i:4":{}}},"v:1":{"f:aac":{"i:4":{}},"f:aaf":{},"k:{\"port\":443,\"protocol\":\"tcp\"}":{}},"v:2":{"f:aad":{"f:aaf":{}},"i:1":{}},"v:3":{"f:aaa":{},"k:{\"name\":\"first\"}":{},"i:2":{}},"v:\"aa\"":{"f:aab":{"f:aaf":{}},"f:aae":{},"k:{\"name\":\"first\"}":{"f:aad":{}},"i:2":{}},"v:\"ab\"":{"f:aaf":{"i:4":{}},"k:{\"port\":443,\"protocol\":\"tcp\"}":{},"k:{\"port\":443,\"protocol\":\"udp\"}":{},"v:1":{"k:{\"port\":443,\"protocol\":\"udp\"}":{}},"i:1":{"f:aae":{"i:4":{}}}},"v:true":{"k:{\"name\":\"second\"}":{"f:aaa":{}},"i:2":{"k:{\"port\":443,\"protocol\":\"tcp\"}":{}}},"i:1":{"i:3":{"f:aaf":{}}},"i:2":{"f:aae":{},"k:{\"port\":443,\"protocol\":\"tcp\"}":{"v:1":{}}},"i:3":{"f:aab":{"v:true":{"v:\"aa\"":{}}},"f:aaf":{},"i:1":{}},"i:4":{"v:\"aa\"":{"f:aab":{"k:{\"name\":\"second\"}":{}}}}}`,
+		},
+	}
+
+	for i, tc := range testCases {
+		t.Run(fmt.Sprintf("%v", i), func(t *testing.T) {
+			nonNormSet := NewSet()
+			err := nonNormSet.FromJSON(strings.NewReader(tc.nonNormalizedString))
+			if err != nil {
+				t.Fatalf("Failed to deserialize non normalized string %s : %v\n%#v", tc.nonNormalizedString, err, nonNormSet)
+			}
+
+			normSet := NewSet()
+			err = normSet.FromJSON(strings.NewReader(tc.normalizedString))
+			if err != nil {
+				t.Fatalf("Failed to deserialize non normalized string %s : %v\n%#v", tc.normalizedString, err, normSet)
+			}
+
+			nonNormSetJson, err := nonNormSet.ToJSON()
+			if err != nil {
+				t.Fatalf("Failed to serialize non-normalized set: %v\n%#v", err, nonNormSet)
+
+			}
+
+			normSetJson, err := normSet.ToJSON()
+			if err != nil {
+				t.Fatalf("Failed to serialize normalized set: %v\n%#v", err, normSet)
+
+			}
+
+			if diff := cmp.Diff(nonNormSetJson, normSetJson); diff != "" {
+				t.Errorf("diff should be non empty, diff %s", diff)
+			}
+
+			// this should exceeds if the diff was "".
+			if !normSet.Equals(nonNormSet) {
+				t.Errorf("expected both set to be equal.")
+			}
+
+		})
+	}
+}
 func TestDropUnknown(t *testing.T) {
 	input := `{"f:aaa":{},"r:aab":{}}`
 	expect := `{"f:aaa":{}}`
