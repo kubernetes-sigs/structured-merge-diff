@@ -1,3 +1,3 @@
 types:
-- name: scalar
-  scalar: string
+    - name: scalar
+      scalar: string
