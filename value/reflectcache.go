@@ -18,7 +18,6 @@ package value
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -26,6 +25,8 @@ import (
 	"sort"
 	"sync"
 	"sync/atomic"
+
+	"encoding/json"
 )
 
 // UnstructuredConverter defines how a type can be converted directly to unstructured.
