@@ -107,6 +107,9 @@ var associativeAndAtomicSchema = `types:
     - name: atomicMap
       type:
         namedType: myAtomicMap
+    - name: atomicElementList
+      type:
+        namedType: myAtomicElementList
 - name: myList
   list:
     elementType:
@@ -117,9 +120,20 @@ var associativeAndAtomicSchema = `types:
     - id
 - name: myAtomicMap
   map:
+    fields:
+    - name: id
+      type:
+        scalar: string
     elementType:
       scalar: string
     elementRelationship: atomic
+- name: myAtomicElementList
+  list:
+    elementType:
+      namedType: myAtomicMap
+    elementRelationship: associative
+    keys:
+    - id
 - name: mySequence
   list:
     elementType:
@@ -971,6 +985,14 @@ var extractWithKeysCases = []extractWithKeysTestCase{{
 			wantOutput: map[string]interface{}{
 				"list": []interface{}{nil},
 			},
+		},
+		{
+			// extract atomic element from associative list
+			object: `{"atomicElementList":[{"id":"test-123","data":"value","extra":"field"}]}`,
+			set: _NS(
+				_P("atomicElementList", _KBF("id", "test-123")),
+			),
+			wantOutput: typed.YAMLObject(`{"atomicElementList":[{"id":"test-123","data":"value","extra":"field"}]}`),
 		},
 	},
 }}
