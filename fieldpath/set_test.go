@@ -61,7 +61,7 @@ var randomPathMaker = randomPathAlphabet(MakePathOrDie(
 	KeyByFields("name", "second"),
 	KeyByFields("port", 443, "protocol", "tcp"),
 	KeyByFields("port", 443, "protocol", "udp"),
-	KeyByFields("key", "value"),
+	KeyByFields("key", " value with spaces "),
 	KeyByFields("lang", "en-US"),
 	KeyByFields("unicode-key", "unicode-value-🔥"),
 	// Values
