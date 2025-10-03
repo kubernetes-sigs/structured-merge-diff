@@ -99,12 +99,12 @@ func (w *removingWalker) doList(t *schema.List) (errs ValidationErrors) {
 				continue
 			}
 			if isPrefixMatch {
-				// Removing nested items WITHIN this list item - preserve if it becomes empty
+				// Removing nested items within this list item and preserve if it becomes empty
 				hadMatches = true
 				wasMap := item.IsMap()
 				wasList := item.IsList()
 				item = removeItemsWithSchema(item, w.toRemove.WithPrefix(pe), w.schema, t.ElementType, w.shouldExtract)
-				// If recursive call returned null but we're removing items within (not the item itself),
+				// If item returned null but we're removing items within the structure(not the item itself),
 				// preserve the empty container structure
 				if item.IsNull() && !w.shouldExtract {
 					if wasMap {
@@ -167,7 +167,6 @@ func (w *removingWalker) doMap(t *schema.Map) ValidationErrors {
 		// save values on the path when we shouldExtract
 		// but ignore them when we are removing (i.e. !w.shouldExtract)
 		if w.toRemove.Has(path) {
-			// Exact match: removing this field itself, not items within it
 			if w.shouldExtract {
 				newMap[k] = removeItemsWithSchema(val, w.toRemove, w.schema, fieldType, w.shouldExtract).Unstructured()
 
@@ -179,7 +178,7 @@ func (w *removingWalker) doMap(t *schema.Map) ValidationErrors {
 			wasMap := val.IsMap()
 			wasList := val.IsList()
 			val = removeItemsWithSchema(val, subset, w.schema, fieldType, w.shouldExtract)
-			// If recursive call returned null but we're removing items within (not the field itself),
+			// If val returned null but we're removing items within the structure (not the field itself),
 			// preserve the empty container structure
 			if val.IsNull() && !w.shouldExtract {
 				if wasMap {
