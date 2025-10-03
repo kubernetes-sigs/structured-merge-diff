@@ -554,8 +554,8 @@ func TestUpdateNestedType(t *testing.T) {
 				},
 			},
 			Object: `
-				struct:
-			`,
+			struct: {}
+		`,
 			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
