@@ -1061,14 +1061,14 @@ func TestMultipleAppliersNestedType(t *testing.T) {
 				},
 			},
 			Object: `
-				mapOfMapsRecursive:
-				  a:
-				  c:
-				    d:
-				      e:
-				        f:
-				          g:
-			`,
+			mapOfMapsRecursive:
+			  a: {}
+			  c:
+			    d:
+			      e:
+			        f:
+			          g:
+		`,
 			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"apply-one": fieldpath.NewVersionedSet(
@@ -1187,13 +1187,13 @@ func TestMultipleAppliersDeducedType(t *testing.T) {
 				},
 			},
 			Object: `
-				a:
-				c:
-				  d:
-				    e:
-				      f:
-				        g:
-			`,
+			a: {}
+			c:
+			  d:
+			    e:
+			      f:
+			        g:
+		`,
 			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"apply-two": fieldpath.NewVersionedSet(
