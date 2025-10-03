@@ -281,7 +281,7 @@ var removeCases = []removeTestCase{{
 	quadruplets: []removeQuadruplet{{
 		`{"setBool":[false]}`,
 		_NS(_P("setBool", _V(false))),
-		`{"setBool":null}`,
+		`{"setBool":[]}`,
 		`{"setBool":[false]}`,
 	}, {
 		`{"setBool":[false]}`,
@@ -671,7 +671,7 @@ var removeCases = []removeTestCase{{
 		_NS(
 			_P("mapOfMapsRecursive", "a"),
 		),
-		`{"mapOfMapsRecursive"}`,
+		`{"mapOfMapsRecursive":{}}`,
 		`{"mapOfMapsRecursive": {"a":null}}`,
 	}, {
 		// second-level map
@@ -679,7 +679,7 @@ var removeCases = []removeTestCase{{
 		_NS(
 			_P("mapOfMapsRecursive", "a", "b"),
 		),
-		`{"mapOfMapsRecursive":{"a":null}}`,
+		`{"mapOfMapsRecursive":{"a":{}}}`,
 		`{"mapOfMapsRecursive": {"a":{"b":null}}}`,
 	}, {
 		// third-level map
@@ -687,7 +687,7 @@ var removeCases = []removeTestCase{{
 		_NS(
 			_P("mapOfMapsRecursive", "a", "b", "c"),
 		),
-		`{"mapOfMapsRecursive":{"a":{"b":null}}}`,
+		`{"mapOfMapsRecursive":{"a":{"b":{}}}}`,
 		`{"mapOfMapsRecursive": {"a":{"b":{"c":null}}}}`,
 	}, {
 		// empty list
