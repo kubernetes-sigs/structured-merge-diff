@@ -87,6 +87,48 @@ func TestFindField(t *testing.T) {
 	}
 }
 
+func testMap() *Map {
+	return &Map{
+		Fields: []StructField{
+			{
+				Name: "a",
+				Type: TypeRef{NamedType: strptr("aaa")},
+			}, {
+				Name: "b",
+				Type: TypeRef{NamedType: strptr("bbb")},
+			}, {
+				Name: "c",
+				Type: TypeRef{NamedType: strptr("ccc")},
+			},
+		},
+	}
+}
+
+func BenchmarkFindFieldCached(b *testing.B) {
+	m := testMap()
+	m.FindField("a")
+	for i := 0; i < b.N; i++ {
+		m.FindField("a")
+	}
+}
+
+func BenchmarkFindFieldNew(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		m := testMap()
+		m.FindField("a")
+	}
+}
+
+// As a baseline of BenchmarkFindFieldNew
+func BenchmarkMakeMap(b *testing.B) {
+	var m *Map
+	for i := 0; i < b.N; i++ {
+		m = testMap()
+	}
+	b.StopTimer()
+	b.Log(m) // prevent dead code elimination
+}
+
 func TestResolve(t *testing.T) {
 	existing := "existing"
 	notExisting := "not-existing"
@@ -176,4 +218,28 @@ func TestCopyInto(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestMapCopyInto(t *testing.T) {
+	s := Map{
+		Fields: []StructField{
+			{
+				Name: "a",
+				Type: TypeRef{NamedType: strptr("aaa")},
+			},
+		},
+	}
+	theCopy := Map{}
+
+	assert := func(sf StructField, ok bool) {
+		if !ok || *sf.Type.NamedType != "aaa" {
+			t.Error("expected NamedType aaa not found")
+		}
+	}
+
+	go func() {
+		s.CopyInto(&theCopy)
+		assert(theCopy.FindField("a"))
+	}()
+	assert(s.FindField("a"))
 }
