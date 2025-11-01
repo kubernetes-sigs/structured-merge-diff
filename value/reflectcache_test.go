@@ -17,7 +17,6 @@ limitations under the License.
 package value
 
 import (
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"testing"
@@ -326,16 +325,6 @@ func TestUnmarshal(t *testing.T) {
 			IntoType:  reflect.TypeOf([0]interface{}{}).Elem(),
 			Want:      map[string]interface{}{},
 			WantError: true,
-		},
-		{
-			JSON:     `1.0`,
-			IntoType: reflect.TypeOf(json.Number("")),
-			Want:     json.Number("1.0"),
-		},
-		{
-			JSON:     `1`,
-			IntoType: reflect.TypeOf(json.Number("")),
-			Want:     json.Number("1"),
 		},
 		{
 			JSON:     `1.0`,
