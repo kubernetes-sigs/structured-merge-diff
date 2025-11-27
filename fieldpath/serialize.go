@@ -17,118 +17,95 @@ limitations under the License.
 package fieldpath
 
 import (
-	"bytes"
+	"fmt"
 	"io"
-	"unsafe"
+	"sort"
+	"sync"
 
-	jsoniter "github.com/json-iterator/go"
+	"github.com/go-json-experiment/json"
+	"github.com/go-json-experiment/json/jsontext"
 )
 
 func (s *Set) ToJSON() ([]byte, error) {
-	buf := bytes.Buffer{}
-	err := s.ToJSONStream(&buf)
-	if err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
+	return json.Marshal((*setContentsV1)(s))
 }
 
 func (s *Set) ToJSONStream(w io.Writer) error {
-	stream := writePool.BorrowStream(w)
-	defer writePool.ReturnStream(stream)
-
-	var r reusableBuilder
-
-	stream.WriteObjectStart()
-	err := s.emitContentsV1(false, stream, &r)
-	if err != nil {
-		return err
-	}
-	stream.WriteObjectEnd()
-	return stream.Flush()
+	return json.MarshalWrite(w, (*setContentsV1)(s))
 }
 
-func manageMemory(stream *jsoniter.Stream) error {
-	// Help jsoniter manage its buffers--without this, it does a bunch of
-	// alloctaions that are not necessary. They were probably optimizing
-	// for folks using the buffer directly.
-	b := stream.Buffer()
-	if len(b) > 4096 || cap(b)-len(b) < 2048 {
-		if err := stream.Flush(); err != nil {
-			return err
-		}
-		stream.SetBuffer(b[:0])
+var pool = sync.Pool{
+	New: func() any {
+		return &pathElementSerializer{}
+	},
+}
+
+func writePathKey(enc *jsontext.Encoder, pe PathElement) error {
+	serializer := pool.Get().(*pathElementSerializer)
+	defer func() {
+		serializer.reset()
+		pool.Put(serializer)
+	}()
+
+	if err := serializer.serialize(pe); err != nil {
+		return err
+	}
+
+	if err := enc.WriteToken(jsontext.String(serializer.builder.String())); err != nil {
+		return err
 	}
 	return nil
 }
 
-type reusableBuilder struct {
-	bytes.Buffer
+type setContentsV1 Set
+
+var _ json.MarshalerTo = (*setContentsV1)(nil)
+var _ json.UnmarshalerFrom = (*setContentsV1)(nil)
+
+func (s *setContentsV1) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return s.emitContentsV1(false, enc)
 }
 
-func (r *reusableBuilder) unsafeString() string {
-	b := r.Bytes()
-	return *(*string)(unsafe.Pointer(&b))
-}
-
-func (r *reusableBuilder) reset() *bytes.Buffer {
-	r.Reset()
-	return &r.Buffer
-}
-
-func (s *Set) emitContentsV1(includeSelf bool, stream *jsoniter.Stream, r *reusableBuilder) error {
-	mi, ci := 0, 0
-	first := true
-	preWrite := func() {
-		if first {
-			first = false
-			return
-		}
-		stream.WriteMore()
+func (s *setContentsV1) emitContentsV1(includeSelf bool, om *jsontext.Encoder) error {
+	if err := om.WriteToken(jsontext.BeginObject); err != nil {
+		return err
 	}
 
 	if includeSelf && !(len(s.Members.members) == 0 && len(s.Children.members) == 0) {
-		preWrite()
-		stream.WriteObjectField(".")
-		stream.WriteEmptyObject()
+		if err := om.WriteToken(jsontext.String(".")); err != nil {
+			return err
+		}
+		if err := om.WriteValue(jsontext.Value("{}")); err != nil {
+			return err
+		}
 	}
 
+	mi, ci := 0, 0
 	for mi < len(s.Members.members) && ci < len(s.Children.members) {
 		mpe := s.Members.members[mi]
 		cpe := s.Children.members[ci].pathElement
 
 		if c := mpe.Compare(cpe); c < 0 {
-			preWrite()
-			if err := serializePathElementToWriter(r.reset(), mpe); err != nil {
+			if err := writePathKey(om, mpe); err != nil {
 				return err
 			}
-			stream.WriteObjectField(r.unsafeString())
-			stream.WriteEmptyObject()
+			if err := om.WriteValue(jsontext.Value("{}")); err != nil {
+				return err
+			}
+
 			mi++
-		} else if c > 0 {
-			preWrite()
-			if err := serializePathElementToWriter(r.reset(), cpe); err != nil {
-				return err
-			}
-			stream.WriteObjectField(r.unsafeString())
-			stream.WriteObjectStart()
-			if err := s.Children.members[ci].set.emitContentsV1(false, stream, r); err != nil {
-				return err
-			}
-			stream.WriteObjectEnd()
-			ci++
 		} else {
-			preWrite()
-			if err := serializePathElementToWriter(r.reset(), cpe); err != nil {
+			if err := writePathKey(om, cpe); err != nil {
 				return err
 			}
-			stream.WriteObjectField(r.unsafeString())
-			stream.WriteObjectStart()
-			if err := s.Children.members[ci].set.emitContentsV1(true, stream, r); err != nil {
+			if err := (*setContentsV1)(s.Children.members[ci].set).emitContentsV1(c == 0, om); err != nil {
 				return err
 			}
-			stream.WriteObjectEnd()
-			mi++
+
+			// If we also found a member with the same path, we skip this member.
+			if c == 0 {
+				mi++
+			}
 			ci++
 		}
 	}
@@ -136,103 +113,130 @@ func (s *Set) emitContentsV1(includeSelf bool, stream *jsoniter.Stream, r *reusa
 	for mi < len(s.Members.members) {
 		mpe := s.Members.members[mi]
 
-		preWrite()
-		if err := serializePathElementToWriter(r.reset(), mpe); err != nil {
+		if err := writePathKey(om, mpe); err != nil {
 			return err
 		}
-		stream.WriteObjectField(r.unsafeString())
-		stream.WriteEmptyObject()
+		if err := om.WriteValue(jsontext.Value("{}")); err != nil {
+			return err
+		}
+
 		mi++
 	}
 
 	for ci < len(s.Children.members) {
 		cpe := s.Children.members[ci].pathElement
 
-		preWrite()
-		if err := serializePathElementToWriter(r.reset(), cpe); err != nil {
+		if err := writePathKey(om, cpe); err != nil {
 			return err
 		}
-		stream.WriteObjectField(r.unsafeString())
-		stream.WriteObjectStart()
-		if err := s.Children.members[ci].set.emitContentsV1(false, stream, r); err != nil {
+		if err := (*setContentsV1)(s.Children.members[ci].set).emitContentsV1(false, om); err != nil {
 			return err
 		}
-		stream.WriteObjectEnd()
+
 		ci++
 	}
 
-	return manageMemory(stream)
+	if err := om.WriteToken(jsontext.EndObject); err != nil {
+		return err
+	}
+
+	return nil
 }
 
-// FromJSON clears s and reads a JSON formatted set structure.
-func (s *Set) FromJSON(r io.Reader) error {
-	// The iterator pool is completely useless for memory management, grrr.
-	iter := jsoniter.Parse(jsoniter.ConfigCompatibleWithStandardLibrary, r, 4096)
-
-	found, _ := readIterV1(iter)
-	if found == nil {
-		*s = Set{}
+func (s *setContentsV1) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	found, _, err := s.readIterV1(dec)
+	if err != nil {
+		return err
+	} else if found == nil {
+		*(*Set)(s) = Set{}
 	} else {
-		*s = *found
+		*(*Set)(s) = *found
 	}
-	return iter.Error
+	return nil
 }
 
 // returns true if this subtree is also (or only) a member of parent; s is nil
 // if there are no further children.
-func readIterV1(iter *jsoniter.Iterator) (children *Set, isMember bool) {
-	iter.ReadMapCB(func(iter *jsoniter.Iterator, key string) bool {
-		if key == "." {
-			isMember = true
-			iter.Skip()
-			return true
+func (s *setContentsV1) readIterV1(parser *jsontext.Decoder) (children *Set, isMember bool, err error) {
+	if objStart, err := parser.ReadToken(); err != nil {
+		return nil, false, fmt.Errorf("parsing JSON: %v", err)
+	} else if objStart.Kind() != jsontext.BeginObject.Kind() {
+		return nil, false, fmt.Errorf("expected object")
+	}
+
+	for {
+		rawKey, err := parser.ReadToken()
+		if err == io.EOF {
+			return nil, false, fmt.Errorf("unexpected EOF")
+		} else if err != nil {
+			return nil, false, fmt.Errorf("parsing JSON: %v", err)
 		}
-		pe, err := DeserializePathElement(key)
+
+		if rawKey.Kind() == jsontext.EndObject.Kind() {
+			break
+		}
+
+		k := rawKey.String()
+		if k == "." {
+			isMember = true
+			if err := parser.SkipValue(); err != nil {
+				return nil, false, fmt.Errorf("parsing JSON: %v", err)
+			}
+			continue
+		}
+		pe, err := DeserializePathElement(k)
 		if err == ErrUnknownPathElementType {
 			// Ignore these-- a future version maybe knows what
 			// they are. We drop these completely rather than try
 			// to preserve things we don't understand.
-			iter.Skip()
-			return true
+			if err := parser.SkipValue(); err != nil {
+				return nil, false, fmt.Errorf("parsing JSON: %v", err)
+			}
+			continue
 		} else if err != nil {
-			iter.ReportError("parsing key as path element", err.Error())
-			iter.Skip()
-			return true
+			return nil, false, fmt.Errorf("parsing key as path element: %v", err)
 		}
-		grandchildren, childIsMember := readIterV1(iter)
-		if childIsMember {
+
+		grandChildren, isChildMember, err := s.readIterV1(parser)
+		if err != nil {
+			return nil, false, fmt.Errorf("parsing value as set: %v", err)
+		}
+
+		if isChildMember {
 			if children == nil {
 				children = &Set{}
 			}
+
+			// Append the member to the members list, we will sort it later
 			m := &children.Members.members
-			// Since we expect that most of the time these will have been
-			// serialized in the right order, we just verify that and append.
-			appendOK := len(*m) == 0 || (*m)[len(*m)-1].Less(pe)
-			if appendOK {
-				*m = append(*m, pe)
-			} else {
-				children.Members.Insert(pe)
-			}
+			*m = append(*m, pe)
 		}
-		if grandchildren != nil {
+
+		if grandChildren != nil {
 			if children == nil {
 				children = &Set{}
 			}
-			// Since we expect that most of the time these will have been
-			// serialized in the right order, we just verify that and append.
+
+			// Append the child to the children list, we will sort it later
 			m := &children.Children.members
-			appendOK := len(*m) == 0 || (*m)[len(*m)-1].pathElement.Less(pe)
-			if appendOK {
-				*m = append(*m, setNode{pe, grandchildren})
-			} else {
-				*children.Children.Descend(pe) = *grandchildren
-			}
+			*m = append(*m, setNode{pe, grandChildren})
 		}
-		return true
-	})
+	}
+
+	// Sort the members and children
+	if children != nil {
+		sort.Sort(children.Members.members)
+		sort.Sort(children.Children.members)
+	}
+
 	if children == nil {
 		isMember = true
 	}
 
-	return children, isMember
+	return children, isMember, nil
+}
+
+// FromJSON clears s and reads a JSON formatted set structure.
+func (s *Set) FromJSON(r io.Reader) error {
+	return json.UnmarshalRead(r, (*setContentsV1)(s))
 }

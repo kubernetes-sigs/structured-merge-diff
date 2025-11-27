@@ -17,19 +17,11 @@ limitations under the License.
 package value
 
 import (
-	"bytes"
 	"fmt"
-	"io"
 	"strings"
 
-	jsoniter "github.com/json-iterator/go"
-
+	"github.com/go-json-experiment/json"
 	yaml "go.yaml.in/yaml/v2"
-)
-
-var (
-	readPool  = jsoniter.NewIterator(jsoniter.ConfigCompatibleWithStandardLibrary).Pool()
-	writePool = jsoniter.NewStream(jsoniter.ConfigCompatibleWithStandardLibrary, nil, 1024).Pool()
 )
 
 // A Value corresponds to an 'atom' in the schema. It should return true
@@ -84,48 +76,22 @@ type Value interface {
 
 // FromJSON is a helper function for reading a JSON document.
 func FromJSON(input []byte) (Value, error) {
-	return FromJSONFast(input)
+	var v any
+	if err := json.Unmarshal(input, &v); err != nil {
+		return nil, err
+	}
+
+	return NewValueInterface(v), nil
 }
 
 // FromJSONFast is a helper function for reading a JSON document.
 func FromJSONFast(input []byte) (Value, error) {
-	iter := readPool.BorrowIterator(input)
-	defer readPool.ReturnIterator(iter)
-	return readJSONIter(iter)
+	return FromJSON(input)
 }
 
 // ToJSON is a helper function for producing a JSon document.
 func ToJSON(v Value) ([]byte, error) {
-	buf := bytes.Buffer{}
-	stream := writePool.BorrowStream(&buf)
-	defer writePool.ReturnStream(stream)
-	writeJSONStream(v, stream)
-	b := stream.Buffer()
-	err := stream.Flush()
-	// Help jsoniter manage its buffers--without this, the next
-	// use of the stream is likely to require an allocation. Look
-	// at the jsoniter stream code to understand why. They were probably
-	// optimizing for folks using the buffer directly.
-	stream.SetBuffer(b[:0])
-	return buf.Bytes(), err
-}
-
-// readJSONIter reads a Value from a JSON iterator.
-// DO NOT EXPORT
-// TODO: eliminate this https://github.com/kubernetes-sigs/structured-merge-diff/issues/202
-func readJSONIter(iter *jsoniter.Iterator) (Value, error) {
-	v := iter.Read()
-	if iter.Error != nil && iter.Error != io.EOF {
-		return nil, iter.Error
-	}
-	return NewValueInterface(v), nil
-}
-
-// writeJSONStream writes a value into a JSON stream.
-// DO NOT EXPORT
-// TODO: eliminate this https://github.com/kubernetes-sigs/structured-merge-diff/issues/202
-func writeJSONStream(v Value, stream *jsoniter.Stream) {
-	stream.WriteVal(v.Unstructured())
+	return json.Marshal(v.Unstructured(), json.Deterministic(true))
 }
 
 // ToYAML marshals a value as YAML.
