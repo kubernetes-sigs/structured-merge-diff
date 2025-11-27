@@ -19,7 +19,7 @@ package value
 import (
 	"fmt"
 	"io"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/go-json-experiment/json"
@@ -154,8 +154,8 @@ func (f FieldList) Sort() {
 		}
 		return
 	}
-	sort.SliceStable(f, func(i, j int) bool {
-		return f[i].Name < f[j].Name
+	slices.SortStableFunc(f, func(a, b Field) int {
+		return strings.Compare(a.Name, b.Name)
 	})
 }
 
