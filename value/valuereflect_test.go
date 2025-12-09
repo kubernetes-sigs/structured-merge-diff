@@ -290,6 +290,12 @@ func TestReflectStruct(t *testing.T) {
 			expectedMap:          map[string]interface{}{"int": int64(10), "S": "string"},
 			expectedUnstructured: map[string]interface{}{"int": int64(10), "S": "string"},
 		},
+		{
+			name:                 "embeddedIsNil",
+			val:                  testEmbeddedStruct{},
+			expectedMap:          map[string]interface{}{"int": int64(0), "S": ""},
+			expectedUnstructured: map[string]interface{}{"int": int64(0), "S": ""},
+		},
 	}
 
 	for _, tc := range cases {
