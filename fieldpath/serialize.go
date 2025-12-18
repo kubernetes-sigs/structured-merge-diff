@@ -19,6 +19,7 @@ package fieldpath
 import (
 	"bytes"
 	"io"
+	"slices"
 	"unsafe"
 
 	jsoniter "github.com/json-iterator/go"
@@ -204,34 +205,40 @@ func readIterV1(iter *jsoniter.Iterator) (children *Set, isMember bool) {
 			if children == nil {
 				children = &Set{}
 			}
-			m := &children.Members.members
-			// Since we expect that most of the time these will have been
-			// serialized in the right order, we just verify that and append.
-			appendOK := len(*m) == 0 || (*m)[len(*m)-1].Less(pe)
-			if appendOK {
-				*m = append(*m, pe)
-			} else {
-				children.Members.Insert(pe)
-			}
+			children.Members.members = append(children.Members.members, pe)
 		}
 		if grandchildren != nil {
 			if children == nil {
 				children = &Set{}
 			}
-			// Since we expect that most of the time these will have been
-			// serialized in the right order, we just verify that and append.
-			m := &children.Children.members
-			appendOK := len(*m) == 0 || (*m)[len(*m)-1].pathElement.Less(pe)
-			if appendOK {
-				*m = append(*m, setNode{pe, grandchildren})
-			} else {
-				*children.Children.Descend(pe) = *grandchildren
-			}
+			children.Children.members = append(children.Children.members, setNode{pe, grandchildren})
 		}
 		return true
 	})
 	if children == nil {
 		isMember = true
+	} else {
+		slices.SortFunc(children.Members.members, func(a, b PathElement) int {
+			return a.Compare(b)
+		})
+		children.Members.members = slices.CompactFunc(children.Members.members, func(a, b PathElement) bool {
+			return a.Equals(b)
+		})
+		if len(children.Children.members) > 1 {
+			slices.SortStableFunc(children.Children.members, func(a, b setNode) int {
+				return a.pathElement.Compare(b.pathElement)
+			})
+			// Compact duplicates, keeping the last occurrence to preserve historical behavior:
+			var dst int
+			for src := 1; src < len(children.Children.members); src++ {
+				if !children.Children.members[dst].pathElement.Equals(children.Children.members[src].pathElement) {
+					dst++
+				}
+				children.Children.members[dst] = children.Children.members[src]
+			}
+			clear(children.Children.members[dst+1:])
+			children.Children.members = children.Children.members[:dst+1]
+		}
 	}
 
 	return children, isMember
