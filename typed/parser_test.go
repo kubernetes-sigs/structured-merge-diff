@@ -17,12 +17,12 @@ limitations under the License.
 package typed_test
 
 import (
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	yaml "go.yaml.in/yaml/v2"
+	yaml "go.yaml.in/yaml/v3"
 	"sigs.k8s.io/structured-merge-diff/v6/typed"
 )
 
@@ -31,7 +31,7 @@ func testdata(file string) string {
 }
 
 func read(file string) []byte {
-	obj, err := ioutil.ReadFile(file)
+	obj, err := os.ReadFile(file)
 	if err != nil {
 		panic(err)
 	}
@@ -65,7 +65,7 @@ func BenchmarkConvertUnstructured(b *testing.B) {
 		},
 	}
 
-	s, err := ioutil.ReadFile(testdata("k8s-schema.yaml"))
+	s, err := os.ReadFile(testdata("k8s-schema.yaml"))
 	if err != nil {
 		b.Fatal(err)
 	}
