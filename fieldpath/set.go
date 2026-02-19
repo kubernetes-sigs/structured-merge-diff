@@ -19,6 +19,7 @@ package fieldpath
 import (
 	"fmt"
 	"iter"
+	"slices"
 	"sort"
 	"strings"
 
@@ -131,7 +132,7 @@ func (s *Set) RecursiveDifference(s2 *Set) *Set {
 // "a" if it's a named fields but not "a.b" if it's a map.
 func (s *Set) EnsureNamedFieldsAreMembers(sc *schema.Schema, tr schema.TypeRef) *Set {
 	members := PathElementSet{
-		members: make(sortedPathElements, 0, s.Members.Size()+len(s.Children.members)),
+		members: make([]PathElement, 0, s.Members.Size()+len(s.Children.members)),
 	}
 	atom, _ := sc.Resolve(tr)
 	members.members = append(members.members, s.Members.members...)
@@ -222,7 +223,9 @@ func MatchAnySet() *SetMatcher {
 // Wildcard members take precedent over non-wildcard members;
 // all non-wildcard members are ignored if there is a wildcard members.
 func NewSetMatcher(wildcard bool, members ...*SetMemberMatcher) *SetMatcher {
-	sort.Sort(sortedMemberMatcher(members))
+	slices.SortFunc(members, func(a, b *SetMemberMatcher) int {
+		return a.Path.Compare(b.Path)
+	})
 	return &SetMatcher{wildcard: wildcard, members: members}
 }
 
@@ -235,18 +238,7 @@ type SetMatcher struct {
 	// members provides patterns to match the members of a Set.
 	// Wildcard members are sorted before non-wildcards and take precedent over
 	// non-wildcard members.
-	members sortedMemberMatcher
-}
-
-type sortedMemberMatcher []*SetMemberMatcher
-
-func (s sortedMemberMatcher) Len() int           { return len(s) }
-func (s sortedMemberMatcher) Less(i, j int) bool { return s[i].Path.Less(s[j].Path) }
-func (s sortedMemberMatcher) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
-func (s sortedMemberMatcher) Find(p PathElementMatcher) (location int, ok bool) {
-	return sort.Find(len(s), func(i int) int {
-		return s[i].Path.Compare(p)
-	})
+	members []*SetMemberMatcher // sorted, with no duplicates
 }
 
 // Merge merges s and s2 and returns a SetMatcher that matches all field paths matched by either s or s2.
@@ -256,10 +248,12 @@ func (s *SetMatcher) Merge(s2 *SetMatcher) *SetMatcher {
 	if s.wildcard || s2.wildcard {
 		return NewSetMatcher(true)
 	}
-	merged := make(sortedMemberMatcher, len(s.members), len(s.members)+len(s2.members))
+	merged := make([]*SetMemberMatcher, len(s.members), len(s.members)+len(s2.members))
 	copy(merged, s.members)
 	for _, m := range s2.members {
-		if i, ok := s.members.Find(m.Path); ok {
+		if i, ok := slices.BinarySearchFunc(s.members, m.Path, func(a *SetMemberMatcher, b PathElementMatcher) int {
+			return a.Path.Compare(b)
+		}); ok {
 			// since merged is a shallow copy, do not modify elements in place
 			merged[i] = &SetMemberMatcher{
 				Path:  merged[i].Path,
@@ -463,21 +457,13 @@ type setNode struct {
 
 // SetNodeMap is a map of PathElement to subset.
 type SetNodeMap struct {
-	members sortedSetNode
+	members []setNode // sorted, with no duplicates
 }
-
-type sortedSetNode []setNode
-
-// Implement the sort interface; this would permit bulk creation, which would
-// be faster than doing it one at a time via Insert.
-func (s sortedSetNode) Len() int           { return len(s) }
-func (s sortedSetNode) Less(i, j int) bool { return s[i].pathElement.Less(s[j].pathElement) }
-func (s sortedSetNode) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
 // Copy returns a copy of the SetNodeMap.
 // This is not a full deep copy as any contained value.Value is not copied.
 func (s *SetNodeMap) Copy() SetNodeMap {
-	out := make(sortedSetNode, len(s.members))
+	out := make([]setNode, len(s.members))
 	for i, v := range s.members {
 		out[i] = setNode{pathElement: v.pathElement.Copy(), set: v.set.Copy()}
 	}
@@ -677,7 +663,7 @@ func (s *SetNodeMap) RecursiveDifference(s2 *Set) *SetNodeMap {
 
 // EnsureNamedFieldsAreMembers returns a set that contains all the named fields along with the leaves.
 func (s *SetNodeMap) EnsureNamedFieldsAreMembers(sc *schema.Schema, tr schema.TypeRef) *SetNodeMap {
-	out := make(sortedSetNode, 0, s.Size())
+	out := make([]setNode, 0, s.Size())
 	atom, _ := sc.Resolve(tr)
 	for _, member := range s.members {
 		tr := schema.TypeRef{}
@@ -706,7 +692,7 @@ func (s *SetNodeMap) FilterIncludeMatches(pattern *SetMatcher) *SetNodeMap {
 		return s
 	}
 
-	var out sortedSetNode
+	var out []setNode
 	for _, member := range s.members {
 		for _, c := range pattern.members {
 			if c.Path.Wildcard || c.Path.PathElement.Equals(member.pathElement) {
@@ -754,7 +740,7 @@ func (s *SetNodeMap) iteratePrefix(prefix Path, f func(Path)) {
 // only setNodes with leaf PathElements.
 func (s *SetNodeMap) Leaves() *SetNodeMap {
 	out := &SetNodeMap{}
-	out.members = make(sortedSetNode, len(s.members))
+	out.members = make([]setNode, len(s.members))
 	for i, n := range s.members {
 		out.members[i] = setNode{
 			pathElement: n.pathElement,
