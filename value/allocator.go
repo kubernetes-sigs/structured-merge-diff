@@ -157,21 +157,33 @@ func (w *freelistAllocator) Free(value any) {
 		v.Value = nil // don't hold references to unstructured objects
 		w.valueUnstructured.free(v)
 	case *listUnstructuredRange:
+		v.list = nil     // don't hold references to unstructured objects
 		v.vv.Value = nil // don't hold references to unstructured objects
 		w.listUnstructuredRange.free(v)
 	case *valueReflect:
-		v.ParentMapKey = nil
 		v.ParentMap = nil
+		v.ParentMapKey = nil
+		v.Value = reflect.Value{} // don't hold references to reflected objects
 		w.valueReflect.free(v)
 	case *mapReflect:
+		v.valueReflect.ParentMap = nil
+		v.valueReflect.ParentMapKey = nil
+		v.valueReflect.Value = reflect.Value{} // don't hold references to reflected objects
 		w.mapReflect.free(v)
 	case *structReflect:
+		v.valueReflect.ParentMap = nil
+		v.valueReflect.ParentMapKey = nil
+		v.valueReflect.Value = reflect.Value{} // don't hold references to reflected objects
 		w.structReflect.free(v)
 	case *listReflect:
+		v.Value = reflect.Value{} // don't hold references to reflected objects
 		w.listReflect.free(v)
 	case *listReflectRange:
-		v.vr.ParentMapKey = nil
+		v.list = reflect.Value{} // don't hold references to reflected objects
 		v.vr.ParentMap = nil
+		v.vr.ParentMapKey = nil
+		v.vr.Value = reflect.Value{} // don't hold references to reflected objects
+		v.entry = nil
 		w.listReflectRange.free(v)
 	}
 }
