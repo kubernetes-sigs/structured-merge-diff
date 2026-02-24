@@ -55,6 +55,7 @@ func TestPathElementRoundTrip(t *testing.T) {
 		{`k:{"name":"Привет, мир"}`, KeyElement(value.Field{Name: "name", Value: value.NewValueInterface("Привет, мир")})},
 		{`k:{"name":"नमस्ते दुनिया"}`, KeyElement(value.Field{Name: "name", Value: value.NewValueInterface("नमस्ते दुनिया")})},
 		{`k:{"name":"👋"}`, KeyElement(value.Field{Name: "name", Value: value.NewValueInterface("👋")})},
+		{`k:{"duplicateKey":"value1","duplicateKey":"value2"}`, KeyElement(value.Field{Name: "duplicateKey", Value: value.NewValueInterface("value1")}, value.Field{Name: "duplicateKey", Value: value.NewValueInterface("value2")})},
 	}
 
 	for _, test := range tests {
