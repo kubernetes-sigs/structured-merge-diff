@@ -76,6 +76,10 @@ func OmitZeroFunc(t reflect.Type) func(reflect.Value) bool {
 // but is based on the highly efficient approach from https://golang.org/src/encoding/json/encode.go
 
 func lookupJsonTags(f reflect.StructField) (name string, omit bool, inline bool, omitempty bool, omitzero func(reflect.Value) bool) {
+	// Skip unexported non-embedded fields, matching encoding/json behavior.
+	if f.PkgPath != "" && !f.Anonymous {
+		return "", true, false, false, nil
+	}
 	tag := f.Tag.Get("json")
 	if tag == "-" {
 		return "", true, false, false, nil
