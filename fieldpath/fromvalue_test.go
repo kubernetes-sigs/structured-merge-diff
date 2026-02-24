@@ -66,7 +66,7 @@ func TestFromValue(t *testing.T) {
 		tt := tt
 		t.Run(tt.objYAML, func(t *testing.T) {
 			t.Parallel()
-			var v interface{}
+			var v any
 			err := yaml.Unmarshal([]byte(tt.objYAML), &v)
 			if err != nil {
 				t.Fatalf("couldn't parse: %v", err)
@@ -74,6 +74,34 @@ func TestFromValue(t *testing.T) {
 			got := SetFromValue(value.NewValueInterface(v))
 			if !got.Equals(tt.set) {
 				t.Errorf("wanted\n%s\nbut got\n%s\n", tt.set, got)
+			}
+		})
+	}
+}
+
+func BenchmarkFromValue(b *testing.B) {
+	cases := []string{
+		`a: a`,
+		`{"a": [{"a": null}]}`,
+		`{"a": [{"id": a}]}`,
+		`{"a": [{"name": a}]}`,
+		`{"a": [{"key": a}]}`,
+		`{"a": [{"name": "a", "key": "b"}]}`,
+		`{"a": [5]}`,
+		`{"a": [5,4,3]}`,
+		`{"a": [[5]]}`,
+		`{"a": 1, "b": true, "c": 1.5, "d": null}`,
+	}
+
+	for _, s := range cases {
+		b.Run(s, func(b *testing.B) {
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				var v any
+				if err := yaml.Unmarshal([]byte(s), &v); err != nil {
+					b.Fatalf("couldn't parse: %v", err)
+				}
+				SetFromValue(value.NewValueInterface(v))
 			}
 		})
 	}
