@@ -226,27 +226,19 @@ func KeyByFields(nameValues ...interface{}) *value.FieldList {
 // PathElementSet is a set of path elements.
 // TODO: serialize as a list.
 type PathElementSet struct {
-	members sortedPathElements
+	members []PathElement // sorted, with no duplicates
 }
 
 func MakePathElementSet(size int) PathElementSet {
 	return PathElementSet{
-		members: make(sortedPathElements, 0, size),
+		members: make([]PathElement, 0, size),
 	}
 }
-
-type sortedPathElements []PathElement
-
-// Implement the sort interface; this would permit bulk creation, which would
-// be faster than doing it one at a time via Insert.
-func (spe sortedPathElements) Len() int           { return len(spe) }
-func (spe sortedPathElements) Less(i, j int) bool { return spe[i].Less(spe[j]) }
-func (spe sortedPathElements) Swap(i, j int)      { spe[i], spe[j] = spe[j], spe[i] }
 
 // Copy returns a copy of the PathElementSet.
 // This is not a full deep copy as any contained value.Value is not copied.
 func (s PathElementSet) Copy() PathElementSet {
-	out := make(sortedPathElements, len(s.members))
+	out := make([]PathElement, len(s.members))
 	for i := range s.members {
 		out[i] = s.members[i].Copy()
 	}
