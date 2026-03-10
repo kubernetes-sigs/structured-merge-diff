@@ -17,11 +17,11 @@ limitations under the License.
 package value_test
 
 import (
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"testing"
 
-	yaml "go.yaml.in/yaml/v2"
+	yaml "go.yaml.in/yaml/v3"
 	"sigs.k8s.io/structured-merge-diff/v6/value"
 )
 
@@ -30,7 +30,7 @@ func testdata(file string) string {
 }
 
 func read(file string) []byte {
-	s, err := ioutil.ReadFile(file)
+	s, err := os.ReadFile(file)
 	if err != nil {
 		panic(err)
 	}
