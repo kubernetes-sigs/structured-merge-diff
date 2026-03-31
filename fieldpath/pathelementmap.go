@@ -37,16 +37,6 @@ func MakePathElementValueMap(size int) PathElementValueMap {
 	}
 }
 
-type sortedPathElementValues []pathElementValue
-
-// Implement the sort interface; this would permit bulk creation, which would
-// be faster than doing it one at a time via Insert.
-func (spev sortedPathElementValues) Len() int { return len(spev) }
-func (spev sortedPathElementValues) Less(i, j int) bool {
-	return spev[i].PathElement.Less(spev[j].PathElement)
-}
-func (spev sortedPathElementValues) Swap(i, j int) { spev[i], spev[j] = spev[j], spev[i] }
-
 // Insert adds the pathelement and associated value in the map.
 // If insert is called twice with the same PathElement, the value is replaced.
 func (s *PathElementValueMap) Insert(pe PathElement, v value.Value) {
@@ -65,7 +55,7 @@ func (s *PathElementValueMap) Get(pe PathElement) (value.Value, bool) {
 
 // PathElementValueMap is a map from PathElement to interface{}.
 type PathElementMap struct {
-	members sortedPathElementValues
+	members []pathElementValue // sorted, with no duplicates
 }
 
 type pathElementValue struct {
@@ -75,7 +65,7 @@ type pathElementValue struct {
 
 func MakePathElementMap(size int) PathElementMap {
 	return PathElementMap{
-		members: make(sortedPathElementValues, 0, size),
+		members: make([]pathElementValue, 0, size),
 	}
 }
 
