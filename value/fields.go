@@ -17,8 +17,13 @@ limitations under the License.
 package value
 
 import (
-	"sort"
+	"fmt"
+	"io"
+	"slices"
 	"strings"
+
+	"github.com/go-json-experiment/json"
+	"github.com/go-json-experiment/json/jsontext"
 )
 
 // Field is an individual key-value pair.
@@ -27,9 +32,108 @@ type Field struct {
 	Value Value
 }
 
+// Not meant to be used by an external library.
+type FastMarshalValue struct {
+	Value *Value
+}
+
+var _ json.MarshalerTo = FastMarshalValue{}
+
+func (mv FastMarshalValue) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return valueMarshalJSONTo(enc, *mv.Value)
+}
+
+func valueMarshalJSONTo(enc *jsontext.Encoder, v Value) error {
+	switch {
+	case v.IsNull():
+		return enc.WriteToken(jsontext.Null)
+	case v.IsFloat():
+		return enc.WriteToken(jsontext.Float(v.AsFloat()))
+	case v.IsInt():
+		return enc.WriteToken(jsontext.Int(v.AsInt()))
+	case v.IsString():
+		return enc.WriteToken(jsontext.String(v.AsString()))
+	case v.IsBool():
+		return enc.WriteToken(jsontext.Bool(v.AsBool()))
+	case v.IsList():
+		if err := enc.WriteToken(jsontext.BeginArray); err != nil {
+			return err
+		}
+		list := v.AsList()
+		for i := 0; i < list.Length(); i++ {
+			if err := valueMarshalJSONTo(enc, list.At(i)); err != nil {
+				return err
+			}
+		}
+		return enc.WriteToken(jsontext.EndArray)
+	case v.IsMap():
+		// use the json marshaller to make sure the key ordering is deterministic
+		fallthrough
+	default:
+		return json.MarshalEncode(enc, v.Unstructured(), json.Deterministic(true))
+	}
+}
+
 // FieldList is a list of key-value pairs. Each field is expected to
 // have a different name.
 type FieldList []Field
+
+var _ json.MarshalerTo = (*FieldList)(nil)
+var _ json.UnmarshalerFrom = (*FieldList)(nil)
+
+func (fl *FieldList) MarshalJSONTo(enc *jsontext.Encoder) error {
+	enc.WriteToken(jsontext.BeginObject)
+	for _, f := range *fl {
+		if err := enc.WriteToken(jsontext.String(f.Name)); err != nil {
+			return err
+		}
+		if err := valueMarshalJSONTo(enc, f.Value); err != nil {
+			return err
+		}
+	}
+	enc.WriteToken(jsontext.EndObject)
+
+	return nil
+}
+
+// FieldListFromJSON is a helper function for reading a JSON document.
+func (fl *FieldList) UnmarshalJSONFrom(parser *jsontext.Decoder) error {
+	if objStart, err := parser.ReadToken(); err != nil {
+		return fmt.Errorf("parsing JSON: %v", err)
+	} else if objStart.Kind() != jsontext.BeginObject.Kind() {
+		return fmt.Errorf("expected object")
+	}
+
+	var fields FieldList
+	for {
+		rawKey, err := parser.ReadToken()
+		if err == io.EOF {
+			return fmt.Errorf("unexpected EOF")
+		} else if err != nil {
+			return fmt.Errorf("parsing JSON: %v", err)
+		}
+
+		if rawKey.Kind() == jsontext.EndObject.Kind() {
+			break
+		}
+
+		k := rawKey.String()
+
+		var v any
+		if err := json.UnmarshalDecode(parser, &v); err == io.EOF {
+			return fmt.Errorf("unexpected EOF")
+		} else if err != nil {
+			return fmt.Errorf("parsing JSON: %v", err)
+		}
+
+		fields = append(fields, Field{Name: k, Value: NewValueInterface(v)})
+	}
+
+	fields.Sort()
+	*fl = fields
+
+	return nil
+}
 
 // Copy returns a copy of the FieldList.
 // Values are not copied.
@@ -50,8 +154,8 @@ func (f FieldList) Sort() {
 		}
 		return
 	}
-	sort.SliceStable(f, func(i, j int) bool {
-		return f[i].Name < f[j].Name
+	slices.SortStableFunc(f, func(a, b Field) int {
+		return strings.Compare(a.Name, b.Name)
 	})
 }
 
