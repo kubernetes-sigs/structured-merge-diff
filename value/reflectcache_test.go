@@ -262,6 +262,30 @@ func TestTypeReflectEntryOf(t *testing.T) {
 				orderedStructFields: []*FieldCacheEntry{},
 			},
 		},
+		"StructWithUnexportedField": {
+			arg: struct {
+				Exported   string `json:"exported"`
+				unexported string
+			}{},
+			want: &TypeReflectCacheEntry{
+				structFields: map[string]*FieldCacheEntry{
+					"exported": {
+						JsonName:  "exported",
+						fieldPath: [][]int{{0}},
+						fieldType: reflect.TypeOf(testString),
+						TypeEntry: &TypeReflectCacheEntry{},
+					},
+				},
+				orderedStructFields: []*FieldCacheEntry{
+					{
+						JsonName:  "exported",
+						fieldPath: [][]int{{0}},
+						fieldType: reflect.TypeOf(testString),
+						TypeEntry: &TypeReflectCacheEntry{},
+					},
+				},
+			},
+		},
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
