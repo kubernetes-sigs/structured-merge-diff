@@ -253,13 +253,96 @@ func TestTypeReflectEntryOf(t *testing.T) {
 				},
 			},
 		},
-		"StructWithInlinedField": {
+		"StructWithNonEmbeddedInlineTag": {
 			arg: struct {
 				F1 string `json:",inline"`
 			}{},
 			want: &TypeReflectCacheEntry{
-				structFields:        map[string]*FieldCacheEntry{},
-				orderedStructFields: []*FieldCacheEntry{},
+				structFields: map[string]*FieldCacheEntry{
+					"F1": {
+						JsonName:  "F1",
+						fieldPath: [][]int{{0}},
+						fieldType: reflect.TypeOf(testString),
+						TypeEntry: &TypeReflectCacheEntry{},
+					},
+				},
+				orderedStructFields: []*FieldCacheEntry{
+					{
+						JsonName:  "F1",
+						fieldPath: [][]int{{0}},
+						fieldType: reflect.TypeOf(testString),
+						TypeEntry: &TypeReflectCacheEntry{},
+					},
+				},
+			},
+		},
+		"EmbeddedWithInlineTag": {
+			arg: struct {
+				Inlined `json:",inline"`
+			}{},
+			want: &TypeReflectCacheEntry{
+				structFields: map[string]*FieldCacheEntry{
+					"f1": {
+						JsonName:  "f1",
+						fieldPath: [][]int{{0}, {0}},
+						fieldType: reflect.TypeOf(testString),
+						TypeEntry: &TypeReflectCacheEntry{},
+					},
+				},
+				orderedStructFields: []*FieldCacheEntry{
+					{
+						JsonName:  "f1",
+						fieldPath: [][]int{{0}, {0}},
+						fieldType: reflect.TypeOf(testString),
+						TypeEntry: &TypeReflectCacheEntry{},
+					},
+				},
+			},
+		},
+		"EmbeddedWithEmptyJSONTag": {
+			arg: struct {
+				Inlined `json:""`
+			}{},
+			want: &TypeReflectCacheEntry{
+				structFields: map[string]*FieldCacheEntry{
+					"f1": {
+						JsonName:  "f1",
+						fieldPath: [][]int{{0}, {0}},
+						fieldType: reflect.TypeOf(testString),
+						TypeEntry: &TypeReflectCacheEntry{},
+					},
+				},
+				orderedStructFields: []*FieldCacheEntry{
+					{
+						JsonName:  "f1",
+						fieldPath: [][]int{{0}, {0}},
+						fieldType: reflect.TypeOf(testString),
+						TypeEntry: &TypeReflectCacheEntry{},
+					},
+				},
+			},
+		},
+		"EmbeddedWithNoTag": {
+			arg: struct {
+				Inlined
+			}{},
+			want: &TypeReflectCacheEntry{
+				structFields: map[string]*FieldCacheEntry{
+					"f1": {
+						JsonName:  "f1",
+						fieldPath: [][]int{{0}, {0}},
+						fieldType: reflect.TypeOf(testString),
+						TypeEntry: &TypeReflectCacheEntry{},
+					},
+				},
+				orderedStructFields: []*FieldCacheEntry{
+					{
+						JsonName:  "f1",
+						fieldPath: [][]int{{0}, {0}},
+						fieldType: reflect.TypeOf(testString),
+						TypeEntry: &TypeReflectCacheEntry{},
+					},
+				},
 			},
 		},
 		"StructWithUnexportedField": {
@@ -315,6 +398,10 @@ func TestTypeReflectEntryOf(t *testing.T) {
 			}
 		})
 	}
+}
+
+type Inlined struct {
+	F1 string `json:"f1"`
 }
 
 type customOmitZeroType struct {
