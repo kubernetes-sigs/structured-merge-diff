@@ -85,6 +85,7 @@ func lookupJsonTags(f reflect.StructField) (name string, omit bool, inline bool,
 		return "", true, false, false, nil
 	}
 	name, opts := parseTag(tag)
+	inline = f.Anonymous && name == ""
 	if name == "" {
 		name = f.Name
 	}
@@ -93,7 +94,7 @@ func lookupJsonTags(f reflect.StructField) (name string, omit bool, inline bool,
 		omitzero = OmitZeroFunc(f.Type)
 	}
 
-	return name, false, opts.Contains("inline"), opts.Contains("omitempty"), omitzero
+	return name, false, inline, opts.Contains("omitempty"), omitzero
 }
 
 func isEmpty(v reflect.Value) bool {

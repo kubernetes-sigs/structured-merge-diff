@@ -230,8 +230,8 @@ type testOmitStruct struct {
 	S string
 }
 type testInlineStruct struct {
-	Inline T `json:",inline"`
-	S      string
+	T `json:""`
+	S string
 }
 type testOmitemptyStruct struct {
 	Noomit *string `json:"noomit"`
@@ -274,7 +274,7 @@ func TestReflectStruct(t *testing.T) {
 		},
 		{
 			name:                 "inline",
-			val:                  &testInlineStruct{Inline: T{I: 10}, S: "string"},
+			val:                  &testInlineStruct{T: T{I: 10}, S: "string"},
 			expectedMap:          map[string]interface{}{"int": int64(10), "S": "string"},
 			expectedUnstructured: map[string]interface{}{"int": int64(10), "S": "string"},
 		},
