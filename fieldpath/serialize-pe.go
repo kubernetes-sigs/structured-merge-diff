@@ -17,13 +17,13 @@ limitations under the License.
 package fieldpath
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
-	"io"
 	"strconv"
 	"strings"
 
-	jsoniter "github.com/json-iterator/go"
+	"github.com/go-json-experiment/json"
 	"sigs.k8s.io/structured-merge-diff/v6/value"
 )
 
@@ -31,89 +31,56 @@ var ErrUnknownPathElementType = errors.New("unknown path element type")
 
 const (
 	// Field indicates that the content of this path element is a field's name
-	peField = "f"
+	peField = 'f'
 
 	// Value indicates that the content of this path element is a field's value
-	peValue = "v"
+	peValue = 'v'
 
 	// Index indicates that the content of this path element is an index in an array
-	peIndex = "i"
+	peIndex = 'i'
 
 	// Key indicates that the content of this path element is a key value map
-	peKey = "k"
+	peKey = 'k'
 
 	// Separator separates the type of a path element from the contents
-	peSeparator = ":"
+	peSeparator = ':'
 )
 
 var (
-	peFieldSepBytes = []byte(peField + peSeparator)
-	peValueSepBytes = []byte(peValue + peSeparator)
-	peIndexSepBytes = []byte(peIndex + peSeparator)
-	peKeySepBytes   = []byte(peKey + peSeparator)
-	peSepBytes      = []byte(peSeparator)
+	peFieldSepBytes = []byte{peField, peSeparator}
+	peValueSepBytes = []byte{peValue, peSeparator}
+	peIndexSepBytes = []byte{peIndex, peSeparator}
+	peKeySepBytes   = []byte{peKey, peSeparator}
 )
-
-// readJSONIter reads a Value from a JSON iterator.
-// DO NOT EXPORT
-// TODO: eliminate this https://github.com/kubernetes-sigs/structured-merge-diff/issues/202
-func readJSONIter(iter *jsoniter.Iterator) (value.Value, error) {
-	v := iter.Read()
-	if iter.Error != nil && iter.Error != io.EOF {
-		return nil, iter.Error
-	}
-	return value.NewValueInterface(v), nil
-}
-
-// writeJSONStream writes a value into a JSON stream.
-// DO NOT EXPORT
-// TODO: eliminate this https://github.com/kubernetes-sigs/structured-merge-diff/issues/202
-func writeJSONStream(v value.Value, stream *jsoniter.Stream) {
-	stream.WriteVal(v.Unstructured())
-}
 
 // DeserializePathElement parses a serialized path element
 func DeserializePathElement(s string) (PathElement, error) {
-	b := []byte(s)
-	if len(b) < 2 {
-		return PathElement{}, errors.New("key must be 2 characters long:")
+	if len(s) < 2 {
+		return PathElement{}, errors.New("key must be 2 characters long")
 	}
-	typeSep, b := b[:2], b[2:]
-	if typeSep[1] != peSepBytes[0] {
+	typeSep0, typeSep1 := s[0], s[1]
+	if typeSep1 != peSeparator {
 		return PathElement{}, fmt.Errorf("missing colon: %v", s)
 	}
-	switch typeSep[0] {
+	switch typeSep0 {
 	case peFieldSepBytes[0]:
-		// Slice s rather than convert b, to save on
-		// allocations.
 		str := s[2:]
 		return PathElement{
 			FieldName: &str,
 		}, nil
 	case peValueSepBytes[0]:
-		iter := readPool.BorrowIterator(b)
-		defer readPool.ReturnIterator(iter)
-		v, err := readJSONIter(iter)
-		if err != nil {
+		var v any
+		if err := json.UnmarshalRead(strings.NewReader(s[2:]), &v); err != nil {
 			return PathElement{}, err
 		}
-		return PathElement{Value: &v}, nil
+		interfaceValue := value.NewValueInterface(v)
+		return PathElement{Value: &interfaceValue}, nil
 	case peKeySepBytes[0]:
-		iter := readPool.BorrowIterator(b)
-		defer readPool.ReturnIterator(iter)
-		fields := value.FieldList{}
-
-		iter.ReadObjectCB(func(iter *jsoniter.Iterator, key string) bool {
-			v, err := readJSONIter(iter)
-			if err != nil {
-				iter.Error = err
-				return false
-			}
-			fields = append(fields, value.Field{Name: key, Value: v})
-			return true
-		})
-		fields.Sort()
-		return PathElement{Key: &fields}, iter.Error
+		var fields value.FieldList
+		if err := json.UnmarshalRead(strings.NewReader(s[2:]), &fields); err != nil {
+			return PathElement{}, err
+		}
+		return PathElement{Key: &fields}, nil
 	case peIndexSepBytes[0]:
 		i, err := strconv.Atoi(s[2:])
 		if err != nil {
@@ -127,60 +94,58 @@ func DeserializePathElement(s string) (PathElement, error) {
 	}
 }
 
-var (
-	readPool  = jsoniter.NewIterator(jsoniter.ConfigCompatibleWithStandardLibrary).Pool()
-	writePool = jsoniter.NewStream(jsoniter.ConfigCompatibleWithStandardLibrary, nil, 1024).Pool()
-)
-
 // SerializePathElement serializes a path element
 func SerializePathElement(pe PathElement) (string, error) {
-	buf := strings.Builder{}
-	err := serializePathElementToWriter(&buf, pe)
-	return buf.String(), err
+	serializer := pathElementSerializer{}
+	if err := serializer.serialize(pe); err != nil {
+		return "", err
+	}
+	return serializer.builder.String(), nil
 }
 
-func serializePathElementToWriter(w io.Writer, pe PathElement) error {
-	stream := writePool.BorrowStream(w)
-	defer writePool.ReturnStream(stream)
+type pathElementSerializer struct {
+	builder   bytes.Buffer
+	fastValue value.FastMarshalValue
+}
+
+func (pes *pathElementSerializer) reset() {
+	pes.builder.Reset()
+	pes.fastValue.Value = nil
+}
+
+func (pes *pathElementSerializer) serialize(pe PathElement) error {
 	switch {
 	case pe.FieldName != nil:
-		if _, err := stream.Write(peFieldSepBytes); err != nil {
+		if _, err := pes.builder.Write(peFieldSepBytes); err != nil {
 			return err
 		}
-		stream.WriteRaw(*pe.FieldName)
+		if _, err := pes.builder.WriteString(*pe.FieldName); err != nil {
+			return err
+		}
 	case pe.Key != nil:
-		if _, err := stream.Write(peKeySepBytes); err != nil {
+		if _, err := pes.builder.Write(peKeySepBytes); err != nil {
 			return err
 		}
-		stream.WriteObjectStart()
-
-		for i, field := range *pe.Key {
-			if i > 0 {
-				stream.WriteMore()
-			}
-			stream.WriteObjectField(field.Name)
-			writeJSONStream(field.Value, stream)
+		if err := json.MarshalWrite(&pes.builder, pe.Key, json.Deterministic(true)); err != nil {
+			return err
 		}
-		stream.WriteObjectEnd()
 	case pe.Value != nil:
-		if _, err := stream.Write(peValueSepBytes); err != nil {
+		if _, err := pes.builder.Write(peValueSepBytes); err != nil {
 			return err
 		}
-		writeJSONStream(*pe.Value, stream)
+		pes.fastValue.Value = pe.Value
+		if err := json.MarshalWrite(&pes.builder, &pes.fastValue, json.Deterministic(true)); err != nil {
+			return err
+		}
 	case pe.Index != nil:
-		if _, err := stream.Write(peIndexSepBytes); err != nil {
+		if _, err := pes.builder.Write(peIndexSepBytes); err != nil {
 			return err
 		}
-		stream.WriteInt(*pe.Index)
+		if _, err := pes.builder.WriteString(strconv.Itoa(*pe.Index)); err != nil {
+			return err
+		}
 	default:
 		return errors.New("invalid PathElement")
 	}
-	b := stream.Buffer()
-	err := stream.Flush()
-	// Help jsoniter manage its buffers--without this, the next
-	// use of the stream is likely to require an allocation. Look
-	// at the jsoniter stream code to understand why. They were probably
-	// optimizing for folks using the buffer directly.
-	stream.SetBuffer(b[:0])
-	return err
+	return nil
 }
