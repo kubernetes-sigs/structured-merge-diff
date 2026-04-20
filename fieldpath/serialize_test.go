@@ -19,6 +19,7 @@ package fieldpath_test
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 
@@ -328,5 +329,57 @@ func TestDropUnknown(t *testing.T) {
 	}
 	if string(b) != expect {
 		t.Errorf("Failed;\ngot:  %s\nwant: %s\n", b, expect)
+	}
+}
+
+func TestDuplicateMembers(t *testing.T) {
+	s := NewSet()
+	if err := s.FromJSON(strings.NewReader(`{"f:":{},"f:":{}}`)); err != nil {
+		t.Fatal(err)
+	}
+	if size := s.Members.Size(); size != 1 {
+		t.Errorf("want 1 member, got %d", size)
+	}
+}
+
+func TestDuplicateChildren(t *testing.T) {
+	d := NewSet()
+	if err := d.FromJSON(strings.NewReader(`{"f:":{"f:":{".":{},"f:1":{}}},"f:":{"f:":{".":{},"f:2":{}}}}`)); err != nil {
+		t.Fatal(err)
+	}
+	s := NewSet()
+	if err := s.FromJSON(strings.NewReader(`{"f:":{"f:":{".":{},"f:2":{}}}}`)); err != nil {
+		t.Fatal(err)
+	}
+	if !d.Equals(s) {
+		// The last occurrence of the duplicated child set is preserved.
+		t.Fatalf("want:\n%s\ngot:\n%s", s, d)
+	}
+}
+
+func BenchmarkSetFromJSON(b *testing.B) {
+	for _, tc := range []struct {
+		name    string
+		fixture string
+	}{
+		{"children in ascending order", "testdata/set_ascending.json"},
+		{"children in descending order", "testdata/set_descending.json"},
+		{"grandchildren in ascending order", "testdata/set_ascending_grandchildren.json"},
+		{"grandchildren in descending order", "testdata/set_descending_grandchildren.json"},
+	} {
+		b.Run(tc.name, func(b *testing.B) {
+			data, err := os.ReadFile(tc.fixture)
+			if err != nil {
+				b.Fatal(err)
+			}
+
+			b.ResetTimer()
+			for range b.N {
+				x := NewSet()
+				if err := x.FromJSON(bytes.NewReader(data)); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
 	}
 }
