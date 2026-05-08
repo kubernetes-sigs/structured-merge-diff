@@ -71,10 +71,9 @@ func TestFromJSONTokenTypeErrors(t *testing.T) {
 		{"bareComma", `,`},
 		{"bareColon", `:`},
 
-		// TODO: Trailing data should not be allowed
-		//{"trailingClosed", `{"f:a":{}}}`},
-		//{"trailingObject", `{"f:a":{}}{}`},
-		//{"trailingValue", `{"f:a":{}}"string"`},
+		{"trailingClosed", `{"f:a":{}}}`},
+		{"trailingObject", `{"f:a":{}}{}`},
+		{"trailingValue", `{"f:a":{}}"string"`},
 	}
 
 	for _, tc := range cases {
