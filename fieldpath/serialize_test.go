@@ -313,6 +313,60 @@ func TestDeserializeForValidNonNormalized(t *testing.T) {
 		})
 	}
 }
+func TestSetFromJSONTokenTypeErrors(t *testing.T) {
+	cases := []struct {
+		name  string
+		input string
+	}{
+		{"rootArray", `[]`},
+		{"rootNumber", `42`},
+		{"rootString", `"hi"`},
+		{"empty", ``},
+		{"whitespaceOnly", `   `},
+
+		{"numberAsKey", `{1:{}}`},
+		{"trailingCommaAfterEntry", `{"f:a":{},}`},
+		{"unclosedAfterOpen", `{`},
+		{"unclosedAfterValue", `{"f:a":{}`},
+		{"unclosedAfterTrailingComma", `{"f:a":{},`},
+
+		{"closedBeforeComma", `{"f:a" }:{}}`},
+		{"closedBeforeValue", `{"f:a":}`},
+
+		{"valueIsNumber", `{"f:a":1}`},
+		{"valueIsArray", `{"f:a":[]}`},
+		{"valueOpenedAsArrayClosedAsObject", `{"f:a":[}`},
+		{"valueOpenedAsObjectClosedAsArray", `{"f:a":{]}`},
+
+		{"doubleCommaBetweenEntries", `{"f:a":{},,"f:b":{}}`},
+		{"missingCommaBetweenEntries", `{"f:a":{} "f:b":{}}`},
+		{"doubleColonAfterKey", `{"f:a"::{}}`},
+		{"colonWithoutKey", `{:1}`},
+		{"keyWithoutColon", `{"f:a"}`},
+		{"leadingCommaInsideValue", `{"f:a":{,}}`},
+
+		{"bareCloseBrace", `}`},
+
+		{"keyEmptyString", `{"":{}}`},
+		{"keyMissingColon", `{"x":{}}`},
+		{"keyOnlyColon", `{":":{}}`},
+
+		// TODO: Trailing data should not be allowed
+		//{"trailingClosed", `{"f:a":{}}}`},
+		//{"trailingObject", `{"f:a":{}}{}`},
+		//{"trailingValue", `{"f:a":{}}"string"`},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			s := NewSet()
+			if err := s.FromJSON(strings.NewReader(tc.input)); err == nil {
+				t.Fatalf("expected error for %q, got set: %v", tc.input, s)
+			}
+		})
+	}
+}
+
 func TestDropUnknown(t *testing.T) {
 	input := `{"f:aaa":{},"r:aab":{}}`
 	expect := `{"f:aaa":{}}`
