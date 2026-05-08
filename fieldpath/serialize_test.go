@@ -330,7 +330,7 @@ func TestSetFromJSONTokenTypeErrors(t *testing.T) {
 		{"unclosedAfterValue", `{"f:a":{}`},
 		{"unclosedAfterTrailingComma", `{"f:a":{},`},
 
-		{"closedBeforeComma", `{"f:a" }:{}}`},
+		{"closedBeforeColon", `{"f:a" }:{}}`},
 		{"closedBeforeValue", `{"f:a":}`},
 
 		{"valueIsNumber", `{"f:a":1}`},
@@ -351,10 +351,14 @@ func TestSetFromJSONTokenTypeErrors(t *testing.T) {
 		{"keyMissingColon", `{"x":{}}`},
 		{"keyOnlyColon", `{":":{}}`},
 
-		// TODO: Trailing data should not be allowed
-		//{"trailingClosed", `{"f:a":{}}}`},
-		//{"trailingObject", `{"f:a":{}}{}`},
-		//{"trailingValue", `{"f:a":{}}"string"`},
+		{"trailingCloseBrace", `{"f:a":{}}}`},
+		{"trailingObject", `{"f:a":{}}{}`},
+		{"trailingString", `{"f:a":{}}"string"`},
+		{"trailingNumber", `{"f:a":{}}42`},
+		{"trailingWhitespaceThenCloseBrace", `{"f:a":{}}  }`},
+		{"trailingWhitespaceThenObject", `{"f:a":{}}  {}`},
+		{"trailingWhitespaceThenString", `{"f:a":{}}  "x"`},
+		{"trailingWhitespaceThenNumber", "{\"f:a\":{}}\n42"},
 	}
 
 	for _, tc := range cases {
@@ -362,6 +366,30 @@ func TestSetFromJSONTokenTypeErrors(t *testing.T) {
 			s := NewSet()
 			if err := s.FromJSON(strings.NewReader(tc.input)); err == nil {
 				t.Fatalf("expected error for %q, got set: %v", tc.input, s)
+			}
+		})
+	}
+}
+
+func TestSetFromJSON(t *testing.T) {
+	cases := []struct {
+		name  string
+		input string
+	}{
+		{"trailingSpace", `{"f:a":{}} `},
+		{"trailingTab", "{\"f:a\":{}}\t"},
+		{"trailingNewline", "{\"f:a\":{}}\n"},
+		{"trailingCarriageReturn", "{\"f:a\":{}}\r"},
+		{"trailingMultipleSpaces", `{"f:a":{}}     `},
+		{"trailingMixedWhitespace", "{\"f:a\":{}} \t\n\r "},
+		{"whitespaceAroundEmptySet", "  {}  "},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			s := NewSet()
+			if err := s.FromJSON(strings.NewReader(tc.input)); err != nil {
+				t.Fatalf("unexpected error for %q: %v", tc.input, err)
 			}
 		})
 	}
