@@ -318,39 +318,56 @@ func TestSetFromJSONTokenTypeErrors(t *testing.T) {
 		name  string
 		input string
 	}{
+		// Root must be an object
 		{"rootArray", `[]`},
 		{"rootNumber", `42`},
 		{"rootString", `"hi"`},
+
+		// Empty and whitespace
 		{"empty", ``},
 		{"whitespaceOnly", `   `},
 
+		// Wrong token type at position
 		{"numberAsKey", `{1:{}}`},
 		{"trailingCommaAfterEntry", `{"f:a":{},}`},
-		{"unclosedAfterOpen", `{`},
-		{"unclosedAfterValue", `{"f:a":{}`},
-		{"unclosedAfterTrailingComma", `{"f:a":{},`},
-
 		{"closedBeforeColon", `{"f:a" }:{}}`},
 		{"closedBeforeValue", `{"f:a":}`},
-
 		{"valueIsNumber", `{"f:a":1}`},
 		{"valueIsArray", `{"f:a":[]}`},
 		{"valueOpenedAsArrayClosedAsObject", `{"f:a":[}`},
 		{"valueOpenedAsObjectClosedAsArray", `{"f:a":{]}`},
-
 		{"doubleCommaBetweenEntries", `{"f:a":{},,"f:b":{}}`},
 		{"missingCommaBetweenEntries", `{"f:a":{} "f:b":{}}`},
 		{"doubleColonAfterKey", `{"f:a"::{}}`},
 		{"colonWithoutKey", `{:1}`},
 		{"keyWithoutColon", `{"f:a"}`},
 		{"leadingCommaInsideValue", `{"f:a":{,}}`},
-
 		{"bareCloseBrace", `}`},
-
 		{"keyEmptyString", `{"":{}}`},
 		{"keyMissingColon", `{"x":{}}`},
 		{"keyOnlyColon", `{":":{}}`},
 
+		// Incomplete JSON
+		{"unclosedAfterOpen", `{`},
+		{"unclosedAfterValue", `{"f:a":{}`},
+		{"unclosedAfterTrailingComma", `{"f:a":{},`},
+		{"truncatedOpenQuoteOnly", `{"`},
+		{"truncatedKeyTypeOnly", `{"f`},
+		{"truncatedKeySeparator", `{"f:`},
+		{"truncatedKeyNoCloseQuote", `{"f:a`},
+		{"truncatedAfterKey", `{"f:a"`},
+		{"truncatedAfterColon", `{"f:a":`},
+		{"truncatedAfterNestedOpen", `{"f:a":{`},
+		{"truncatedAfterNestedKey", `{"f:a":{"f:b"`},
+		{"truncatedAfterNestedColon", `{"f:a":{"f:b":`},
+		{"truncatedAfterNestedValue", `{"f:a":{"f:b":{}`},
+		{"truncatedAfterNestedComma", `{"f:a":{"f:b":{},`},
+		{"truncatedKeyWithEscape", `{"f:a\`},
+		{"truncatedKeyInsideUnicodeEscape", `{"f:\u00`},
+		{"truncatedAtSecondKey", `{"f:a":{}, "f`},
+		{"truncatedAtSecondKeyClose", `{"f:a":{}, "f:b`},
+
+		// Unexpected trailing data
 		{"trailingCloseBrace", `{"f:a":{}}}`},
 		{"trailingObject", `{"f:a":{}}{}`},
 		{"trailingString", `{"f:a":{}}"string"`},
@@ -376,13 +393,32 @@ func TestSetFromJSON(t *testing.T) {
 		name  string
 		input string
 	}{
+		// Trailing whitespace is allowed.
 		{"trailingSpace", `{"f:a":{}} `},
 		{"trailingTab", "{\"f:a\":{}}\t"},
 		{"trailingNewline", "{\"f:a\":{}}\n"},
 		{"trailingCarriageReturn", "{\"f:a\":{}}\r"},
 		{"trailingMultipleSpaces", `{"f:a":{}}     `},
 		{"trailingMixedWhitespace", "{\"f:a\":{}} \t\n\r "},
+
+		// Leading whitespace is allowed.
+		{"leadingSpace", ` {"f:a":{}}`},
+		{"leadingTab", "\t{\"f:a\":{}}"},
+		{"leadingNewline", "\n{\"f:a\":{}}"},
+		{"leadingCarriageReturn", "\r{\"f:a\":{}}"},
+		{"leadingMultipleSpaces", `     {"f:a":{}}`},
+		{"leadingMixedWhitespace", " \t\n\r {\"f:a\":{}}"},
+
+		// Whitespace inside the object is allowed.
+		{"surroundingMixedWhitespace", " \t\n\r {\"f:a\":{}} \t\n\r "},
 		{"whitespaceAroundEmptySet", "  {}  "},
+		{"whitespaceBetweenTokens", "{ \"f:a\" : {} }"},
+		{"whitespaceBeforeKey", "{\n\t\"f:a\":{}}"},
+		{"whitespaceAfterColon", `{"f:a":     {}}`},
+
+		// A bare null is accepted and produces an empty set.
+		{"bareNull", `null`},
+		{"nullWithSurroundingWhitespace", ` null `},
 	}
 
 	for _, tc := range cases {
