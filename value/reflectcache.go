@@ -93,9 +93,9 @@ func (f *FieldCacheEntry) GetFrom(structVal reflect.Value) reflect.Value {
 	return structVal
 }
 
-var marshalerType = reflect.TypeOf(new(json.Marshaler)).Elem()
-var unmarshalerType = reflect.TypeOf(new(json.Unmarshaler)).Elem()
-var unstructuredConvertableType = reflect.TypeOf(new(UnstructuredConverter)).Elem()
+var marshalerType = reflect.TypeFor[json.Marshaler]()
+var unmarshalerType = reflect.TypeFor[json.Unmarshaler]()
+var unstructuredConvertableType = reflect.TypeFor[UnstructuredConverter]()
 var defaultReflectCache = newReflectCache()
 
 // TypeReflectEntryOf returns the TypeReflectCacheEntry of the provided reflect.Type.
@@ -123,10 +123,10 @@ func typeReflectEntryOf(cm reflectCacheMap, t reflect.Type, updates reflectCache
 	}
 	typeEntry := &TypeReflectCacheEntry{
 		isJsonMarshaler:        t.Implements(marshalerType),
-		ptrIsJsonMarshaler:     reflect.PtrTo(t).Implements(marshalerType),
-		isJsonUnmarshaler:      reflect.PtrTo(t).Implements(unmarshalerType),
+		ptrIsJsonMarshaler:     reflect.PointerTo(t).Implements(marshalerType),
+		isJsonUnmarshaler:      reflect.PointerTo(t).Implements(unmarshalerType),
 		isStringConvertable:    t.Implements(unstructuredConvertableType),
-		ptrIsStringConvertable: reflect.PtrTo(t).Implements(unstructuredConvertableType),
+		ptrIsStringConvertable: reflect.PointerTo(t).Implements(unstructuredConvertableType),
 	}
 	if t.Kind() == reflect.Struct {
 		fieldEntries := map[string]*FieldCacheEntry{}
