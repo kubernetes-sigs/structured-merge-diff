@@ -18,6 +18,7 @@ package value
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"testing"
@@ -55,6 +56,149 @@ func (t Time) ToUnstructured() interface{} {
 	buf := make([]byte, 0, len(time.RFC3339))
 	buf = t.UTC().AppendFormat(buf, time.RFC3339)
 	return string(buf)
+}
+
+// PointerUnstructuredConverter implements UnstructuredConverter with a pointer receiver.
+type PointerUnstructuredConverter struct {
+	val any
+}
+
+func (c *PointerUnstructuredConverter) MarshalJSON() ([]byte, error) {
+	return []byte(`"MarshalJSON"`), nil
+}
+
+func (c *PointerUnstructuredConverter) ToUnstructured() any {
+	return c.val
+}
+
+// ValueUnstructuredConverterWithError implements UnstructuredConverterWithError with a value
+// receiver.
+type ValueUnstructuredConverterWithError struct {
+	val any
+	err error
+}
+
+func (c ValueUnstructuredConverterWithError) MarshalJSON() ([]byte, error) {
+	return []byte(`"MarshalJSON"`), nil
+}
+
+func (c ValueUnstructuredConverterWithError) ToUnstructuredWithError() (any, error) {
+	return c.val, c.err
+}
+
+// PointerUnstructuredConverterWithError implements UnstructuredConverterWithError with a pointer
+// receiver.
+type PointerUnstructuredConverterWithError struct {
+	val any
+	err error
+}
+
+func (c *PointerUnstructuredConverterWithError) MarshalJSON() ([]byte, error) {
+	return []byte(`"MarshalJSON"`), nil
+}
+
+func (c *PointerUnstructuredConverterWithError) ToUnstructuredWithError() (any, error) {
+	return c.val, c.err
+}
+
+// ValueUnstructuredConverterWithAndWithoutError implements both UnstructuredConverter and
+// UnstructuredConverterWithError.
+type ValueUnstructuredConverterWithAndWithoutError struct{}
+
+func (c ValueUnstructuredConverterWithAndWithoutError) MarshalJSON() ([]byte, error) {
+	return []byte(`"MarshalJSON"`), nil
+}
+
+func (c ValueUnstructuredConverterWithAndWithoutError) ToUnstructured() any {
+	return "ToUnstructured"
+}
+
+func (c ValueUnstructuredConverterWithAndWithoutError) ToUnstructuredWithError() (any, error) {
+	return "ToUnstructuredWithError", nil
+}
+
+func TestUnstructuredConverterWithError(t *testing.T) {
+	t.Run("value receiver", func(t *testing.T) {
+		c := ValueUnstructuredConverterWithError{val: "hello"}
+		rv := reflect.ValueOf(c)
+		entry := TypeReflectEntryOf(rv.Type())
+		if !entry.CanConvertToUnstructured() {
+			t.Fatal("expected CanConvertToUnstructured to be true")
+		}
+		result, err := entry.ToUnstructured(rv)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if result != "hello" {
+			t.Errorf("expected %q but got %#v", "hello", result)
+		}
+	})
+
+	t.Run("pointer receiver", func(t *testing.T) {
+		c := PointerUnstructuredConverterWithError{val: int64(42)}
+		rv := reflect.ValueOf(&c).Elem()
+		entry := TypeReflectEntryOf(rv.Type())
+		if !entry.CanConvertToUnstructured() {
+			t.Fatal("expected CanConvertToUnstructured to be true")
+		}
+		result, err := entry.ToUnstructured(rv)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if result != int64(42) {
+			t.Errorf("expected %v but got %#v", int64(42), result)
+		}
+	})
+
+	t.Run("error with value receiver", func(t *testing.T) {
+		convertErr := errors.New("cannot convert")
+		c := ValueUnstructuredConverterWithError{err: convertErr}
+		rv := reflect.ValueOf(c)
+		_, err := TypeReflectEntryOf(rv.Type()).ToUnstructured(rv)
+		if err == nil {
+			t.Fatal("expected error but got nil")
+		}
+		if err != convertErr {
+			t.Fatalf("expected error %q but got %q", convertErr, err)
+		}
+	})
+
+	t.Run("error with pointer receiver", func(t *testing.T) {
+		convertErr := errors.New("cannot convert")
+		c := PointerUnstructuredConverterWithError{err: convertErr}
+		rv := reflect.ValueOf(&c).Elem()
+		_, err := TypeReflectEntryOf(rv.Type()).ToUnstructured(rv)
+		if err == nil {
+			t.Fatal("expected error but got nil")
+		}
+		if err != convertErr {
+			t.Fatalf("expected error %q but got %q", convertErr, err)
+		}
+	})
+
+	t.Run("precedence over UnstructuredConverter", func(t *testing.T) {
+		c := ValueUnstructuredConverterWithAndWithoutError{}
+		rv := reflect.ValueOf(c)
+		result, err := TypeReflectEntryOf(rv.Type()).ToUnstructured(rv)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if result != "ToUnstructuredWithError" {
+			t.Errorf("expected %q but got %#v", "from-fallible", result)
+		}
+	})
+
+	t.Run("nil-valued pointer receiver returns nil", func(t *testing.T) {
+		var c *PointerUnstructuredConverterWithError
+		rv := reflect.ValueOf(c)
+		result, err := TypeReflectEntryOf(rv.Type()).ToUnstructured(rv)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if result != nil {
+			t.Errorf("expected nil but got %#v", result)
+		}
+	})
 }
 
 func TestToUnstructured(t *testing.T) {
@@ -139,6 +283,22 @@ func TestTimeToUnstructured(t *testing.T) {
 				t.Errorf("expected %#v but got %#v", tc.Expected, result)
 			}
 		})
+	}
+}
+
+func TestPointerUnstructuredConverterToUnstructured(t *testing.T) {
+	c := PointerUnstructuredConverter{val: "hello"}
+	rv := reflect.ValueOf(&c).Elem()
+	entry := TypeReflectEntryOf(rv.Type())
+	if !entry.CanConvertToUnstructured() {
+		t.Fatal("expected CanConvertToUnstructured to be true")
+	}
+	result, err := entry.ToUnstructured(rv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result != "hello" {
+		t.Errorf("expected %q but got %#v", "hello", result)
 	}
 }
 
