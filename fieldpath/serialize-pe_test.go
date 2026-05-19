@@ -85,24 +85,64 @@ func TestPathElementIgnoreUnknown(t *testing.T) {
 }
 
 func TestDeserializePathElementError(t *testing.T) {
-	tests := []string{
-		``,
-		`no-colon`,
-		`i:index is not a number`,
-		`i:1.23`,
-		`i:`,
-		`v:invalid json`,
-		`v:`,
-		`k:invalid json`,
-		`k:{"name":invalid}`,
-		`v:{"some":" \x41"}`, // This is an invalid JSON string because \x41 is not a valid escape sequence.
-	}
-
+        tests := []string{
+                ``,
+                `no-colon`,
+                `i:index is not a number`,
+                `i:1.23`,
+                `i:`,
+                `v:invalid json`,
+                `v:`,
+                `k:invalid json`,
+                `k:{"name":invalid}`,
+                `v:{"some":" \x41"}`, // This is an invalid JSON string because \x41 is not a valid escape sequence.
+                `v`,
+                `k`,
+                `f`,
+                `i`,
+                `v:{"a":"b"`,
+                `k:{"a":"b"`,
+                `i: 0`,
+                `i:0 `,
+        }
 	for _, test := range tests {
 		t.Run(test, func(t *testing.T) {
 			pe, err := DeserializePathElement(test)
 			if err == nil {
 				t.Fatalf("Expected error, no error found. got: %#v, %s", pe, pe)
+			}
+		})
+	}
+}
+
+func TestDeserializePathElementSuccess(t *testing.T) {
+	type testCase struct {
+		stringValue string
+		pathElement PathElement
+	}
+
+	tests := []testCase{
+		// Leading whitespace
+		{`v: {"some":"json"}`, ValueElement(value.NewValueInterface(map[string]interface{}{"some": "json"}))},
+		{`k: {"name":"my-container"}`, KeyElement(value.Field{Name: "name", Value: value.NewValueInterface("my-container")})},
+
+		// Trailing whitespace
+		{`v:{"some":"json"} `, ValueElement(value.NewValueInterface(map[string]interface{}{"some": "json"}))},
+		{`k:{"name":"my-container"} `, KeyElement(value.Field{Name: "name", Value: value.NewValueInterface("my-container")})},
+
+		// Multi-token (currently json-iterator ignores trailing tokens)
+		{`v:{"some":"json"} {"other":"json"}`, ValueElement(value.NewValueInterface(map[string]interface{}{"some": "json"}))},
+		{`k:{"name":"my-container"} {"other":"my-container"}`, KeyElement(value.Field{Name: "name", Value: value.NewValueInterface("my-container")})},
+	}
+
+	for _, test := range tests {
+		t.Run(test.stringValue, func(t *testing.T) {
+			pe, err := DeserializePathElement(test.stringValue)
+			if err != nil {
+				t.Fatalf("Failed to create path element: %v", err)
+			}
+			if !reflect.DeepEqual(pe, test.pathElement) {
+				t.Fatalf("Expected:\n%#v\ngot:\n%#v", test.pathElement, pe)
 			}
 		})
 	}
