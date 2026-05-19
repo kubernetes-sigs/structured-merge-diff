@@ -167,6 +167,21 @@ func TestFromJSONValid(t *testing.T) {
 		{"surroundingWhitespace", " \t\n {\"a\":1} \t\n", `{"a":1}`},
 		{"surroundingWhitespaceAroundNull", " null ", `null`},
 		{"surroundingWhitespaceAroundBool", " true ", `true`},
+
+		// Unicode keys
+		{"multiByteLatin", `{"Iñtërnâtiônàlizætiøn":1}`, `{"Iñtërnâtiônàlizætiøn":1}`},
+		{"cyrillic", `{"Здравствуйте":1}`, `{"Здравствуйте":1}`},
+		{"unifiedChars", `{"こんにちは世界":1}`, `{"こんにちは世界":1}`},
+		{"multiByteUnicode", `{"😂💝🐹🌇⛔":1}`, `{"😂💝🐹🌇⛔":1}`},
+
+		// Unicode escaping
+		{"escapedAsciiKey", `{"\u0041":1}`, `{"A":1}`},
+		{"escapedLatin", `{"\u00c5":1}`, `{"Å":1}`},
+		{"escapedMultiBytePair", `{"\uD83D\uDE02":1}`, `{"😂":1}`},
+
+		// TODO: When we migrate to json/v2 we should use jsontext.AllowInvalidUTF8
+		// and change this test case to expect the bytes to be munged to U+FFFD.
+		{"byteOrderMark", "{\"\xff\xfe\": 1}", "{\"\xff\xfe\": 1}"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
