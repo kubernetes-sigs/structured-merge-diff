@@ -108,6 +108,8 @@ func TestDeserializePathElementError(t *testing.T) {
 		`i:0 `,
 		`v:{"some":"json"} {"other":"json"}`, // multiple values
 		`k:{"name":"my-container"} {"other":"my-container"}`, // multiple keys
+		`v:{"some":"json"} {"other":"json"`,                  // multiple values with malformed trailing data
+		`k:{"name":"my-container"} {"other":"my-container"`,  // multiple keys with malformed trailing data
 		`v:{"some":"json"} garbage`,
 		`k:{"name":"my-container"} garbage`,
 	}
@@ -139,7 +141,7 @@ func TestDeserializePathElementSuccess(t *testing.T) {
 		// Single-byte escapes in map key of key element (`k`)
 		{`k:{"name\u002dcontainer":"my-container"}`, KeyElement(value.Field{Name: "name-container", Value: value.NewValueInterface("my-container")})},
 		{`k:{"name\nwith\nnewlines":"my-container"}`, KeyElement(value.Field{Name: "name\nwith\nnewlines", Value: value.NewValueInterface("my-container")})},
-		{`k:{"name\"quoted\"":"my-container"}`, KeyElement(value.Field{Name: "name\"quoted\"", Value: value.NewValueInterface("my-container")})},
+		{`k:{"name\"quoted\"":"my-container"}`, KeyElement(value.Field{Name: `name"quoted"`, Value: value.NewValueInterface("my-container")})},
 
 		// Multi-byte escapes in map key of key element (`k`)
 		{`k:{"name-\ud83d\ude80":"my-container"}`, KeyElement(value.Field{Name: "name-🚀", Value: value.NewValueInterface("my-container")})},
@@ -148,7 +150,7 @@ func TestDeserializePathElementSuccess(t *testing.T) {
 		// Single-byte escapes in value element (`v`)
 		{`v:"value\u002dcontainer"`, ValueElement(value.NewValueInterface("value-container"))},
 		{`v:"value\nwith\nnewlines"`, ValueElement(value.NewValueInterface("value\nwith\nnewlines"))},
-		{`v:"value\"quoted\""`, ValueElement(value.NewValueInterface("value\"quoted\""))},
+		{`v:"value\"quoted\""`, ValueElement(value.NewValueInterface(`value"quoted"`))},
 
 		// Multi-byte escapes in value element (`v`)
 		{`v:"value-\ud83d\ude80"`, ValueElement(value.NewValueInterface("value-🚀"))},
