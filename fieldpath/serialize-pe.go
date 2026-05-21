@@ -97,6 +97,18 @@ func DeserializePathElement(s string) (PathElement, error) {
 		if err != nil {
 			return PathElement{}, err
 		}
+		// Note: For simple JSON primitives (like integers or bare strings) that terminate
+		// exactly at the stream boundary, jsoniter's parser sets iter.Error to io.EOF during
+		// token scan validation, which is a successful termination indicator and not a parsing
+		// error. We explicitly filter out io.EOF to avoid false parsing failure returns.
+		if iter.Error != nil && iter.Error != io.EOF {
+			return PathElement{}, iter.Error
+		}
+		if iter.WhatIsNext(); iter.Error == nil {
+			// Piggy back on scanner aware error reporting here.
+			iter.ReportError("managedFields parsing", "unexpected trailing data after JSON object")
+			return PathElement{}, iter.Error
+		}
 		return PathElement{Value: &v}, nil
 	case peKeySepBytes[0]:
 		iter := readPool.BorrowIterator(b)
@@ -112,7 +124,21 @@ func DeserializePathElement(s string) (PathElement, error) {
 			fields = append(fields, value.Field{Name: key, Value: v})
 			return true
 		})
+		if iter.Error != nil && iter.Error != io.EOF {
+			return PathElement{}, iter.Error
+		}
+		if iter.WhatIsNext(); iter.Error == nil {
+			// Piggy back on scanner aware error reporting here.
+			iter.ReportError("managedFields parsing", "unexpected trailing data after JSON object")
+			return PathElement{}, iter.Error
+		}
 		fields.Sort()
+		// Note: When lookahead detects that there is no unexpected trailing data after
+		// a valid key element, it sets iter.Error to io.EOF at the stream's natural boundary.
+		// io.EOF signifies successful termination and must not be bubbled back as an error.
+		if iter.Error == io.EOF {
+			return PathElement{Key: &fields}, nil
+		}
 		return PathElement{Key: &fields}, iter.Error
 	case peIndexSepBytes[0]:
 		i, err := strconv.Atoi(s[2:])
