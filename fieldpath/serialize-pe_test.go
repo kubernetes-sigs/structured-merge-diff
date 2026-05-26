@@ -55,6 +55,8 @@ func TestPathElementRoundTrip(t *testing.T) {
 		{`k:{"name":"Привет, мир"}`, KeyElement(value.Field{Name: "name", Value: value.NewValueInterface("Привет, мир")})},
 		{`k:{"name":"नमस्ते दुनिया"}`, KeyElement(value.Field{Name: "name", Value: value.NewValueInterface("नमस्ते दुनिया")})},
 		{`k:{"name":"👋"}`, KeyElement(value.Field{Name: "name", Value: value.NewValueInterface("👋")})},
+		{`f:spec-🚀`, FieldNameElement("spec-🚀")},
+		{`f:spec-\n`, FieldNameElement("spec-\\n")},
 	}
 
 	for _, test := range tests {
@@ -96,13 +98,77 @@ func TestDeserializePathElementError(t *testing.T) {
 		`k:invalid json`,
 		`k:{"name":invalid}`,
 		`v:{"some":" \x41"}`, // This is an invalid JSON string because \x41 is not a valid escape sequence.
+		`v`,
+		`k`,
+		`f`,
+		`i`,
+		`v:{"a":"b"`,
+		`k:{"a":"b"`,
+		`i: 0`,
+		`i:0 `,
+		`v:{"some":"json"} {"other":"json"}`, // multiple values
+		`k:{"name":"my-container"} {"other":"my-container"}`, // multiple keys
+		`v:{"some":"json"} {"other":"json"`,                  // multiple values with malformed trailing data
+		`k:{"name":"my-container"} {"other":"my-container"`,  // multiple keys with malformed trailing data
+		`v:{"some":"json"} garbage`,
+		`k:{"name":"my-container"} garbage`,
 	}
-
 	for _, test := range tests {
 		t.Run(test, func(t *testing.T) {
 			pe, err := DeserializePathElement(test)
 			if err == nil {
 				t.Fatalf("Expected error, no error found. got: %#v, %s", pe, pe)
+			}
+		})
+	}
+}
+
+func TestDeserializePathElementSuccess(t *testing.T) {
+	type testCase struct {
+		stringValue string
+		pathElement PathElement
+	}
+
+	tests := []testCase{
+		// Leading whitespace
+		{`v: {"some":"json"}`, ValueElement(value.NewValueInterface(map[string]interface{}{"some": "json"}))},
+		{`k: {"name":"my-container"}`, KeyElement(value.Field{Name: "name", Value: value.NewValueInterface("my-container")})},
+
+		// Trailing whitespace
+		{`v:{"some":"json"} `, ValueElement(value.NewValueInterface(map[string]interface{}{"some": "json"}))},
+		{`k:{"name":"my-container"} `, KeyElement(value.Field{Name: "name", Value: value.NewValueInterface("my-container")})},
+
+		// Single-byte escapes in map key of key element (`k`)
+		{`k:{"name\u002dcontainer":"my-container"}`, KeyElement(value.Field{Name: "name-container", Value: value.NewValueInterface("my-container")})},
+		{`k:{"name\nwith\nnewlines":"my-container"}`, KeyElement(value.Field{Name: "name\nwith\nnewlines", Value: value.NewValueInterface("my-container")})},
+		{`k:{"name\"quoted\"":"my-container"}`, KeyElement(value.Field{Name: `name"quoted"`, Value: value.NewValueInterface("my-container")})},
+
+		// Multi-byte escapes in map key of key element (`k`)
+		{`k:{"name-\ud83d\ude80":"my-container"}`, KeyElement(value.Field{Name: "name-🚀", Value: value.NewValueInterface("my-container")})},
+		{`k:{"\u4f60\u597d":"\u4e16\u754c"}`, KeyElement(value.Field{Name: "你好", Value: value.NewValueInterface("世界")})},
+
+		// Single-byte escapes in value element (`v`)
+		{`v:"value\u002dcontainer"`, ValueElement(value.NewValueInterface("value-container"))},
+		{`v:"value\nwith\nnewlines"`, ValueElement(value.NewValueInterface("value\nwith\nnewlines"))},
+		{`v:"value\"quoted\""`, ValueElement(value.NewValueInterface(`value"quoted"`))},
+
+		// Multi-byte escapes in value element (`v`)
+		{`v:"value-\ud83d\ude80"`, ValueElement(value.NewValueInterface("value-🚀"))},
+		{`v:"\u4f60\u597d"`, ValueElement(value.NewValueInterface("你好"))},
+
+		// Unescaped UTF-8 in key/value
+		{`k:{"name-🚀":"my-container"}`, KeyElement(value.Field{Name: "name-🚀", Value: value.NewValueInterface("my-container")})},
+		{`v:"value-🚀"`, ValueElement(value.NewValueInterface("value-🚀"))},
+	}
+
+	for _, test := range tests {
+		t.Run(test.stringValue, func(t *testing.T) {
+			pe, err := DeserializePathElement(test.stringValue)
+			if err != nil {
+				t.Fatalf("Failed to create path element: %v", err)
+			}
+			if !reflect.DeepEqual(pe, test.pathElement) {
+				t.Fatalf("Expected:\n%#v\ngot:\n%#v", test.pathElement, pe)
 			}
 		})
 	}
