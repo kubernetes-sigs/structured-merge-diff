@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"fmt"
 	"math/rand"
+	"strings"
 	"testing"
 
 	"sigs.k8s.io/structured-merge-diff/v6/schema"
@@ -1202,4 +1203,219 @@ func TestFilterByPattern(t *testing.T) {
 			}
 		})
 	}
+}
+
+func mustPanic(t *testing.T, wantSubstr string, fn func()) {
+	t.Helper()
+	defer func() {
+		r := recover()
+		if r == nil {
+			t.Fatalf("expected panic containing %q, got none", wantSubstr)
+		}
+		if msg, ok := r.(string); !ok || !strings.Contains(msg, wantSubstr) {
+			t.Fatalf("expected panic containing %q, got %v", wantSubstr, r)
+		}
+	}()
+	fn()
+}
+
+func TestFreezeReturnsSelf(t *testing.T) {
+	s := NewSet(MakePathOrDie("spec", "replicas"))
+	if got := s.Freeze(); got != s {
+		t.Errorf("Freeze should return the same Set")
+	}
+	if got := s.Freeze(); got != s {
+		t.Errorf("Freeze should be idempotent and return the same Set")
+	}
+}
+
+func TestFrozenSetInsertPanics(t *testing.T) {
+	s := NewSet(MakePathOrDie("spec", "replicas"))
+	s.Freeze()
+	mustPanic(t, "frozen Set", func() {
+		s.Insert(MakePathOrDie("spec", "paused"))
+	})
+}
+
+func TestFreezeRecursesToChildren(t *testing.T) {
+	s := NewSet(MakePathOrDie("spec", "replicas"))
+	s.Freeze()
+	child, ok := s.Children.Get(MakePathOrDie("spec")[0])
+	if !ok {
+		t.Fatal("expected a child set for \"spec\"")
+	}
+	mustPanic(t, "frozen Set", func() {
+		child.Insert(MakePathOrDie("paused"))
+	})
+}
+
+func TestFrozenSetReadsDoNotPanic(t *testing.T) {
+	s := NewSet(
+		MakePathOrDie("spec", "replicas"),
+		MakePathOrDie("spec", "paused"),
+	)
+	s.Freeze()
+	other := NewSet(MakePathOrDie("spec", "replicas"))
+
+	// Reads and non-mutating set algebra must not panic on a frozen Set.
+	_ = s.Has(MakePathOrDie("spec", "replicas"))
+	_ = s.Size()
+	_ = s.Empty()
+	_ = s.Leaves()
+	_ = s.Union(other)
+	_ = s.Intersection(other)
+	_ = s.Difference(other)
+	s.Iterate(func(Path) {})
+	if !s.Equals(s.Copy()) {
+		t.Errorf("frozen set should equal its copy")
+	}
+}
+
+func TestCopyOfFrozenSetIsMutable(t *testing.T) {
+	s := NewSet(MakePathOrDie("spec", "replicas"))
+	s.Freeze()
+	c := s.Copy()
+	// Must not panic: a copy is never frozen.
+	c.Insert(MakePathOrDie("spec", "paused"))
+	if !c.Has(MakePathOrDie("spec", "paused")) {
+		t.Errorf("expected inserted path in mutable copy")
+	}
+	if s.Has(MakePathOrDie("spec", "paused")) {
+		t.Errorf("mutating the copy must not affect the frozen original")
+	}
+}
+
+// pe is a small helper to extract a single PathElement.
+func pe(parts ...interface{}) PathElement {
+	p := MakePathOrDie(parts...)
+	return p[len(p)-1]
+}
+
+func TestFrozenMembersInsertPanics(t *testing.T) {
+	s := NewSet(MakePathOrDie("a")).Freeze()
+	mustPanic(t, "frozen Set", func() {
+		s.Members.Insert(pe("evil"))
+	})
+	if s.Has(MakePathOrDie("evil")) {
+		t.Errorf("frozen set was mutated despite the guard")
+	}
+}
+
+func TestFrozenChildrenDescendPanics(t *testing.T) {
+	s := NewSet(MakePathOrDie("a", "b")).Freeze()
+	mustPanic(t, "frozen Set", func() {
+		s.Children.Descend(pe("evil"))
+	})
+	if s.Has(MakePathOrDie("evil")) {
+		t.Errorf("frozen set was mutated despite the guard")
+	}
+}
+
+func TestFrozenSetFromJSONPanics(t *testing.T) {
+	s := NewSet(MakePathOrDie("a", "b")).Freeze()
+	other, err := NewSet(MakePathOrDie("x")).ToJSON()
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustPanic(t, "frozen Set", func() {
+		_ = s.FromJSON(bytes.NewReader(other))
+	})
+	if !s.Has(MakePathOrDie("a", "b")) || s.Has(MakePathOrDie("x")) {
+		t.Errorf("frozen set was overwritten despite the guard")
+	}
+}
+
+func TestFrozenChildFromWithPrefixIsFrozen(t *testing.T) {
+	s := NewSet(MakePathOrDie("a", "b")).Freeze()
+	child := s.WithPrefix(pe("a"))
+	mustPanic(t, "frozen Set", func() { child.Members.Insert(pe("evil")) })
+	mustPanic(t, "frozen Set", func() { child.Children.Descend(pe("evil")) })
+	mustPanic(t, "frozen Set", func() { child.Insert(MakePathOrDie("evil")) })
+	if s.Has(MakePathOrDie("a", "evil")) {
+		t.Errorf("frozen subtree was mutated via WithPrefix escape")
+	}
+}
+
+func TestFrozenChildFromChildrenGetIsFrozen(t *testing.T) {
+	s := NewSet(MakePathOrDie("a", "b")).Freeze()
+	child, ok := s.Children.Get(pe("a"))
+	if !ok {
+		t.Fatal("expected child for \"a\"")
+	}
+	mustPanic(t, "frozen Set", func() { child.Members.Insert(pe("evil")) })
+}
+
+func TestFrozenSetAlgebraSharesFrozenChildren(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		op   func(s *Set) *Set
+	}{
+		{"Union", func(s *Set) *Set { return s.Union(NewSet()) }},
+		{"Difference", func(s *Set) *Set { return s.Difference(NewSet()) }},
+		{"RecursiveDifference", func(s *Set) *Set { return s.RecursiveDifference(NewSet()) }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := NewSet(MakePathOrDie("a", "b")).Freeze()
+			r := tc.op(s)
+			shared, ok := r.Children.Get(pe("a"))
+			if !ok {
+				t.Fatalf("%s result lost child \"a\"", tc.name)
+			}
+			mustPanic(t, "frozen Set", func() { shared.Members.Insert(pe("evil")) })
+			if s.Has(MakePathOrDie("a", "evil")) {
+				t.Errorf("%s let the frozen original be mutated via a shared child", tc.name)
+			}
+		})
+	}
+}
+
+func TestFrozenFilterWildcardIdentityIsFrozen(t *testing.T) {
+	s := NewSet(MakePathOrDie("a", "b")).Freeze()
+	r := s.FilterIncludeMatches(MakePrefixMatcherOrDie()) // wildcard -> returns s by identity
+	mustPanic(t, "frozen Set", func() { r.Members.Insert(pe("evil")) })
+	if s.Has(MakePathOrDie("evil")) {
+		t.Errorf("frozen set mutated via FilterIncludeMatches identity return")
+	}
+}
+
+func TestFreezeRecursesToArbitraryDepth(t *testing.T) {
+	s := NewSet(MakePathOrDie("a", "b", "c", "d")).Freeze()
+	deep := s.WithPrefix(pe("a")).WithPrefix(pe("b")).WithPrefix(pe("c"))
+	mustPanic(t, "frozen Set", func() { deep.Members.Insert(pe("evil")) })
+	mustPanic(t, "frozen Set", func() { deep.Children.Descend(pe("evil")) })
+}
+
+func TestCopyOfFrozenSetIsDeeplyMutable(t *testing.T) {
+	s := NewSet(MakePathOrDie("a", "b")).Freeze()
+	c := s.Copy()
+	ca := c.Children.Descend(pe("a")) // must not panic
+	ca.Insert(MakePathOrDie("new"))
+	if !c.Has(MakePathOrDie("a", "new")) {
+		t.Errorf("expected deep mutation of copy to take effect")
+	}
+	if s.Has(MakePathOrDie("a", "new")) {
+		t.Errorf("deep mutation of copy leaked into the frozen original")
+	}
+}
+
+func TestFrozenSetReadAlgebraDoesNotPanic(t *testing.T) {
+	s := NewSet(
+		MakePathOrDie("spec", "replicas"),
+		MakePathOrDie("spec", "paused"),
+		MakePathOrDie("meta", "name"),
+	).Freeze()
+	other := NewSet(MakePathOrDie("spec", "replicas"))
+	// None of these may panic
+	_ = s.Union(other)
+	_ = s.Intersection(other)
+	_ = s.Difference(other)
+	_ = s.RecursiveDifference(other)
+	_ = s.Leaves()
+	_ = s.WithPrefix(pe("spec"))
+	_ = s.FilterIncludeMatches(MakePrefixMatcherOrDie())
+	s.Iterate(func(Path) {})
+	_ = s.Has(MakePathOrDie("spec", "replicas"))
+	_ = s.Size()
+	_ = s.Empty()
+	_ = s.String()
 }

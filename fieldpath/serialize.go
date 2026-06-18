@@ -165,7 +165,11 @@ func (s *Set) emitContentsV1(includeSelf bool, stream *jsoniter.Stream, r *reusa
 }
 
 // FromJSON clears s and reads a JSON formatted set structure.
+// FromJSON panics if the Set has been frozen.
 func (s *Set) FromJSON(r io.Reader) error {
+	if s.frozen {
+		panic("fieldpath: FromJSON called on a frozen Set")
+	}
 	// The iterator pool is completely useless for memory management, grrr.
 	iter := jsoniter.Parse(jsoniter.ConfigCompatibleWithStandardLibrary, r, 4096)
 
