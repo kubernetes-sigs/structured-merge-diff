@@ -185,6 +185,36 @@ var nestedTypesSchema = `types:
       - name: struct
         type:
           namedType: struct
+      - name: nullableStruct
+        type:
+          namedType: struct
+          nullable: true
+      - name: nullableMapOfMapsRecursive
+        type:
+          namedType: mapOfMapsRecursive
+          nullable: true
+      - name: list
+        type:
+          namedType: list
+      - name: nullableList
+        type:
+          namedType: list
+          nullable: true
+      - name: mapOfNullableLists
+        type:
+          namedType: mapOfNullableLists
+      - name: listOfNullableMaps
+        type:
+          namedType: listOfNullableMaps
+      - name: listOfNullableLists
+        type:
+          namedType: listOfNullableLists
+      - name: listOfMapsWithDefault
+        type:
+          namedType: listOfMapsWithDefault
+      - name: listOfNullableMapsWithDefault
+        type:
+          namedType: listOfNullableMapsWithDefault
 - name: struct
   map:
     fields:
@@ -237,6 +267,12 @@ var nestedTypesSchema = `types:
     elementType:
       namedType: list
     elementRelationship: associative
+- name: mapOfNullableLists
+  map:
+    elementType:
+      namedType: list
+      nullable: true
+    elementRelationship: associative
 - name: mapOfMaps
   map:
     elementType:
@@ -247,6 +283,72 @@ var nestedTypesSchema = `types:
     elementType:
       namedType: mapOfMapsRecursive
     elementRelationship: associative
+- name: nullableList
+  list:
+    elementType:
+      scalar: string
+    elementRelationship: associative
+- name: listOfNullableMaps
+  list:
+    elementType:
+      map:
+        fields:
+        - name: name
+          type:
+            scalar: string
+        - name: value
+          type:
+            namedType: map
+            nullable: true
+    elementRelationship: associative
+    keys:
+    - name
+- name: listOfNullableLists
+  list:
+    elementType:
+      map:
+        fields:
+        - name: name
+          type:
+            scalar: string
+        - name: value
+          type:
+            namedType: list
+            nullable: true
+    elementRelationship: associative
+    keys:
+    - name
+- name: listOfMapsWithDefault
+  list:
+    elementType:
+      map:
+        fields:
+        - name: name
+          type:
+            scalar: string
+          default: "default"
+        - name: value
+          type:
+            scalar: string
+    elementRelationship: associative
+    keys:
+    - name
+- name: listOfNullableMapsWithDefault
+  list:
+    elementType:
+      map:
+        fields:
+        - name: name
+          type:
+            scalar: string
+          default: "default"
+        - name: value
+          type:
+            scalar: string
+      nullable: true
+    elementRelationship: associative
+    keys:
+    - name
 `
 
 var removeCases = []removeTestCase{{
@@ -721,6 +823,110 @@ var removeCases = []removeTestCase{{
 		),
 		``,
 		`{"mapOfMaps": null}`,
+	}, {
+		// non-nullable struct emptied by removal is preserved as an empty map
+		`{"struct": {"name": "a"}}`,
+		_NS(
+			_P("struct", "name"),
+		),
+		`{"struct": {}}`,
+		`{"struct": {"name": "a"}}`,
+	}, {
+		// nullable struct emptied by removal collapses to null instead of {}
+		`{"nullableStruct": {"name": "a"}}`,
+		_NS(
+			_P("nullableStruct", "name"),
+		),
+		`{"nullableStruct": null}`,
+		`{"nullableStruct": {"name": "a"}}`,
+	}, {
+		// nullable map emptied by removal of its only key collapses to null
+		`{"nullableMapOfMapsRecursive": {"a": {"b": {"c": null}}}}`,
+		_NS(
+			_P("nullableMapOfMapsRecursive", "a"),
+		),
+		`{"nullableMapOfMapsRecursive": null}`,
+		`{"nullableMapOfMapsRecursive": {"a": null}}`,
+	}, {
+		// non-nullable list emptied by removal is preserved as an empty list
+		`{"list": ["a"]}`,
+		_NS(
+			_P("list", _V("a")),
+		),
+		`{"list": []}`,
+		`{"list": ["a"]}`,
+	}, {
+		// nullable list emptied by removal collapses to null instead of []
+		`{"nullableList": ["a"]}`,
+		_NS(
+			_P("nullableList", _V("a")),
+		),
+		`{"nullableList": null}`,
+		`{"nullableList": ["a"]}`,
+	}, {
+		// non-nullable list inside a map emptied by removal is preserved as []
+		`{"mapOfLists": {"a": ["b"]}}`,
+		_NS(
+			_P("mapOfLists", "a", _V("b")),
+		),
+		`{"mapOfLists": {"a": []}}`,
+		`{"mapOfLists": {"a": ["b"]}}`,
+	}, {
+		// nullable list inside a map emptied by removal collapses to null instead of []
+		`{"mapOfNullableLists": {"a": ["b"]}}`,
+		_NS(
+			_P("mapOfNullableLists", "a", _V("b")),
+		),
+		`{"mapOfNullableLists": {"a": null}}`,
+		`{"mapOfNullableLists": {"a": ["b"]}}`,
+	}, {
+		// non-nullable list of maps with element emptied by removal
+		`{"listOfMaps": [{"name": "a", "value": {"b": "c"}}]}`,
+		_NS(
+			_P("listOfMaps", _KBF("name", "a"), "value", "b"),
+		),
+		`{"listOfMaps": [{"name": "a", "value": {}}]}`,
+		`unparseable`,
+	}, {
+		// non-nullable list of lists with element emptied by removal
+		`{"listOfLists": [{"name": "a", "value": ["b"]}]}`,
+		_NS(
+			_P("listOfLists", _KBF("name", "a"), "value", _V("b")),
+		),
+		`{"listOfLists": [{"name": "a", "value": []}]}`,
+		`unparseable`,
+	}, {
+		// list element with nullable map value emptied by removal collapses to null
+		`{"listOfNullableMaps": [{"name": "a", "value": {"b": "c"}}]}`,
+		_NS(
+			_P("listOfNullableMaps", _KBF("name", "a"), "value", "b"),
+		),
+		`{"listOfNullableMaps": [{"name": "a", "value": null}]}`,
+		`unparseable`,
+	}, {
+		// list element with nullable list value emptied by removal collapses to null
+		`{"listOfNullableLists": [{"name": "a", "value": ["b"]}]}`,
+		_NS(
+			_P("listOfNullableLists", _KBF("name", "a"), "value", _V("b")),
+		),
+		`{"listOfNullableLists": [{"name": "a", "value": null}]}`,
+		`unparseable`,
+	}, {
+		// non-nullable map element in list emptied by removal preserves {}
+		`{"listOfMapsWithDefault": [{}]}`,
+		_NS(
+			_P("listOfMapsWithDefault", _KBF("name", "default"), "value"),
+		),
+		`{"listOfMapsWithDefault": [{}]}`,
+		`unparseable`,
+	}, {
+		// nullable map element in list emptied by removal collapses to null, making associative list invalid
+		`{"listOfNullableMapsWithDefault": [{}]}`,
+		_NS(
+			_P("listOfNullableMapsWithDefault", _KBF("name", "default"), "value"),
+		),
+		`unparseable`, // unparseable because associative list with keys may not have a null element
+		`unparseable`,
 	}},
 }}
 
