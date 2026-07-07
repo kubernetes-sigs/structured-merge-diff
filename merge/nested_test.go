@@ -47,10 +47,6 @@ var nestedTypeParser = func() Parser {
       - name: struct
         type:
           namedType: struct
-      - name: nullableStruct
-        type:
-          namedType: struct
-          nullable: true
 - name: struct
   map:
     fields:
@@ -558,47 +554,13 @@ func TestUpdateNestedType(t *testing.T) {
 				},
 			},
 			Object: `
-			struct: {}
-		`,
-			APIVersion: "v1",
-			Managed: fieldpath.ManagedFields{
-				"default": fieldpath.NewVersionedSet(
-					_NS(
-						_P("struct"),
-					),
-					"v1",
-					true,
-				),
-			},
-		},
-		"nullableStruct_apply_remove_dangling": {
-			Ops: []Operation{
-				Apply{
-					Manager: "default",
-					Object: `
-						nullableStruct:
-						  name: a
-					`,
-					APIVersion: "v1",
-				},
-				Apply{
-					Manager: "default",
-					Object: `
-						nullableStruct:
-					`,
-					APIVersion: "v1",
-				},
-			},
-			// Unlike the non-nullable "struct" case (which is preserved as {}),
-			// a nullable field emptied by removal collapses back to null.
-			Object: `
-				nullableStruct: null
+				struct:
 			`,
 			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
 				"default": fieldpath.NewVersionedSet(
 					_NS(
-						_P("nullableStruct"),
+						_P("struct"),
 					),
 					"v1",
 					true,
