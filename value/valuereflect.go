@@ -173,6 +173,12 @@ func kind(v reflect.Value) reflectType {
 		return stringType
 	case reflect.Bool:
 		return boolType
+	case reflect.Array:
+		elemKind := typ.Elem().Kind()
+		if elemKind == reflect.Uint8 {
+			return byteStringType
+		}
+		return listType
 	case reflect.Slice:
 		if v.IsNil() {
 			return nullType
