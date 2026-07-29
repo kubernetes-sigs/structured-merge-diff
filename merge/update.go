@@ -284,11 +284,17 @@ func (s *Updater) prune(merged *typed.TypedValue, managers fieldpath.ManagedFiel
 func (s *Updater) addBackOwnedItems(merged, pruned *typed.TypedValue, prunedVersion fieldpath.APIVersion, managedFields fieldpath.ManagedFields, applyingManager string) (*typed.TypedValue, error) {
 	var err error
 	managedAtVersion := map[fieldpath.APIVersion]*fieldpath.Set{}
-	for _, managerSet := range managedFields {
+	for manager, managerSet := range managedFields {
+		set := managerSet.Set()
+		// Strip auto-inserted list item keys from non-applying appliers
+		// that are only partial managers (no direct non-key members).
+		if manager != applyingManager && managerSet.Applied() {
+			set = removePartialManagerKeys(set)
+		}
 		if _, ok := managedAtVersion[managerSet.APIVersion()]; !ok {
 			managedAtVersion[managerSet.APIVersion()] = fieldpath.NewSet()
 		}
-		managedAtVersion[managerSet.APIVersion()] = managedAtVersion[managerSet.APIVersion()].Union(managerSet.Set())
+		managedAtVersion[managerSet.APIVersion()] = managedAtVersion[managerSet.APIVersion()].Union(set)
 	}
 	// Add back owned items at pruned version first to avoid conversion failure
 	// caused by pruned fields which are required for conversion.
@@ -392,4 +398,55 @@ func (s *Updater) reconcileManagedFieldsWithSchemaChanges(liveObject *typed.Type
 		}
 	}
 	return result, nil
+}
+
+// removePartialManagerKeys strips auto-inserted list item key members
+// from items where the manager has no non-key members at the item
+// level — only children leading to nested leaves. Such a manager is
+// a partial owner and should not prevent a structural owner from
+// deleting the item. Managers with direct non-key members are
+// structural owners and their keys are preserved.
+//
+// Example: given a list keyed by "name", a manager that applies
+// {name: x, a: 1, b: 2} is full (a, b are direct non-key members),
+// while one that applies {name: x, c: {nested: val}} is partial
+// (c is only a child leading to a nested leaf).
+func removePartialManagerKeys(s *fieldpath.Set) *fieldpath.Set {
+	result := fieldpath.NewSet()
+	s.Members.Iterate(func(pe fieldpath.PathElement) {
+		if pe.Key == nil {
+			result.Members.Insert(pe)
+			return
+		}
+		child, ok := s.Children.Get(pe)
+		if ok && hasNonKeyMembers(child, pe.Key) {
+			result.Members.Insert(pe)
+		}
+	})
+	s.Children.Iterate(func(pe fieldpath.PathElement) {
+		child, _ := s.Children.Get(pe)
+		cleaned := removePartialManagerKeys(child)
+		if !cleaned.Empty() {
+			*result.Children.Descend(pe) = *cleaned
+		}
+	})
+	return result
+}
+
+// hasNonKeyMembers reports whether the item-level set contains any
+// members whose field name is not one of the list's key fields.
+func hasNonKeyMembers(itemSet *fieldpath.Set, key *value.FieldList) bool {
+	found := false
+	itemSet.Members.Iterate(func(pe fieldpath.PathElement) {
+		if pe.FieldName == nil {
+			return
+		}
+		for _, k := range *key {
+			if k.Name == *pe.FieldName {
+				return
+			}
+		}
+		found = true
+	})
+	return found
 }

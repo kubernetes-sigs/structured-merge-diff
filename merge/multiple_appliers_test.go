@@ -205,10 +205,13 @@ func TestMultipleAppliersSet(t *testing.T) {
 					`,
 				},
 			},
+			// Item "c" is removed: apply-two is a partial manager of
+			// it (only key-field members, no structural fields) so its
+			// auto-inserted key is stripped. Item "d" survives because
+			// apply-one never owned it.
 			Object: `
 				list:
 				- name: a
-				- name: c
 				- name: d
 			`,
 			APIVersion: "v1",
@@ -223,9 +226,7 @@ func TestMultipleAppliersSet(t *testing.T) {
 				),
 				"apply-two": fieldpath.NewVersionedSet(
 					_NS(
-						_P("list", _KBF("name", "c")),
 						_P("list", _KBF("name", "d")),
-						_P("list", _KBF("name", "c"), "name"),
 						_P("list", _KBF("name", "d"), "name"),
 					),
 					"v2",
@@ -238,6 +239,505 @@ func TestMultipleAppliersSet(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			if err := test.Test(associativeListParser); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+// associativeListNestedFieldParser defines list elements with scalar fields
+// and a nested map field. This lets us test the structural vs partial
+// ownership distinction: a manager that owns direct scalar fields is
+// structural, while one that only owns nested map sub-fields is partial.
+var associativeListNestedFieldParser = func() Parser {
+	parser, err := typed.NewParser(`types:
+- name: type
+  map:
+    fields:
+      - name: list
+        type:
+          namedType: associativeList
+- name: associativeList
+  list:
+    elementType:
+      namedType: myElement
+    elementRelationship: associative
+    keys:
+    - name
+- name: myElement
+  map:
+    fields:
+    - name: name
+      type:
+        scalar: string
+    - name: value
+      type:
+        scalar: numeric
+    - name: extra
+      type:
+        scalar: string
+    - name: nested
+      type:
+        namedType: nestedMap
+- name: nestedMap
+  map:
+    fields:
+    - name: subValue
+      type:
+        scalar: numeric
+`)
+	if err != nil {
+		panic(err)
+	}
+	return SameVersionParser{T: parser.Type("type")}
+}()
+
+// TestMultipleAppliersSharedListItem tests scenarios where two appliers
+// co-own fields within the same associative list item.
+// Regression test for https://github.com/kubernetes-sigs/structured-merge-diff/issues/335
+func TestMultipleAppliersSharedListItem(t *testing.T) {
+	tests := map[string]TestCase{
+		"partial_co_owner_does_not_prevent_deletion": {
+			// apply-one creates items "a" and "b" with structural fields.
+			// apply-two force-applies only a nested sub-field on item "a".
+			// When apply-one drops item "a", the item should be removed
+			// because apply-two is only a partial manager (no direct
+			// non-key scalar fields at the item level).
+			Ops: []Operation{
+				Apply{
+					Manager:    "apply-one",
+					APIVersion: "v1",
+					Object: `
+						list:
+						- name: a
+						  value: 1
+						  extra: foo
+						- name: b
+						  value: 2
+					`,
+				},
+				ForceApply{
+					Manager:    "apply-two",
+					APIVersion: "v1",
+					Object: `
+						list:
+						- name: a
+						  nested:
+						    subValue: 10
+					`,
+				},
+				Apply{
+					Manager:    "apply-one",
+					APIVersion: "v1",
+					Object: `
+						list:
+						- name: b
+						  value: 2
+					`,
+				},
+			},
+			Object: `
+				list:
+				- name: b
+				  value: 2
+			`,
+			APIVersion: "v1",
+			Managed: fieldpath.ManagedFields{
+				"apply-one": fieldpath.NewVersionedSet(
+					_NS(
+						_P("list", _KBF("name", "b")),
+						_P("list", _KBF("name", "b"), "name"),
+						_P("list", _KBF("name", "b"), "value"),
+					),
+					"v1",
+					false,
+				),
+			},
+		},
+		"partial_manager_cannot_delete_structural_item": {
+			// apply-one creates items "a" and "b" with structural fields.
+			// apply-two force-applies only a nested sub-field on item "a".
+			// When apply-two drops item "a", the item should survive
+			// because apply-one is a structural manager (owns direct
+			// non-key scalar fields). Only apply-two's nested field is
+			// released.
+			Ops: []Operation{
+				Apply{
+					Manager:    "apply-one",
+					APIVersion: "v1",
+					Object: `
+						list:
+						- name: a
+						  value: 1
+						  extra: foo
+						- name: b
+						  value: 2
+					`,
+				},
+				ForceApply{
+					Manager:    "apply-two",
+					APIVersion: "v1",
+					Object: `
+						list:
+						- name: a
+						  nested:
+						    subValue: 10
+					`,
+				},
+				Apply{
+					Manager:    "apply-two",
+					APIVersion: "v1",
+					Object: `
+						list:
+					`,
+				},
+			},
+			Object: `
+				list:
+				- name: a
+				  value: 1
+				  extra: foo
+				- name: b
+				  value: 2
+			`,
+			APIVersion: "v1",
+			Managed: fieldpath.ManagedFields{
+				"apply-one": fieldpath.NewVersionedSet(
+					_NS(
+						_P("list", _KBF("name", "a")),
+						_P("list", _KBF("name", "a"), "name"),
+						_P("list", _KBF("name", "a"), "value"),
+						_P("list", _KBF("name", "a"), "extra"),
+						_P("list", _KBF("name", "b")),
+						_P("list", _KBF("name", "b"), "name"),
+						_P("list", _KBF("name", "b"), "value"),
+					),
+					"v1",
+					false,
+				),
+				"apply-two": fieldpath.NewVersionedSet(
+					_NS(
+						_P("list"),
+					),
+					"v1",
+					false,
+				),
+			},
+		},
+		"structural_co_owner_preserves_item": {
+			// apply-one creates items "a" and "b" with structural fields.
+			// apply-two force-applies a direct scalar field on item "a",
+			// making apply-two a structural co-owner. When apply-one
+			// drops item "a", the item should survive because apply-two
+			// is structural (owns a direct non-key scalar member).
+			Ops: []Operation{
+				Apply{
+					Manager:    "apply-one",
+					APIVersion: "v1",
+					Object: `
+						list:
+						- name: a
+						  value: 1
+						  extra: foo
+						- name: b
+						  value: 2
+					`,
+				},
+				ForceApply{
+					Manager:    "apply-two",
+					APIVersion: "v1",
+					Object: `
+						list:
+						- name: a
+						  value: 10
+					`,
+				},
+				Apply{
+					Manager:    "apply-one",
+					APIVersion: "v1",
+					Object: `
+						list:
+						- name: b
+						  value: 2
+					`,
+				},
+			},
+			Object: `
+				list:
+				- name: a
+				  value: 10
+				- name: b
+				  value: 2
+			`,
+			APIVersion: "v1",
+			Managed: fieldpath.ManagedFields{
+				"apply-one": fieldpath.NewVersionedSet(
+					_NS(
+						_P("list", _KBF("name", "b")),
+						_P("list", _KBF("name", "b"), "name"),
+						_P("list", _KBF("name", "b"), "value"),
+					),
+					"v1",
+					false,
+				),
+				"apply-two": fieldpath.NewVersionedSet(
+					_NS(
+						_P("list", _KBF("name", "a")),
+						_P("list", _KBF("name", "a"), "name"),
+						_P("list", _KBF("name", "a"), "value"),
+					),
+					"v1",
+					false,
+				),
+			},
+		},
+		"shared_field_co_owners_preserve_then_delete": {
+			// Both managers apply the same scalar field on item "a"
+			// with the same value, creating shared ownership. When
+			// apply-one drops the item, apply-two still has non-key
+			// members so the item survives. When apply-two also drops
+			// it, no full manager remains and the item is deleted.
+			Ops: []Operation{
+				Apply{
+					Manager:    "apply-one",
+					APIVersion: "v1",
+					Object: `
+						list:
+						- name: a
+						  value: 1
+						  extra: foo
+					`,
+				},
+				Apply{
+					Manager:    "apply-two",
+					APIVersion: "v1",
+					Object: `
+						list:
+						- name: a
+						  value: 1
+						  extra: foo
+					`,
+				},
+				Apply{
+					Manager:    "apply-one",
+					APIVersion: "v1",
+					Object: `
+						list:
+					`,
+				},
+				Apply{
+					Manager:    "apply-two",
+					APIVersion: "v1",
+					Object: `
+						list:
+					`,
+				},
+			},
+			Object: `
+				list:
+			`,
+			APIVersion: "v1",
+			Managed: fieldpath.ManagedFields{
+				"apply-one": fieldpath.NewVersionedSet(
+					_NS(
+						_P("list"),
+					),
+					"v1",
+					false,
+				),
+				"apply-two": fieldpath.NewVersionedSet(
+					_NS(
+						_P("list"),
+					),
+					"v1",
+					false,
+				),
+			},
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			if err := test.Test(associativeListNestedFieldParser); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+// associativeListSharedNestedMapParser defines list elements with scalar
+// fields and a map field (config) that two managers can both own
+// different leaves within.
+var associativeListSharedNestedMapParser = func() Parser {
+	parser, err := typed.NewParser(`types:
+- name: type
+  map:
+    fields:
+      - name: list
+        type:
+          namedType: associativeList
+- name: associativeList
+  list:
+    elementType:
+      namedType: myElement
+    elementRelationship: associative
+    keys:
+    - name
+- name: myElement
+  map:
+    fields:
+    - name: name
+      type:
+        scalar: string
+    - name: a
+      type:
+        scalar: string
+    - name: b
+      type:
+        scalar: string
+    - name: config
+      type:
+        namedType: configMap
+- name: configMap
+  map:
+    fields:
+    - name: endpoint
+      type:
+        scalar: string
+    - name: extra
+      type:
+        scalar: string
+`)
+	if err != nil {
+		panic(err)
+	}
+	return SameVersionParser{T: parser.Type("type")}
+}()
+
+// TestFullAndPartialApplierSharedNestedMap tests the case where a
+// structural (full) and a partial applier both own leaves within the
+// same nested map field (config) of a list item.
+func TestFullAndPartialApplierSharedNestedMap(t *testing.T) {
+	tests := map[string]TestCase{
+		"structural_owner_can_delete_item": {
+			// A owns direct scalars (a, b) and config.endpoint.
+			// B only owns config.extra (partial — no non-key members
+			// at item level). When A drops the item, it is deleted.
+			Ops: []Operation{
+				Apply{
+					Manager:    "A",
+					APIVersion: "v1",
+					Object: `
+						list:
+						- name: item
+						  a: "x"
+						  b: "y"
+						  config:
+						    endpoint: https://svc
+					`,
+				},
+				ForceApply{
+					Manager:    "B",
+					APIVersion: "v1",
+					Object: `
+						list:
+						- name: item
+						  config:
+						    extra: injected
+					`,
+				},
+				Apply{
+					Manager:    "A",
+					APIVersion: "v1",
+					Object: `
+						list:
+					`,
+				},
+			},
+			Object: `
+				list:
+			`,
+			APIVersion: "v1",
+			Managed: fieldpath.ManagedFields{
+				"A": fieldpath.NewVersionedSet(
+					_NS(
+						_P("list"),
+					),
+					"v1",
+					false,
+				),
+			},
+		},
+		"partial_owner_cannot_delete_item": {
+			// Same setup, but B (partial) drops the item. A is
+			// structural and preserves it — only B's nested field
+			// is released.
+			Ops: []Operation{
+				Apply{
+					Manager:    "A",
+					APIVersion: "v1",
+					Object: `
+						list:
+						- name: item
+						  a: "x"
+						  b: "y"
+						  config:
+						    endpoint: https://svc
+					`,
+				},
+				ForceApply{
+					Manager:    "B",
+					APIVersion: "v1",
+					Object: `
+						list:
+						- name: item
+						  config:
+						    extra: injected
+					`,
+				},
+				Apply{
+					Manager:    "B",
+					APIVersion: "v1",
+					Object: `
+						list:
+					`,
+				},
+			},
+			Object: `
+				list:
+				- name: item
+				  a: "x"
+				  b: "y"
+				  config:
+				    endpoint: https://svc
+			`,
+			APIVersion: "v1",
+			Managed: fieldpath.ManagedFields{
+				"A": fieldpath.NewVersionedSet(
+					_NS(
+						_P("list", _KBF("name", "item")),
+						_P("list", _KBF("name", "item"), "name"),
+						_P("list", _KBF("name", "item"), "a"),
+						_P("list", _KBF("name", "item"), "b"),
+						_P("list", _KBF("name", "item"), "config", "endpoint"),
+					),
+					"v1",
+					false,
+				),
+				"B": fieldpath.NewVersionedSet(
+					_NS(
+						_P("list"),
+					),
+					"v1",
+					false,
+				),
+			},
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			if err := test.Test(associativeListSharedNestedMapParser); err != nil {
 				t.Fatal(err)
 			}
 		})
@@ -669,12 +1169,12 @@ func TestMultipleAppliersNestedType(t *testing.T) {
 					APIVersion: "v3",
 				},
 			},
+			// Item "b" is removed: apply-two is a partial manager of
+			// it (only key-field members, no structural fields) so its
+			// auto-inserted key is stripped.
 			Object: `
 				listOfLists:
 				- name: a
-				- name: b
-				  value:
-				  - d
 			`,
 			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
@@ -684,15 +1184,6 @@ func TestMultipleAppliersNestedType(t *testing.T) {
 						_P("listOfLists", _KBF("name", "a"), "name"),
 					),
 					"v3",
-					false,
-				),
-				"apply-two": fieldpath.NewVersionedSet(
-					_NS(
-						_P("listOfLists", _KBF("name", "b")),
-						_P("listOfLists", _KBF("name", "b"), "name"),
-						_P("listOfLists", _KBF("name", "b"), "value", _V("d")),
-					),
-					"v2",
 					false,
 				),
 			},
@@ -742,13 +1233,12 @@ func TestMultipleAppliersNestedType(t *testing.T) {
 					APIVersion: "v3",
 				},
 			},
+			// Item "b" is removed: apply-two and controller are
+			// partial managers (only key-field members) so their
+			// auto-inserted keys are stripped.
 			Object: `
 				listOfLists:
 				- name: a
-				- name: b
-				  value:
-				  - d
-				  - e
 			`,
 			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
@@ -758,22 +1248,6 @@ func TestMultipleAppliersNestedType(t *testing.T) {
 						_P("listOfLists", _KBF("name", "a"), "name"),
 					),
 					"v3",
-					false,
-				),
-				"apply-two": fieldpath.NewVersionedSet(
-					_NS(
-						_P("listOfLists", _KBF("name", "b")),
-						_P("listOfLists", _KBF("name", "b"), "name"),
-						_P("listOfLists", _KBF("name", "b"), "value", _V("d")),
-					),
-					"v2",
-					false,
-				),
-				"controller": fieldpath.NewVersionedSet(
-					_NS(
-						_P("listOfLists", _KBF("name", "b"), "value", _V("e")),
-					),
-					"v2",
 					false,
 				),
 			},
@@ -956,12 +1430,12 @@ func TestMultipleAppliersNestedType(t *testing.T) {
 					APIVersion: "v3",
 				},
 			},
+			// Item "b" is removed: apply-two is a partial manager
+			// (only key-field members) so its auto-inserted key is
+			// stripped.
 			Object: `
 				listOfLists:
 				- name: a
-				- name: b
-				  value:
-				  - d
 			`,
 			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
@@ -971,15 +1445,6 @@ func TestMultipleAppliersNestedType(t *testing.T) {
 						_P("listOfLists", _KBF("name", "a"), "name"),
 					),
 					"v3",
-					false,
-				),
-				"apply-two": fieldpath.NewVersionedSet(
-					_NS(
-						_P("listOfLists", _KBF("name", "b")),
-						_P("listOfLists", _KBF("name", "b"), "name"),
-						_P("listOfLists", _KBF("name", "b"), "value", _V("d")),
-					),
-					"v2",
 					false,
 				),
 			},
