@@ -245,6 +245,10 @@ type StructField struct {
 	Type TypeRef `yaml:"type,omitempty"`
 	// Default value for the field, nil if not present.
 	Default interface{} `yaml:"default,omitempty"`
+	// Required indicates the field must be present for the enclosing
+	// map/struct item to be valid. Populated from the OpenAPI
+	// `required` list by schemaconv; absent means not required.
+	Required bool `yaml:"required,omitempty"`
 }
 
 // List represents a type which contains a zero or more elements, all of the

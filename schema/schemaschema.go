@@ -134,6 +134,9 @@ var SchemaSchemaYAML = `types:
     - name: default
       type:
         namedType: __untyped_atomic_
+    - name: required
+      type:
+        scalar: boolean
 - name: list
   map:
     fields:
