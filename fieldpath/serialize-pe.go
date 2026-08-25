@@ -30,11 +30,13 @@ import (
 
 var ErrUnknownPathElementType = errors.New("unknown path element type")
 
-// decodeOptions are the options used whenever this package parses JSON.
-// Invalid UTF-8 is tolerated (the offending bytes are replaced with the
-// Unicode replacement character) rather than rejected, matching the
+// allowInvalidUTF8 tolerates invalid utf8 (the offending bytes are replaced with the
+// Unicode replacement character) rather than rejecting, matching the
 // behaviour of the JSON parser this package used previously.
-var decodeOptions = jsontext.AllowInvalidUTF8(true)
+var allowInvalidUTF8 = jsontext.AllowInvalidUTF8(true)
+
+// allowDuplicates allows tolerating duplicates when decoding or encoding.
+var allowDuplicates = jsontext.AllowDuplicateNames(true)
 
 const (
 	// Field indicates that the content of this path element is a field's name
@@ -77,14 +79,14 @@ func DeserializePathElement(s string) (PathElement, error) {
 		}, nil
 	case peValueSepBytes[0]:
 		var v any
-		if err := json.UnmarshalRead(strings.NewReader(s[2:]), &v, decodeOptions); err != nil {
+		if err := json.UnmarshalRead(strings.NewReader(s[2:]), &v, allowInvalidUTF8); err != nil {
 			return PathElement{}, err
 		}
 		interfaceValue := value.NewValueInterface(v)
 		return PathElement{Value: &interfaceValue}, nil
 	case peKeySepBytes[0]:
 		var fields value.FieldList
-		if err := json.UnmarshalRead(strings.NewReader(s[2:]), &fields, decodeOptions); err != nil {
+		if err := json.UnmarshalRead(strings.NewReader(s[2:]), &fields, allowInvalidUTF8); err != nil {
 			return PathElement{}, err
 		}
 		if fields == nil {

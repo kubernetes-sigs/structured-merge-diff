@@ -21,7 +21,6 @@ import (
 	"encoding/json/v2"
 	"fmt"
 	"io"
-	"sort"
 	"sync"
 )
 
@@ -205,36 +204,41 @@ func (s *setContentsV1) readIterV1(parser *jsontext.Decoder) (children *Set, isM
 			return nil, false, fmt.Errorf("parsing key as path element: %v", err)
 		}
 
-		grandChildren, isChildMember, err := s.readIterV1(parser)
+		grandchildren, childIsMember, err := s.readIterV1(parser)
 		if err != nil {
 			return nil, false, fmt.Errorf("parsing value as set: %v", err)
 		}
 
-		if isChildMember {
+		if childIsMember {
 			if children == nil {
 				children = &Set{}
 			}
 
-			// Append the member to the members list, we will sort it later
 			m := &children.Members.members
-			*m = append(*m, pe)
+			// Since we expect that most of the time these will have been
+			// serialized in the right order, we just verify that and append.
+			appendOK := len(*m) == 0 || (*m)[len(*m)-1].Less(pe)
+			if appendOK {
+				*m = append(*m, pe)
+			} else {
+				children.Members.Insert(pe)
+			}
 		}
 
-		if grandChildren != nil {
+		if grandchildren != nil {
 			if children == nil {
 				children = &Set{}
 			}
-
-			// Append the child to the children list, we will sort it later
+			// Since we expect that most of the time these will have been
+			// serialized in the right order, we just verify that and append.
 			m := &children.Children.members
-			*m = append(*m, setNode{pe, grandChildren})
+			appendOK := len(*m) == 0 || (*m)[len(*m)-1].pathElement.Less(pe)
+			if appendOK {
+				*m = append(*m, setNode{pe, grandchildren})
+			} else {
+				*children.Children.Descend(pe) = *grandchildren
+			}
 		}
-	}
-
-	// Sort the members and children
-	if children != nil {
-		sort.Sort(children.Members.members)
-		sort.Sort(children.Children.members)
 	}
 
 	if children == nil {
@@ -246,5 +250,5 @@ func (s *setContentsV1) readIterV1(parser *jsontext.Decoder) (children *Set, isM
 
 // FromJSON clears s and reads a JSON formatted set structure.
 func (s *Set) FromJSON(r io.Reader) error {
-	return json.UnmarshalRead(r, (*setContentsV1)(s), decodeOptions)
+	return json.UnmarshalRead(r, (*setContentsV1)(s), allowInvalidUTF8, allowDuplicates)
 }
