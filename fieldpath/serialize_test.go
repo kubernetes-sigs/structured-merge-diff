@@ -19,6 +19,7 @@ package fieldpath_test
 import (
 	"bytes"
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -390,35 +391,40 @@ func TestSetFromJSONTokenTypeErrors(t *testing.T) {
 
 func TestSetFromJSON(t *testing.T) {
 	cases := []struct {
-		name  string
-		input string
+		name   string
+		input  string
+		expect any
+		output string
 	}{
 		// Trailing whitespace is allowed.
-		{"trailingSpace", `{"f:a":{}} `},
-		{"trailingTab", "{\"f:a\":{}}\t"},
-		{"trailingNewline", "{\"f:a\":{}}\n"},
-		{"trailingCarriageReturn", "{\"f:a\":{}}\r"},
-		{"trailingMultipleSpaces", `{"f:a":{}}     `},
-		{"trailingMixedWhitespace", "{\"f:a\":{}} \t\n\r "},
+		{name: "trailingSpace", input: `{"f:a":{}} `, expect: NewSet(MakePathOrDie("a")), output: `{"f:a":{}}`},
+		{name: "trailingTab", input: "{\"f:a\":{}}\t", expect: NewSet(MakePathOrDie("a")), output: `{"f:a":{}}`},
+		{name: "trailingNewline", input: "{\"f:a\":{}}\n", expect: NewSet(MakePathOrDie("a")), output: `{"f:a":{}}`},
+		{name: "trailingCarriageReturn", input: "{\"f:a\":{}}\r", expect: NewSet(MakePathOrDie("a")), output: `{"f:a":{}}`},
+		{name: "trailingMultipleSpaces", input: `{"f:a":{}}     `, expect: NewSet(MakePathOrDie("a")), output: `{"f:a":{}}`},
+		{name: "trailingMixedWhitespace", input: "{\"f:a\":{}} \t\n\r ", expect: NewSet(MakePathOrDie("a")), output: `{"f:a":{}}`},
 
 		// Leading whitespace is allowed.
-		{"leadingSpace", ` {"f:a":{}}`},
-		{"leadingTab", "\t{\"f:a\":{}}"},
-		{"leadingNewline", "\n{\"f:a\":{}}"},
-		{"leadingCarriageReturn", "\r{\"f:a\":{}}"},
-		{"leadingMultipleSpaces", `     {"f:a":{}}`},
-		{"leadingMixedWhitespace", " \t\n\r {\"f:a\":{}}"},
+		{name: "leadingSpace", input: ` {"f:a":{}}`, expect: NewSet(MakePathOrDie("a")), output: `{"f:a":{}}`},
+		{name: "leadingTab", input: "\t{\"f:a\":{}}", expect: NewSet(MakePathOrDie("a")), output: `{"f:a":{}}`},
+		{name: "leadingNewline", input: "\n{\"f:a\":{}}", expect: NewSet(MakePathOrDie("a")), output: `{"f:a":{}}`},
+		{name: "leadingCarriageReturn", input: "\r{\"f:a\":{}}", expect: NewSet(MakePathOrDie("a")), output: `{"f:a":{}}`},
+		{name: "leadingMultipleSpaces", input: `     {"f:a":{}}`, expect: NewSet(MakePathOrDie("a")), output: `{"f:a":{}}`},
+		{name: "leadingMixedWhitespace", input: " \t\n\r {\"f:a\":{}}", expect: NewSet(MakePathOrDie("a")), output: `{"f:a":{}}`},
 
 		// Whitespace inside the object is allowed.
-		{"surroundingMixedWhitespace", " \t\n\r {\"f:a\":{}} \t\n\r "},
-		{"whitespaceAroundEmptySet", "  {}  "},
-		{"whitespaceBetweenTokens", "{ \"f:a\" : {} }"},
-		{"whitespaceBeforeKey", "{\n\t\"f:a\":{}}"},
-		{"whitespaceAfterColon", `{"f:a":     {}}`},
+		{name: "surroundingMixedWhitespace", input: " \t\n\r {\"f:a\":{}} \t\n\r ", expect: NewSet(MakePathOrDie("a")), output: `{"f:a":{}}`},
+		{name: "whitespaceAroundEmptySet", input: "  {}  ", expect: NewSet(), output: `{}`},
+		{name: "whitespaceBetweenTokens", input: "{ \"f:a\" : {} }", expect: NewSet(MakePathOrDie("a")), output: `{"f:a":{}}`},
+		{name: "whitespaceBeforeKey", input: "{\n\t\"f:a\":{}}", expect: NewSet(MakePathOrDie("a")), output: `{"f:a":{}}`},
+		{name: "whitespaceAfterColon", input: `{"f:a":     {}}`, expect: NewSet(MakePathOrDie("a")), output: `{"f:a":{}}`},
 
 		// A bare null is accepted and produces an empty set.
-		{"bareNull", `null`},
-		{"nullWithSurroundingWhitespace", ` null `},
+		{name: "bareNull", input: `null`, expect: NewSet(), output: `{}`},
+		{name: "nullWithSurroundingWhitespace", input: ` null `, expect: NewSet(), output: `{}`},
+
+		// Duplicates are accepted, last one wins.
+		{name: "duplicates", input: `{"f:a":{"f:b":{},"f:b":{}},"f:a":{"f:c":{},"f:c":{}}} `, expect: NewSet(MakePathOrDie("a", "c")), output: `{"f:a":{"f:c":{}}}`},
 	}
 
 	for _, tc := range cases {
@@ -426,6 +432,17 @@ func TestSetFromJSON(t *testing.T) {
 			s := NewSet()
 			if err := s.FromJSON(strings.NewReader(tc.input)); err != nil {
 				t.Fatalf("unexpected error for %q: %v", tc.input, err)
+			}
+			if !reflect.DeepEqual(tc.expect, s) {
+				t.Fatalf("expected: %#v\ngot: %#v", tc.expect, s)
+			}
+			b, err := s.ToJSON()
+			if err != nil {
+				t.Errorf("Failed to serialize %#v: %v", s, err)
+				return
+			}
+			if string(b) != tc.output {
+				t.Errorf("Failed;\ngot:  %s\nwant: %s\n", b, tc.output)
 			}
 		})
 	}
