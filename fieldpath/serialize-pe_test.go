@@ -58,7 +58,8 @@ func TestPathElementRoundTrip(t *testing.T) {
 		{input: `k:{"name":"नमस्ते दुनिया"}`, pathElement: KeyElement(value.Field{Name: "name", Value: value.NewValueInterface("नमस्ते दुनिया")})},
 		{input: `k:{"name":"👋"}`, pathElement: KeyElement(value.Field{Name: "name", Value: value.NewValueInterface("👋")})},
 		{input: `f:spec-🚀`, pathElement: FieldNameElement("spec-🚀")},
-		{input: `f:spec-\n`, pathElement: FieldNameElement("spec-\\n")},
+		{input: `f:spec-\n`, pathElement: FieldNameElement("spec-\\n")},         // no interpretation of escapes when decoding
+		{input: `f:spec-\u0041`, pathElement: FieldNameElement("spec-\\u0041")}, // no interpretation of escapes when decoding
 		{input: `k:{"duplicate":"1","duplicate":"2"}`, pathElement: KeyElement(value.Field{Name: "duplicate", Value: value.NewValueInterface("1")}, value.Field{Name: "duplicate", Value: value.NewValueInterface("2")})},
 		{input: `v:{"duplicate":"1","duplicate":"2"}`, pathElement: ValueElement(value.NewValueInterface(map[string]interface{}{"duplicate": "2"})), output: `v:{"duplicate":"2"}`},
 	}
