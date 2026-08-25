@@ -87,6 +87,10 @@ func DeserializePathElement(s string) (PathElement, error) {
 		if err := json.UnmarshalRead(strings.NewReader(s[2:]), &fields, decodeOptions); err != nil {
 			return PathElement{}, err
 		}
+		if fields == nil {
+			// preserve json-iterator behavior of always returning a non-nil field list
+			fields = value.FieldList{}
+		}
 		return PathElement{Key: &fields}, nil
 	case peIndexSepBytes[0]:
 		i, err := strconv.Atoi(s[2:])
