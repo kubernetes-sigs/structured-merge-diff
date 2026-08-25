@@ -20,6 +20,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"sigs.k8s.io/structured-merge-diff/v6/value"
 )
 
@@ -160,6 +161,11 @@ func TestDeserializePathElementSuccess(t *testing.T) {
 		// Unescaped UTF-8 in key/value
 		{`k:{"name-🚀":"my-container"}`, KeyElement(value.Field{Name: "name-🚀", Value: value.NewValueInterface("my-container")})},
 		{`v:"value-🚀"`, ValueElement(value.NewValueInterface("value-🚀"))},
+
+		// A null key element is equivalent to an empty one.
+		{`k:{}`, KeyElement([]value.Field{}...)},
+		{`k:null`, KeyElement([]value.Field{}...)},
+		{`k: null `, KeyElement([]value.Field{}...)},
 	}
 
 	for _, test := range tests {
@@ -168,8 +174,8 @@ func TestDeserializePathElementSuccess(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to create path element: %v", err)
 			}
-			if !reflect.DeepEqual(pe, test.pathElement) {
-				t.Fatalf("Expected:\n%#v\ngot:\n%#v", test.pathElement, pe)
+			if !reflect.DeepEqual(test.pathElement, pe) {
+				t.Fatalf("Expected:\n%#v\ngot:\n%#v\ndiff:\n%s", test.pathElement, pe, cmp.Diff(test.pathElement, pe))
 			}
 		})
 	}
