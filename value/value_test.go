@@ -168,6 +168,9 @@ func TestFromJSONValid(t *testing.T) {
 		{"surroundingWhitespaceAroundNull", " null ", `null`},
 		{"surroundingWhitespaceAroundBool", " true ", `true`},
 
+		// Duplicate values
+		{"duplicates", `{"a":{"b":1,"b":2}, "a":{"c":1.0,"c":2.0}}`, `{"a":{"c":2}}`},
+
 		// Unicode keys
 		{"multiByteLatin", `{"Iñtërnâtiônàlizætiøn":1}`, `{"Iñtërnâtiônàlizætiøn":1}`},
 		{"cyrillic", `{"Здравствуйте":1}`, `{"Здравствуйте":1}`},
