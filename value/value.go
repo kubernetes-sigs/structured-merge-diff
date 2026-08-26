@@ -17,12 +17,13 @@ limitations under the License.
 package value
 
 import (
-	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"fmt"
 	"strings"
 
 	yaml "go.yaml.in/yaml/v2"
+
+	internaljson "sigs.k8s.io/structured-merge-diff/v6/internal/json"
 )
 
 // A Value corresponds to an 'atom' in the schema. It should return true
@@ -75,19 +76,12 @@ type Value interface {
 	Unstructured() interface{}
 }
 
-// decodeOptions are the options used whenever this package parses JSON.
-// Invalid UTF-8 is tolerated (the offending bytes are replaced with the
-// Unicode replacement character) rather than rejected, matching the
-// behaviour of the JSON parser this package used previously.
-var decodeOptions = jsontext.AllowInvalidUTF8(true)
-
 // FromJSON is a helper function for reading a JSON document.
 func FromJSON(input []byte) (Value, error) {
-	var v any
-	if err := json.Unmarshal(input, &v, decodeOptions); err != nil {
+	v, err := internaljson.UnmarshalToAnyMergingDuplicates(input)
+	if err != nil {
 		return nil, err
 	}
-
 	return NewValueInterface(v), nil
 }
 
