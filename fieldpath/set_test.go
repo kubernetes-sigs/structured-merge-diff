@@ -64,6 +64,8 @@ var randomPathMaker = randomPathAlphabet(MakePathOrDie(
 	KeyByFields("key", " value with spaces "),
 	KeyByFields("lang", "en-US"),
 	KeyByFields("unicode-key", "unicode-value-🔥"),
+	KeyByFields("duplicate-key", "duplicate-value", "duplicate-key", "duplicate-value"),
+	KeyByFields(`\`, `\`, `\\`, `\\`, `\u0041`, `\u0041`, `"`, `"`),
 	// Values
 	_V(1),
 	_V(2),
@@ -78,6 +80,10 @@ var randomPathMaker = randomPathAlphabet(MakePathOrDie(
 	_V("string with \"quotes\""),
 	_V("unicode-string-你好"),
 	_V(false),
+	_V(``),
+	_V(`"`),
+	_V(`\`),
+	_V(`\\`),
 	// Indices
 	1, 2, 3, 4, 0, 5, 100, 2147483648,
 ))

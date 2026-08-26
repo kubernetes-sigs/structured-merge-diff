@@ -67,6 +67,14 @@ func TestPathElementRoundTrip(t *testing.T) {
 		{input: `k:null`, pathElement: KeyElement([]value.Field{}...), output: `k:{}`},
 		{input: `k:{}`, pathElement: KeyElement([]value.Field{}...)},
 		{input: `k:{"key":{}}`, pathElement: KeyElement(value.Field{Name: "key", Value: value.NewValueInterface(map[string]any{})})},
+		{input: `f:"`, pathElement: FieldNameElement(`"`)},
+		{input: `f:\`, pathElement: FieldNameElement(`\`)},
+		{input: `f:\\`, pathElement: FieldNameElement(`\\`)},
+		{input: `v:"\""`, pathElement: ValueElement(value.NewValueInterface(`"`))},
+		{input: `v:"\\"`, pathElement: ValueElement(value.NewValueInterface(`\`))},
+		{input: `k:{"\"":{}}`, pathElement: KeyElement(value.Field{Name: `"`, Value: value.NewValueInterface(map[string]any{})})},
+		{input: `k:{"\\":{}}`, pathElement: KeyElement(value.Field{Name: `\`, Value: value.NewValueInterface(map[string]any{})})},
+		{input: `k:{"\\\\":{}}`, pathElement: KeyElement(value.Field{Name: `\\`, Value: value.NewValueInterface(map[string]any{})})},
 	}
 
 	for _, test := range tests {
@@ -110,6 +118,8 @@ func TestDeserializePathElementError(t *testing.T) {
 		`v:`,
 		`k:`,
 		`v:invalid json`,
+		`v:"\"`,
+		`v:"""`,
 		`v:`,
 		`k:invalid json`,
 		`k:{"name":invalid}`,
@@ -140,6 +150,8 @@ func TestDeserializePathElementError(t *testing.T) {
 		`k:{"key":`,
 		`k:{"key":{`,
 		`k:{"key":{}`,
+		`k:{"\":{}}`,
+		`k:{""":{}}`,
 	}
 	for _, test := range tests {
 		t.Run(test, func(t *testing.T) {
