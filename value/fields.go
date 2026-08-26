@@ -83,7 +83,9 @@ var _ json.MarshalerTo = (*FieldList)(nil)
 var _ json.UnmarshalerFrom = (*FieldList)(nil)
 
 func (fl *FieldList) MarshalJSONTo(enc *jsontext.Encoder) error {
-	enc.WriteToken(jsontext.BeginObject)
+	if err := enc.WriteToken(jsontext.BeginObject); err != nil {
+		return err
+	}
 	for _, f := range *fl {
 		if err := enc.WriteToken(jsontext.String(f.Name)); err != nil {
 			return err
@@ -92,7 +94,9 @@ func (fl *FieldList) MarshalJSONTo(enc *jsontext.Encoder) error {
 			return err
 		}
 	}
-	enc.WriteToken(jsontext.EndObject)
+	if err := enc.WriteToken(jsontext.EndObject); err != nil {
+		return err
+	}
 
 	return nil
 }
