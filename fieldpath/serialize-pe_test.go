@@ -62,6 +62,11 @@ func TestPathElementRoundTrip(t *testing.T) {
 		{input: `f:spec-\u0041`, pathElement: FieldNameElement("spec-\\u0041")}, // no interpretation of escapes when decoding
 		{input: `k:{"duplicate":"1","duplicate":"2"}`, pathElement: KeyElement(value.Field{Name: "duplicate", Value: value.NewValueInterface("1")}, value.Field{Name: "duplicate", Value: value.NewValueInterface("2")})},
 		{input: `v:{"duplicate":"1","duplicate":"2"}`, pathElement: ValueElement(value.NewValueInterface(map[string]interface{}{"duplicate": "2"})), output: `v:{"duplicate":"2"}`},
+		{input: `k:{"duplicate":{"a":1,"a":2},"duplicate":{"b":1,"b":2}}`, pathElement: KeyElement(value.Field{Name: "duplicate", Value: value.NewValueInterface(map[string]any{"a": float64(2)})}, value.Field{Name: "duplicate", Value: value.NewValueInterface(map[string]any{"b": float64(2)})}), output: `k:{"duplicate":{"a":2},"duplicate":{"b":2}}`},
+		{input: `v:{"duplicate":{"a":1,"a":2},"duplicate":{"b":1,"b":2}}`, pathElement: ValueElement(value.NewValueInterface(map[string]any{"duplicate": map[string]any{"b": float64(2)}})), output: `v:{"duplicate":{"b":2}}`},
+		{input: `k:null`, pathElement: KeyElement([]value.Field{}...), output: `k:{}`},
+		{input: `k:{}`, pathElement: KeyElement([]value.Field{}...)},
+		{input: `k:{"key":{}}`, pathElement: KeyElement(value.Field{Name: "key", Value: value.NewValueInterface(map[string]any{})})},
 	}
 
 	for _, test := range tests {
@@ -71,7 +76,7 @@ func TestPathElementRoundTrip(t *testing.T) {
 				t.Fatalf("Failed to create path element: %v", err)
 			}
 			if !reflect.DeepEqual(pe, test.pathElement) {
-				t.Fatalf("Expected round-trip:\ninput: %#v\noutput: %#v", test.pathElement, pe)
+				t.Fatalf("Expected round-trip:\ninput: %#v\noutput: %#v, diff: %s", test.pathElement, pe, cmp.Diff(test.pathElement, pe))
 			}
 			output, err := SerializePathElement(pe)
 			if err != nil {
@@ -102,6 +107,8 @@ func TestDeserializePathElementError(t *testing.T) {
 		`i:index is not a number`,
 		`i:1.23`,
 		`i:`,
+		`v:`,
+		`k:`,
 		`v:invalid json`,
 		`v:`,
 		`k:invalid json`,
@@ -121,6 +128,18 @@ func TestDeserializePathElementError(t *testing.T) {
 		`k:{"name":"my-container"} {"other":"my-container"`,  // multiple keys with malformed trailing data
 		`v:{"some":"json"} garbage`,
 		`k:{"name":"my-container"} garbage`,
+		`k:true`,
+		`k:1`,
+		`k:""`,
+		`k:[]`,
+		`k:{`,
+		`k:{"`,
+		`k:{"key`,
+		`k:{"key"`,
+		`k:{"key",`,
+		`k:{"key":`,
+		`k:{"key":{`,
+		`k:{"key":{}`,
 	}
 	for _, test := range tests {
 		t.Run(test, func(t *testing.T) {
