@@ -25,6 +25,7 @@ import (
 	"strconv"
 	"strings"
 
+	internaljson "sigs.k8s.io/structured-merge-diff/v6/internal/json"
 	"sigs.k8s.io/structured-merge-diff/v6/value"
 )
 
@@ -78,15 +79,16 @@ func DeserializePathElement(s string) (PathElement, error) {
 			FieldName: &str,
 		}, nil
 	case peValueSepBytes[0]:
-		var v any
-		if err := json.UnmarshalRead(strings.NewReader(s[2:]), &v, allowInvalidUTF8); err != nil {
+		v, err := internaljson.UnmarshalToAnyMergingDuplicates([]byte(s[2:]))
+		if err != nil {
 			return PathElement{}, err
 		}
 		interfaceValue := value.NewValueInterface(v)
 		return PathElement{Value: &interfaceValue}, nil
 	case peKeySepBytes[0]:
 		var fields value.FieldList
-		if err := json.UnmarshalRead(strings.NewReader(s[2:]), &fields, allowInvalidUTF8); err != nil {
+		// preserve json-iterator behavior of tolerating duplicates (duplicates accumulate)
+		if err := json.UnmarshalRead(strings.NewReader(s[2:]), &fields, allowInvalidUTF8, allowDuplicates); err != nil {
 			return PathElement{}, err
 		}
 		if fields == nil {
@@ -139,7 +141,8 @@ func (pes *pathElementSerializer) serialize(pe PathElement) error {
 		if _, err := pes.builder.Write(peKeySepBytes); err != nil {
 			return err
 		}
-		if err := json.MarshalWrite(&pes.builder, pe.Key, json.Deterministic(true)); err != nil {
+		// preserve json-iterator behavior of tolerating duplicates (duplicates output multiple times)
+		if err := json.MarshalWrite(&pes.builder, pe.Key, json.Deterministic(true), allowDuplicates); err != nil {
 			return err
 		}
 	case pe.Value != nil:

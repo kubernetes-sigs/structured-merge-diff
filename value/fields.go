@@ -23,6 +23,8 @@ import (
 	"io"
 	"sort"
 	"strings"
+
+	internaljson "sigs.k8s.io/structured-merge-diff/v6/internal/json"
 )
 
 // Field is an individual key-value pair.
@@ -127,8 +129,8 @@ func (fl *FieldList) UnmarshalJSONFrom(parser *jsontext.Decoder) error {
 
 		k := rawKey.String()
 
-		var v any
-		if err := json.UnmarshalDecode(parser, &v); err == io.EOF {
+		v, err := internaljson.ReadValueToAnyMergingDuplicates(parser)
+		if err == io.EOF {
 			return fmt.Errorf("unexpected EOF")
 		} else if err != nil {
 			return fmt.Errorf("parsing JSON: %v", err)
