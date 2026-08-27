@@ -132,12 +132,14 @@ func TestFromJSONTokenTypeErrors(t *testing.T) {
 	}
 }
 
-func TestFromJSONValid(t *testing.T) {
-	cases := []struct {
-		name      string
-		input     string
-		canonical string
-	}{
+type fromJSONCase struct {
+	name      string
+	input     string
+	canonical string
+}
+
+func fromJSONCases(includeDuplicateCases bool) []fromJSONCase {
+	cases := []fromJSONCase{
 		// Valid values
 		{"bareNull", `null`, `null`},
 		{"bareTrue", `true`, `true`},
@@ -168,9 +170,6 @@ func TestFromJSONValid(t *testing.T) {
 		{"surroundingWhitespaceAroundNull", " null ", `null`},
 		{"surroundingWhitespaceAroundBool", " true ", `true`},
 
-		// Duplicate values
-		{"duplicates", `{"a":{"b":1,"b":2}, "a":{"c":1.0,"c":2.0}}`, `{"a":{"c":2}}`},
-
 		// Unicode keys
 		{"multiByteLatin", `{"Iñtërnâtiônàlizætiøn":1}`, `{"Iñtërnâtiônàlizætiøn":1}`},
 		{"cyrillic", `{"Здравствуйте":1}`, `{"Здравствуйте":1}`},
@@ -186,7 +185,19 @@ func TestFromJSONValid(t *testing.T) {
 		// and change this test case to expect the bytes to be munged to U+FFFD.
 		{"byteOrderMark", "{\"\xff\xfe\": 1}", "{\"\xff\xfe\": 1}"},
 	}
-	for _, tc := range cases {
+
+	if includeDuplicateCases {
+		cases = append(cases,
+			// Duplicate values
+			fromJSONCase{"duplicates", `{"a":{"b":1,"b":2}, "a":{"c":1.0,"c":2.0}}`, `{"a":{"c":2}}`},
+		)
+
+	}
+	return cases
+}
+
+func TestFromJSONValid(t *testing.T) {
+	for _, tc := range fromJSONCases(true) {
 		t.Run(tc.name, func(t *testing.T) {
 			got, err := value.FromJSON([]byte(tc.input))
 			if err != nil {
@@ -202,4 +213,35 @@ func TestFromJSONValid(t *testing.T) {
 			}
 		})
 	}
+}
+
+func BenchmarkJSON(b *testing.B) {
+	cases := fromJSONCases(false)
+	var values []value.Value
+	for _, tc := range cases {
+		v, err := value.FromJSON([]byte(tc.input))
+		if err != nil {
+			b.Fatal(err)
+		}
+		values = append(values, v)
+	}
+
+	b.Run("serialize", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			for _, v := range values {
+				if _, err := value.ToJSON(v); err != nil {
+					b.Fatal(err)
+				}
+			}
+		}
+	})
+	b.Run("deserialize", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			for _, tc := range cases {
+				if _, err := value.FromJSON([]byte(tc.input)); err != nil {
+					b.Fatal(err)
+				}
+			}
+		}
+	})
 }
