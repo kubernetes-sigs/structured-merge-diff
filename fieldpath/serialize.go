@@ -73,7 +73,7 @@ func (s *setContentsV1) emitContentsV1(includeSelf bool, enc *jsontext.Encoder) 
 		if err := enc.WriteToken(jsontext.String(".")); err != nil {
 			return err
 		}
-		if err := enc.WriteValue(jsontext.Value("{}")); err != nil {
+		if err := writeEmptyObject(enc); err != nil {
 			return err
 		}
 	}
@@ -87,7 +87,7 @@ func (s *setContentsV1) emitContentsV1(includeSelf bool, enc *jsontext.Encoder) 
 			if err := writePathKey(enc, mpe); err != nil {
 				return err
 			}
-			if err := enc.WriteValue(jsontext.Value("{}")); err != nil {
+			if err := writeEmptyObject(enc); err != nil {
 				return err
 			}
 			mi++
@@ -117,7 +117,7 @@ func (s *setContentsV1) emitContentsV1(includeSelf bool, enc *jsontext.Encoder) 
 		if err := writePathKey(enc, mpe); err != nil {
 			return err
 		}
-		if err := enc.WriteValue(jsontext.Value("{}")); err != nil {
+		if err := writeEmptyObject(enc); err != nil {
 			return err
 		}
 
@@ -254,4 +254,11 @@ func readIterV1(parser *jsontext.Decoder) (children *Set, isMember bool, err err
 	}
 
 	return children, isMember, nil
+}
+
+func writeEmptyObject(enc *jsontext.Encoder) error {
+	if err := enc.WriteToken(jsontext.BeginObject); err != nil {
+		return err
+	}
+	return enc.WriteToken(jsontext.EndObject)
 }
