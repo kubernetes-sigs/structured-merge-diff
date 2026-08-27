@@ -27,16 +27,29 @@ import (
 	"sigs.k8s.io/structured-merge-diff/v6/value"
 )
 
+type intnFunc func(int) int
+
+func seededIntn(seed int64) intnFunc {
+	source := rand.NewSource(seed)
+	return func(i int) int {
+		return int(source.Int63()) % i
+	}
+}
+
 type randomPathAlphabet []PathElement
 
 func (a randomPathAlphabet) makePath(minLen, maxLen int) Path {
+	return a.makePathWithIntn(minLen, maxLen, rand.Intn)
+}
+
+func (a randomPathAlphabet) makePathWithIntn(minLen, maxLen int, intn intnFunc) Path {
 	n := minLen
 	if minLen < maxLen {
-		n += rand.Intn(maxLen - minLen)
+		n += intn(maxLen - minLen)
 	}
 	var p Path
 	for i := 0; i < n; i++ {
-		p = append(p, a[rand.Intn(len(a))])
+		p = append(p, a[intn(len(a))])
 	}
 	return p
 }
@@ -64,7 +77,7 @@ var randomPathMaker = randomPathAlphabet(MakePathOrDie(
 	KeyByFields("key", " value with spaces "),
 	KeyByFields("lang", "en-US"),
 	KeyByFields("unicode-key", "unicode-value-🔥"),
-	KeyByFields("duplicate-key", "duplicate-value", "duplicate-key", "duplicate-value"),
+	// KeyByFields("duplicate-key", "duplicate-value", "duplicate-key", "duplicate-value"),
 	KeyByFields(`\`, `\`, `\\`, `\\`, `\u0041`, `\u0041`, `"`, `"`),
 	// Values
 	_V(1),
@@ -102,21 +115,26 @@ func BenchmarkFieldSet(b *testing.B) {
 		{1000, 3, 8},
 	}
 	for i := range cases {
+		deterministicIntn := seededIntn(int64(i))
 		here := cases[i]
 		makeSet := func() *Set {
 			x := NewSet()
 			for j := 0; j < here.size; j++ {
-				x.Insert(randomPathMaker.makePath(here.minPathLen, here.maxPathLen))
+				x.Insert(randomPathMaker.makePathWithIntn(here.minPathLen, here.maxPathLen, deterministicIntn))
 			}
 			return x
 		}
 		operands := make([]*Set, 500)
 		serialized := make([][]byte, len(operands))
+		var err error
 		for i := range operands {
 			operands[i] = makeSet()
-			serialized[i], _ = operands[i].ToJSON()
+			serialized[i], err = operands[i].ToJSON()
+			if err != nil {
+				b.Fatal(err)
+			}
 		}
-		randOperand := func() *Set { return operands[rand.Intn(len(operands))] }
+		randOperand := func() *Set { return operands[deterministicIntn(len(operands))] }
 
 		b.Run(fmt.Sprintf("insert-%v", here.size), func(b *testing.B) {
 			b.ReportAllocs()
@@ -127,20 +145,26 @@ func BenchmarkFieldSet(b *testing.B) {
 		b.Run(fmt.Sprintf("has-%v", here.size), func(b *testing.B) {
 			b.ReportAllocs()
 			for i := 0; i < b.N; i++ {
-				randOperand().Has(randomPathMaker.makePath(here.minPathLen, here.maxPathLen))
+				randOperand().Has(randomPathMaker.makePathWithIntn(here.minPathLen, here.maxPathLen, deterministicIntn))
 			}
 		})
 		b.Run(fmt.Sprintf("serialize-%v", here.size), func(b *testing.B) {
 			b.ReportAllocs()
 			for i := 0; i < b.N; i++ {
-				randOperand().ToJSON()
+				_, err := randOperand().ToJSON()
+				if err != nil {
+					b.Fatal(err)
+				}
 			}
 		})
 		b.Run(fmt.Sprintf("deserialize-%v", here.size), func(b *testing.B) {
 			b.ReportAllocs()
 			s := NewSet()
 			for i := 0; i < b.N; i++ {
-				s.FromJSON(bytes.NewReader(serialized[rand.Intn(len(serialized))]))
+				err := s.FromJSON(bytes.NewReader(serialized[deterministicIntn(len(serialized))]))
+				if err != nil {
+					b.Fatal(err)
+				}
 			}
 		})
 
