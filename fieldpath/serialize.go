@@ -64,16 +64,16 @@ func (s *setContentsV1) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return s.emitContentsV1(false, enc)
 }
 
-func (s *setContentsV1) emitContentsV1(includeSelf bool, om *jsontext.Encoder) error {
-	if err := om.WriteToken(jsontext.BeginObject); err != nil {
+func (s *setContentsV1) emitContentsV1(includeSelf bool, enc *jsontext.Encoder) error {
+	if err := enc.WriteToken(jsontext.BeginObject); err != nil {
 		return err
 	}
 
 	if includeSelf && !(len(s.Members.members) == 0 && len(s.Children.members) == 0) {
-		if err := om.WriteToken(jsontext.String(".")); err != nil {
+		if err := enc.WriteToken(jsontext.String(".")); err != nil {
 			return err
 		}
-		if err := om.WriteValue(jsontext.Value("{}")); err != nil {
+		if err := enc.WriteValue(jsontext.Value("{}")); err != nil {
 			return err
 		}
 	}
@@ -84,19 +84,19 @@ func (s *setContentsV1) emitContentsV1(includeSelf bool, om *jsontext.Encoder) e
 		cpe := s.Children.members[ci].pathElement
 
 		if c := mpe.Compare(cpe); c < 0 {
-			if err := writePathKey(om, mpe); err != nil {
+			if err := writePathKey(enc, mpe); err != nil {
 				return err
 			}
-			if err := om.WriteValue(jsontext.Value("{}")); err != nil {
+			if err := enc.WriteValue(jsontext.Value("{}")); err != nil {
 				return err
 			}
 
 			mi++
 		} else {
-			if err := writePathKey(om, cpe); err != nil {
+			if err := writePathKey(enc, cpe); err != nil {
 				return err
 			}
-			if err := (*setContentsV1)(s.Children.members[ci].set).emitContentsV1(c == 0, om); err != nil {
+			if err := (*setContentsV1)(s.Children.members[ci].set).emitContentsV1(c == 0, enc); err != nil {
 				return err
 			}
 
@@ -111,10 +111,10 @@ func (s *setContentsV1) emitContentsV1(includeSelf bool, om *jsontext.Encoder) e
 	for mi < len(s.Members.members) {
 		mpe := s.Members.members[mi]
 
-		if err := writePathKey(om, mpe); err != nil {
+		if err := writePathKey(enc, mpe); err != nil {
 			return err
 		}
-		if err := om.WriteValue(jsontext.Value("{}")); err != nil {
+		if err := enc.WriteValue(jsontext.Value("{}")); err != nil {
 			return err
 		}
 
@@ -124,17 +124,17 @@ func (s *setContentsV1) emitContentsV1(includeSelf bool, om *jsontext.Encoder) e
 	for ci < len(s.Children.members) {
 		cpe := s.Children.members[ci].pathElement
 
-		if err := writePathKey(om, cpe); err != nil {
+		if err := writePathKey(enc, cpe); err != nil {
 			return err
 		}
-		if err := (*setContentsV1)(s.Children.members[ci].set).emitContentsV1(false, om); err != nil {
+		if err := (*setContentsV1)(s.Children.members[ci].set).emitContentsV1(false, enc); err != nil {
 			return err
 		}
 
 		ci++
 	}
 
-	if err := om.WriteToken(jsontext.EndObject); err != nil {
+	if err := enc.WriteToken(jsontext.EndObject); err != nil {
 		return err
 	}
 
