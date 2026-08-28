@@ -32,6 +32,8 @@ func (s *Set) ToJSONStream(w io.Writer) error {
 	return json.MarshalWrite(w, (*setContentsV1)(s), allowInvalidUTF8)
 }
 
+const maxRetainedBuffer = 1024
+
 var pool = sync.Pool{
 	New: func() any {
 		return &pathElementSerializer{}

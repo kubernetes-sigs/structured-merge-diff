@@ -128,7 +128,11 @@ type pathElementSerializer struct {
 }
 
 func (pes *pathElementSerializer) reset() {
-	pes.builder.Reset()
+	if pes.builder.Cap() > maxRetainedBuffer {
+		pes.builder = bytes.Buffer{}
+	} else {
+		pes.builder.Reset()
+	}
 	pes.fastValue.Value = nil
 }
 
