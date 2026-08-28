@@ -22,6 +22,7 @@ import (
 	"math/rand"
 	"testing"
 
+	"sigs.k8s.io/structured-merge-diff/v6/fieldpath"
 	"sigs.k8s.io/structured-merge-diff/v6/schema"
 	"sigs.k8s.io/structured-merge-diff/v6/typed"
 	"sigs.k8s.io/structured-merge-diff/v6/value"
@@ -157,6 +158,24 @@ func BenchmarkFieldSet(b *testing.B) {
 				}
 			}
 		})
+
+		b.Run(fmt.Sprintf("serialize-pe-%v", here.size), func(b *testing.B) {
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				op := operands[i%len(operands)]
+				for pe := range op.Members.All() {
+					if _, err := fieldpath.SerializePathElement(pe); err != nil {
+						b.Fatal(err)
+					}
+				}
+				for pe := range op.Children.All() {
+					if _, err := fieldpath.SerializePathElement(pe); err != nil {
+						b.Fatal(err)
+					}
+				}
+			}
+		})
+
 		b.Run(fmt.Sprintf("deserialize-%v", here.size), func(b *testing.B) {
 			b.ReportAllocs()
 			s := NewSet()
