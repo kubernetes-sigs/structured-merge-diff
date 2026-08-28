@@ -111,7 +111,11 @@ func DeserializePathElement(s string) (PathElement, error) {
 
 // SerializePathElement serializes a path element
 func SerializePathElement(pe PathElement) (string, error) {
-	serializer := pathElementSerializer{}
+	serializer := pool.Get().(*pathElementSerializer)
+	defer func() {
+		serializer.reset()
+		pool.Put(serializer)
+	}()
 	if err := serializer.serialize(pe); err != nil {
 		return "", err
 	}
