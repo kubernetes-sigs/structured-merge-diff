@@ -124,7 +124,17 @@ func SerializePathElement(pe PathElement) (string, error) {
 
 type pathElementSerializer struct {
 	builder   bytes.Buffer
-	fastValue value.FastMarshalValue
+	fastValue fastMarshalValue
+}
+
+type fastMarshalValue struct {
+	Value *value.Value
+}
+
+var _ json.MarshalerTo = fastMarshalValue{}
+
+func (mv fastMarshalValue) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return value.ValueMarshalJSONTo(enc, *mv.Value)
 }
 
 func (pes *pathElementSerializer) reset() {

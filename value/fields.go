@@ -34,18 +34,7 @@ type Field struct {
 	Value Value
 }
 
-// Not meant to be used by an external library.
-type FastMarshalValue struct {
-	Value *Value
-}
-
-var _ json.MarshalerTo = FastMarshalValue{}
-
-func (mv FastMarshalValue) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return valueMarshalJSONTo(enc, *mv.Value)
-}
-
-func valueMarshalJSONTo(enc *jsontext.Encoder, v Value) error {
+func ValueMarshalJSONTo(enc *jsontext.Encoder, v Value) error {
 	switch {
 	case v.IsNull():
 		return enc.WriteToken(jsontext.Null)
@@ -67,7 +56,7 @@ func valueMarshalJSONTo(enc *jsontext.Encoder, v Value) error {
 		}
 		list := v.AsList()
 		for i := 0; i < list.Length(); i++ {
-			if err := valueMarshalJSONTo(enc, list.At(i)); err != nil {
+			if err := ValueMarshalJSONTo(enc, list.At(i)); err != nil {
 				return err
 			}
 		}
@@ -95,7 +84,7 @@ func (fl *FieldList) MarshalJSONTo(enc *jsontext.Encoder) error {
 		if err := enc.WriteToken(jsontext.String(f.Name)); err != nil {
 			return err
 		}
-		if err := valueMarshalJSONTo(enc, f.Value); err != nil {
+		if err := ValueMarshalJSONTo(enc, f.Value); err != nil {
 			return err
 		}
 	}
