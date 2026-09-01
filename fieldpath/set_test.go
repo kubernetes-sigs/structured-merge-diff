@@ -19,6 +19,7 @@ package fieldpath_test
 import (
 	"bytes"
 	"fmt"
+	"math"
 	"math/rand"
 	"testing"
 
@@ -99,7 +100,7 @@ var randomPathMaker = randomPathAlphabet(MakePathOrDie(
 	_V(`\`),
 	_V(`\\`),
 	// Indices
-	1, 2, 3, 4, 0, 5, 100, 2147483648,
+	1, 2, 3, 4, 0, 5, 100, math.MaxInt,
 ))
 
 func BenchmarkFieldSet(b *testing.B) {
