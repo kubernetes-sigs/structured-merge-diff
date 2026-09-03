@@ -48,6 +48,7 @@ func TestPathElementRoundTrip(t *testing.T) {
 		{input: `v:null`, pathElement: ValueElement(value.NewValueInterface(nil))},
 		{input: `v:"some-string"`, pathElement: ValueElement(value.NewValueInterface("some-string"))},
 		{input: `v:1234`, pathElement: ValueElement(value.NewValueInterface(float64(1234)))},
+		{input: `v:{"g":"0","f":"0","e":"0","d":"0","c":"0","b":"0","a":"0"}`, pathElement: ValueElement(value.NewValueInterface(map[string]interface{}{"a": "0", "b": "0", "c": "0", "d": "0", "e": "0", "f": "0", "g": "0"})), output: `v:{"a":"0","b":"0","c":"0","d":"0","e":"0","f":"0","g":"0"}`},
 		{input: `v:{"some":"json"}`, pathElement: ValueElement(value.NewValueInterface(map[string]interface{}{"some": "json"}))},
 		{input: `v:{"some":" some  with spaces  "}`, pathElement: ValueElement(value.NewValueInterface(map[string]interface{}{"some": " some  with spaces  "}))},
 		{input: `k:{"name":"app-🚀"}`, pathElement: KeyElement(value.Field{Name: "name", Value: value.NewValueInterface("app-🚀")})},
