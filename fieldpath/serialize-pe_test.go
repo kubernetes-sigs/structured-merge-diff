@@ -17,6 +17,7 @@ limitations under the License.
 package fieldpath
 
 import (
+	"math"
 	"reflect"
 	"testing"
 
@@ -109,6 +110,37 @@ func TestPathElementIgnoreUnknown(t *testing.T) {
 	}
 }
 
+func TestUnsupportedFloats(t *testing.T) {
+	testcases := []struct {
+		name   string
+		path   PathElement
+		output string
+	}{
+		{
+			name: "NaN",
+			path: ValueElement(value.NewValueInterface(math.NaN())),
+		},
+		{
+			name: "Infinity",
+			path: ValueElement(value.NewValueInterface(math.Inf(1))),
+		},
+		{
+			name: "-Infinity",
+			path: ValueElement(value.NewValueInterface(math.Inf(-1))),
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := SerializePathElement(tc.path)
+			if err == nil {
+				t.Fatal("expected error, got none")
+			}
+		})
+	}
+
+}
+
 func TestDeserializePathElementError(t *testing.T) {
 	tests := []string{
 		``,
@@ -122,6 +154,9 @@ func TestDeserializePathElementError(t *testing.T) {
 		`v:"\"`,
 		`v:"""`,
 		`v:`,
+		`v:NaN`,
+		`v:Infinity`,
+		`v:-Infinity`,
 		`k:invalid json`,
 		`k:{"name":invalid}`,
 		`v:{"some":" \x41"}`, // This is an invalid JSON string because \x41 is not a valid escape sequence.
