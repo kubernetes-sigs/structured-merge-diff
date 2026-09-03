@@ -21,6 +21,7 @@ import (
 	"encoding/json/v2"
 	"fmt"
 	"io"
+	"math"
 	"sort"
 	"strings"
 
@@ -49,7 +50,11 @@ func valueMarshalJSONTo(enc *jsontext.Encoder, v Value) error {
 	case v.IsNull():
 		return enc.WriteToken(jsontext.Null)
 	case v.IsFloat():
-		return enc.WriteToken(jsontext.Float(v.AsFloat()))
+		f := v.AsFloat()
+		if math.IsInf(f, 0) || math.IsNaN(f) {
+			return fmt.Errorf("unsupported value: %v", f)
+		}
+		return enc.WriteToken(jsontext.Float(f))
 	case v.IsInt():
 		return enc.WriteToken(jsontext.Int(v.AsInt()))
 	case v.IsString():
