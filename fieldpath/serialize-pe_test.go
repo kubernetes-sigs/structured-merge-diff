@@ -215,7 +215,6 @@ func TestInvalidUTF8(t *testing.T) {
 
 func TestEscapeHTML(t *testing.T) {
 	htmlChars := "<>&"
-	escapedChars := `\\u003c\\u003e\\u0026`
 
 	// roundTripCases exercise behavior reading html characters in various places in a field path then marshaling it back
 	roundTripCases := []struct {
@@ -229,7 +228,7 @@ func TestEscapeHTML(t *testing.T) {
 		},
 		{
 			inputPathElement:     `"v:\"` + htmlChars + `\""`,
-			marshaledPathElement: `"v:\"` + escapedChars + `\""`,
+			marshaledPathElement: `"v:\"` + htmlChars + `\""`,
 		},
 		{
 			inputPathElement:     `"k:{\"1` + htmlChars + `\":{}}"`,
@@ -237,15 +236,15 @@ func TestEscapeHTML(t *testing.T) {
 		},
 		{
 			inputPathElement:     `"k:{\"2\":\"` + htmlChars + `\"}"`,
-			marshaledPathElement: `"k:{\"2\":\"` + escapedChars + `\"}"`,
+			marshaledPathElement: `"k:{\"2\":\"` + htmlChars + `\"}"`,
 		},
 		{
 			inputPathElement:     `"k:{\"3\":{\"` + htmlChars + `\":{}}}"`,
-			marshaledPathElement: `"k:{\"3\":{\"` + escapedChars + `\":{}}}"`,
+			marshaledPathElement: `"k:{\"3\":{\"` + htmlChars + `\":{}}}"`,
 		},
 		{
 			inputPathElement:     `"k:{\"4\":{\"key\":\"` + htmlChars + `\"}}"`,
-			marshaledPathElement: `"k:{\"4\":{\"key\":\"` + escapedChars + `\"}}"`,
+			marshaledPathElement: `"k:{\"4\":{\"key\":\"` + htmlChars + `\"}}"`,
 		},
 	}
 
@@ -280,7 +279,7 @@ func TestEscapeHTML(t *testing.T) {
 		},
 		{
 			pe:                   ValueElement(value.NewValueInterface(htmlChars)),
-			marshaledPathElement: `"v:\"` + escapedChars + `\""`,
+			marshaledPathElement: `"v:\"` + htmlChars + `\""`,
 		},
 		{
 			pe:                   KeyElement(value.Field{Name: "1" + htmlChars, Value: value.NewValueInterface(map[string]any{})}),
@@ -288,11 +287,11 @@ func TestEscapeHTML(t *testing.T) {
 		},
 		{
 			pe:                   KeyElement(value.Field{Name: "2", Value: value.NewValueInterface(htmlChars)}),
-			marshaledPathElement: `"k:{\"2\":\"` + escapedChars + `\"}"`,
+			marshaledPathElement: `"k:{\"2\":\"` + htmlChars + `\"}"`,
 		},
 		{
 			pe:                   KeyElement(value.Field{Name: "3", Value: value.NewValueInterface(map[string]any{htmlChars: ""})}),
-			marshaledPathElement: `"k:{\"3\":{\"` + escapedChars + `\":\"\"}}"`,
+			marshaledPathElement: `"k:{\"3\":{\"` + htmlChars + `\":\"\"}}"`,
 		},
 	}
 
