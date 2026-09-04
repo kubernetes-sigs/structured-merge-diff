@@ -17,7 +17,9 @@ limitations under the License.
 package fieldpath
 
 import (
+	"math"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -48,6 +50,7 @@ func TestPathElementRoundTrip(t *testing.T) {
 		{input: `v:null`, pathElement: ValueElement(value.NewValueInterface(nil))},
 		{input: `v:"some-string"`, pathElement: ValueElement(value.NewValueInterface("some-string"))},
 		{input: `v:1234`, pathElement: ValueElement(value.NewValueInterface(float64(1234)))},
+		{input: `v:{"g":"0","f":"0","e":"0","d":"0","c":"0","b":"0","a":"0"}`, pathElement: ValueElement(value.NewValueInterface(map[string]interface{}{"a": "0", "b": "0", "c": "0", "d": "0", "e": "0", "f": "0", "g": "0"})), output: `v:{"a":"0","b":"0","c":"0","d":"0","e":"0","f":"0","g":"0"}`},
 		{input: `v:{"some":"json"}`, pathElement: ValueElement(value.NewValueInterface(map[string]interface{}{"some": "json"}))},
 		{input: `v:{"some":" some  with spaces  "}`, pathElement: ValueElement(value.NewValueInterface(map[string]interface{}{"some": " some  with spaces  "}))},
 		{input: `k:{"name":"app-🚀"}`, pathElement: KeyElement(value.Field{Name: "name", Value: value.NewValueInterface("app-🚀")})},
@@ -108,6 +111,241 @@ func TestPathElementIgnoreUnknown(t *testing.T) {
 	}
 }
 
+func TestInvalidUTF8(t *testing.T) {
+	nonUTF8Input := "\xff\xfe"
+	sanitizedOutput := "\\\\ufffd\\\\ufffd"
+
+	// roundTripCases exercise behavior reading invalid utf8 characters into a field set from json, then marshaling it back
+	roundTripCases := []struct {
+		inputPathElement     string
+		err                  bool
+		marshaledPathElement string
+	}{
+		{
+			inputPathElement:     `"f:` + nonUTF8Input + `"`,
+			marshaledPathElement: `"f:` + nonUTF8Input + `"`, // TODO: expect sanitizedOutput when switching to json/v2
+		},
+		{
+			inputPathElement:     `"v:\"` + nonUTF8Input + `\""`,
+			marshaledPathElement: `"v:\"` + sanitizedOutput + `\""`,
+		},
+		{
+			inputPathElement:     `"k:{\"1` + nonUTF8Input + `\":{}}"`,
+			marshaledPathElement: `"k:{\"1` + nonUTF8Input + `\":{}}"`, // TODO: expect sanitizedOutput when switching to json/v2
+		},
+		{
+			inputPathElement:     `"k:{\"2\":\"` + nonUTF8Input + `\"}"`,
+			marshaledPathElement: `"k:{\"2\":\"` + sanitizedOutput + `\"}"`,
+		},
+		{
+			inputPathElement:     `"k:{\"3\":{\"` + nonUTF8Input + `\":{}}}"`,
+			marshaledPathElement: `"k:{\"3\":{\"` + sanitizedOutput + `\":{}}}"`,
+		},
+		{
+			inputPathElement:     `"k:{\"4\":{\"key\":\"` + nonUTF8Input + `\"}}"`,
+			marshaledPathElement: `"k:{\"4\":{\"key\":\"` + sanitizedOutput + `\"}}"`,
+		},
+	}
+
+	for _, tc := range roundTripCases {
+		t.Run("roundtrip/"+tc.inputPathElement, func(t *testing.T) {
+			input := `{` + tc.inputPathElement + `:{}}`
+			s := NewSet()
+			err := s.FromJSON(strings.NewReader(input))
+			if err != nil {
+				t.Log("input:", input)
+				t.Fatal(err)
+			}
+			output, err := s.ToJSON()
+			if err != nil {
+				t.Fatal(err)
+			}
+			expectedOutput := `{` + tc.marshaledPathElement + `:{}}`
+			if string(output) != expectedOutput {
+				t.Fatalf("didn't round-trip\nexpected: %v\ngot:      %v", expectedOutput, string(output))
+			}
+		})
+	}
+
+	// fromMemoryCases exercise constructing a field set in memory with invalid utf8 characters, then marshaling to json
+	fromMemoryCases := []struct {
+		pe                   PathElement
+		marshaledPathElement string
+	}{
+		{
+			pe:                   FieldNameElement(nonUTF8Input),
+			marshaledPathElement: `"f:` + nonUTF8Input + `"`, // TODO: expect sanitizedOutput when switching to json/v2
+		},
+		{
+			pe:                   ValueElement(value.NewValueInterface(nonUTF8Input)),
+			marshaledPathElement: `"v:\"` + sanitizedOutput + `\""`,
+		},
+		{
+			pe:                   KeyElement(value.Field{Name: "1" + nonUTF8Input, Value: value.NewValueInterface(map[string]any{})}),
+			marshaledPathElement: `"k:{\"1` + nonUTF8Input + `\":{}}"`, // TODO: expect sanitizedOutput when switching to json/v2
+		},
+		{
+			pe:                   KeyElement(value.Field{Name: "2", Value: value.NewValueInterface(nonUTF8Input)}),
+			marshaledPathElement: `"k:{\"2\":\"` + sanitizedOutput + `\"}"`,
+		},
+		{
+			pe:                   KeyElement(value.Field{Name: "3", Value: value.NewValueInterface(map[string]any{nonUTF8Input: ""})}),
+			marshaledPathElement: `"k:{\"3\":{\"` + sanitizedOutput + `\":\"\"}}"`,
+		},
+	}
+
+	for _, tc := range fromMemoryCases {
+		t.Run("memory/"+tc.pe.String(), func(t *testing.T) {
+			s := NewSet(Path{tc.pe})
+			output, err := s.ToJSON()
+			if err != nil {
+				t.Fatal(err)
+			}
+			expectedOutput := `{` + tc.marshaledPathElement + `:{}}`
+			if string(output) != expectedOutput {
+				t.Log("want:", expectedOutput)
+				t.Log("got: ", string(output))
+				t.Logf("want (bytes): %#v", expectedOutput)
+				t.Logf("got (bytes):  %#v", string(output))
+				t.Fatalf("unexpected marshal value\nexpected: %v\ngot:      %v", expectedOutput, string(output))
+			}
+		})
+	}
+}
+
+func TestEscapeHTML(t *testing.T) {
+	htmlChars := "<>&"
+	escapedChars := `\\u003c\\u003e\\u0026`
+
+	// roundTripCases exercise behavior reading html characters in various places in a field path then marshaling it back
+	roundTripCases := []struct {
+		inputPathElement     string
+		err                  bool
+		marshaledPathElement string
+	}{
+		{
+			inputPathElement:     `"f:` + htmlChars + `"`,
+			marshaledPathElement: `"f:` + htmlChars + `"`, // no escaping
+		},
+		{
+			inputPathElement:     `"v:\"` + htmlChars + `\""`,
+			marshaledPathElement: `"v:\"` + escapedChars + `\""`,
+		},
+		{
+			inputPathElement:     `"k:{\"1` + htmlChars + `\":{}}"`,
+			marshaledPathElement: `"k:{\"1` + htmlChars + `\":{}}"`, // no escaping
+		},
+		{
+			inputPathElement:     `"k:{\"2\":\"` + htmlChars + `\"}"`,
+			marshaledPathElement: `"k:{\"2\":\"` + escapedChars + `\"}"`,
+		},
+		{
+			inputPathElement:     `"k:{\"3\":{\"` + htmlChars + `\":{}}}"`,
+			marshaledPathElement: `"k:{\"3\":{\"` + escapedChars + `\":{}}}"`,
+		},
+		{
+			inputPathElement:     `"k:{\"4\":{\"key\":\"` + htmlChars + `\"}}"`,
+			marshaledPathElement: `"k:{\"4\":{\"key\":\"` + escapedChars + `\"}}"`,
+		},
+	}
+
+	for _, tc := range roundTripCases {
+		t.Run("roundtrip/"+tc.inputPathElement, func(t *testing.T) {
+			input := `{` + tc.inputPathElement + `:{}}`
+			s := NewSet()
+			err := s.FromJSON(strings.NewReader(input))
+			if err != nil {
+				t.Log("input:", input)
+				t.Fatal(err)
+			}
+			output, err := s.ToJSON()
+			if err != nil {
+				t.Fatal(err)
+			}
+			expectedOutput := `{` + tc.marshaledPathElement + `:{}}`
+			if string(output) != expectedOutput {
+				t.Fatalf("didn't round-trip\nexpected: %v\ngot:      %v", expectedOutput, string(output))
+			}
+		})
+	}
+
+	// fromMemoryCases exercise constructing a field set in memory with html special characters in various places, then marshaling to json
+	fromMemoryCases := []struct {
+		pe                   PathElement
+		marshaledPathElement string
+	}{
+		{
+			pe:                   FieldNameElement(htmlChars),
+			marshaledPathElement: `"f:` + htmlChars + `"`, // no escaping
+		},
+		{
+			pe:                   ValueElement(value.NewValueInterface(htmlChars)),
+			marshaledPathElement: `"v:\"` + escapedChars + `\""`,
+		},
+		{
+			pe:                   KeyElement(value.Field{Name: "1" + htmlChars, Value: value.NewValueInterface(map[string]any{})}),
+			marshaledPathElement: `"k:{\"1` + htmlChars + `\":{}}"`, // no escaping
+		},
+		{
+			pe:                   KeyElement(value.Field{Name: "2", Value: value.NewValueInterface(htmlChars)}),
+			marshaledPathElement: `"k:{\"2\":\"` + escapedChars + `\"}"`,
+		},
+		{
+			pe:                   KeyElement(value.Field{Name: "3", Value: value.NewValueInterface(map[string]any{htmlChars: ""})}),
+			marshaledPathElement: `"k:{\"3\":{\"` + escapedChars + `\":\"\"}}"`,
+		},
+	}
+
+	for _, tc := range fromMemoryCases {
+		t.Run("memory/"+tc.pe.String(), func(t *testing.T) {
+			s := NewSet(Path{tc.pe})
+			output, err := s.ToJSON()
+			if err != nil {
+				t.Fatal(err)
+			}
+			expectedOutput := `{` + tc.marshaledPathElement + `:{}}`
+			if string(output) != expectedOutput {
+				t.Log("want:", expectedOutput)
+				t.Log("got: ", string(output))
+				t.Logf("want (bytes): %#v", expectedOutput)
+				t.Logf("got (bytes):  %#v", string(output))
+				t.Fatalf("unexpected marshal value\nexpected: %v\ngot:      %v", expectedOutput, string(output))
+			}
+		})
+	}
+}
+
+func TestUnsupportedFloats(t *testing.T) {
+	testcases := []struct {
+		name   string
+		path   PathElement
+		output string
+	}{
+		{
+			name: "NaN",
+			path: ValueElement(value.NewValueInterface(math.NaN())),
+		},
+		{
+			name: "Infinity",
+			path: ValueElement(value.NewValueInterface(math.Inf(1))),
+		},
+		{
+			name: "-Infinity",
+			path: ValueElement(value.NewValueInterface(math.Inf(-1))),
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := SerializePathElement(tc.path)
+			if err == nil {
+				t.Fatal("expected error, got none")
+			}
+		})
+	}
+
+}
+
 func TestDeserializePathElementError(t *testing.T) {
 	tests := []string{
 		``,
@@ -121,6 +359,9 @@ func TestDeserializePathElementError(t *testing.T) {
 		`v:"\"`,
 		`v:"""`,
 		`v:`,
+		`v:NaN`,
+		`v:Infinity`,
+		`v:-Infinity`,
 		`k:invalid json`,
 		`k:{"name":invalid}`,
 		`v:{"some":" \x41"}`, // This is an invalid JSON string because \x41 is not a valid escape sequence.
