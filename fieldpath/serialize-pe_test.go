@@ -213,6 +213,108 @@ func TestInvalidUTF8(t *testing.T) {
 	}
 }
 
+func TestEscapeHTML(t *testing.T) {
+	htmlChars := "<>&"
+	escapedChars := `\\u003c\\u003e\\u0026`
+
+	// roundTripCases exercise behavior reading html characters in various places in a field path then marshaling it back
+	roundTripCases := []struct {
+		inputPathElement     string
+		err                  bool
+		marshaledPathElement string
+	}{
+		{
+			inputPathElement:     `"f:` + htmlChars + `"`,
+			marshaledPathElement: `"f:` + htmlChars + `"`, // no escaping
+		},
+		{
+			inputPathElement:     `"v:\"` + htmlChars + `\""`,
+			marshaledPathElement: `"v:\"` + escapedChars + `\""`,
+		},
+		{
+			inputPathElement:     `"k:{\"1` + htmlChars + `\":{}}"`,
+			marshaledPathElement: `"k:{\"1` + htmlChars + `\":{}}"`, // no escaping
+		},
+		{
+			inputPathElement:     `"k:{\"2\":\"` + htmlChars + `\"}"`,
+			marshaledPathElement: `"k:{\"2\":\"` + escapedChars + `\"}"`,
+		},
+		{
+			inputPathElement:     `"k:{\"3\":{\"` + htmlChars + `\":{}}}"`,
+			marshaledPathElement: `"k:{\"3\":{\"` + escapedChars + `\":{}}}"`,
+		},
+		{
+			inputPathElement:     `"k:{\"4\":{\"key\":\"` + htmlChars + `\"}}"`,
+			marshaledPathElement: `"k:{\"4\":{\"key\":\"` + escapedChars + `\"}}"`,
+		},
+	}
+
+	for _, tc := range roundTripCases {
+		t.Run("roundtrip/"+tc.inputPathElement, func(t *testing.T) {
+			input := `{` + tc.inputPathElement + `:{}}`
+			s := NewSet()
+			err := s.FromJSON(strings.NewReader(input))
+			if err != nil {
+				t.Log("input:", input)
+				t.Fatal(err)
+			}
+			output, err := s.ToJSON()
+			if err != nil {
+				t.Fatal(err)
+			}
+			expectedOutput := `{` + tc.marshaledPathElement + `:{}}`
+			if string(output) != expectedOutput {
+				t.Fatalf("didn't round-trip\nexpected: %v\ngot:      %v", expectedOutput, string(output))
+			}
+		})
+	}
+
+	// fromMemoryCases exercise constructing a field set in memory with html special characters in various places, then marshaling to json
+	fromMemoryCases := []struct {
+		pe                   PathElement
+		marshaledPathElement string
+	}{
+		{
+			pe:                   FieldNameElement(htmlChars),
+			marshaledPathElement: `"f:` + htmlChars + `"`, // no escaping
+		},
+		{
+			pe:                   ValueElement(value.NewValueInterface(htmlChars)),
+			marshaledPathElement: `"v:\"` + escapedChars + `\""`,
+		},
+		{
+			pe:                   KeyElement(value.Field{Name: "1" + htmlChars, Value: value.NewValueInterface(map[string]any{})}),
+			marshaledPathElement: `"k:{\"1` + htmlChars + `\":{}}"`, // no escaping
+		},
+		{
+			pe:                   KeyElement(value.Field{Name: "2", Value: value.NewValueInterface(htmlChars)}),
+			marshaledPathElement: `"k:{\"2\":\"` + escapedChars + `\"}"`,
+		},
+		{
+			pe:                   KeyElement(value.Field{Name: "3", Value: value.NewValueInterface(map[string]any{htmlChars: ""})}),
+			marshaledPathElement: `"k:{\"3\":{\"` + escapedChars + `\":\"\"}}"`,
+		},
+	}
+
+	for _, tc := range fromMemoryCases {
+		t.Run("memory/"+tc.pe.String(), func(t *testing.T) {
+			s := NewSet(Path{tc.pe})
+			output, err := s.ToJSON()
+			if err != nil {
+				t.Fatal(err)
+			}
+			expectedOutput := `{` + tc.marshaledPathElement + `:{}}`
+			if string(output) != expectedOutput {
+				t.Log("want:", expectedOutput)
+				t.Log("got: ", string(output))
+				t.Logf("want (bytes): %#v", expectedOutput)
+				t.Logf("got (bytes):  %#v", string(output))
+				t.Fatalf("unexpected marshal value\nexpected: %v\ngot:      %v", expectedOutput, string(output))
+			}
+		})
+	}
+}
+
 func TestUnsupportedFloats(t *testing.T) {
 	testcases := []struct {
 		name   string
