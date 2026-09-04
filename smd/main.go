@@ -22,7 +22,7 @@ import (
 	"flag"
 	"log"
 
-	"sigs.k8s.io/structured-merge-diff/v6/internal/cli"
+	"sigs.k8s.io/structured-merge-diff/v7/internal/cli"
 )
 
 func main() {

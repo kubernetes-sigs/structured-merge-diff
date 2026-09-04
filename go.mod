@@ -1,4 +1,4 @@
-module sigs.k8s.io/structured-merge-diff/v6
+module sigs.k8s.io/structured-merge-diff/v7
 
 go 1.27
 

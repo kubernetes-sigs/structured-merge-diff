@@ -20,8 +20,8 @@ import (
 	"fmt"
 	"testing"
 
-	"sigs.k8s.io/structured-merge-diff/v6/typed"
-	"sigs.k8s.io/structured-merge-diff/v6/value"
+	"sigs.k8s.io/structured-merge-diff/v7/typed"
+	"sigs.k8s.io/structured-merge-diff/v7/value"
 )
 
 type mergeTestCase struct {

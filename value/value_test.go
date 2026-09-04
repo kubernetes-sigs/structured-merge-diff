@@ -20,7 +20,7 @@ import (
 	"reflect"
 	"testing"
 
-	"sigs.k8s.io/structured-merge-diff/v6/value"
+	"sigs.k8s.io/structured-merge-diff/v7/value"
 )
 
 func TestFromJSONTokenTypeErrors(t *testing.T) {

@@ -20,9 +20,9 @@ import (
 	"fmt"
 	"strings"
 
-	"sigs.k8s.io/structured-merge-diff/v6/fieldpath"
-	"sigs.k8s.io/structured-merge-diff/v6/schema"
-	"sigs.k8s.io/structured-merge-diff/v6/value"
+	"sigs.k8s.io/structured-merge-diff/v7/fieldpath"
+	"sigs.k8s.io/structured-merge-diff/v7/schema"
+	"sigs.k8s.io/structured-merge-diff/v7/value"
 )
 
 // Comparison is the return value of a TypedValue.Compare() operation.
