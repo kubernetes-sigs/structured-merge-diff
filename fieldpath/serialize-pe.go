@@ -142,7 +142,7 @@ func (pes *pathElementSerializer) serialize(pe PathElement) error {
 			return err
 		}
 		// preserve json-iterator behavior of tolerating duplicates (duplicates output multiple times)
-		if err := json.MarshalWrite(&pes.builder, pe.Key, json.Deterministic(true), allowDuplicates); err != nil {
+		if err := json.MarshalWrite(&pes.builder, pe.Key, json.Deterministic(true), allowDuplicates, allowInvalidUTF8); err != nil {
 			return err
 		}
 	case pe.Value != nil:
@@ -150,7 +150,7 @@ func (pes *pathElementSerializer) serialize(pe PathElement) error {
 			return err
 		}
 		pes.fastValue.Value = pe.Value
-		if err := json.MarshalWrite(&pes.builder, &pes.fastValue, json.Deterministic(true)); err != nil {
+		if err := json.MarshalWrite(&pes.builder, &pes.fastValue, json.Deterministic(true), allowInvalidUTF8); err != nil {
 			return err
 		}
 	case pe.Index != nil:

@@ -76,7 +76,7 @@ func valueMarshalJSONTo(enc *jsontext.Encoder, v Value) error {
 		// use the json marshaller to make sure the key ordering is deterministic
 		fallthrough
 	default:
-		return json.MarshalEncode(enc, v.Unstructured(), json.Deterministic(true))
+		return json.MarshalEncode(enc, v.Unstructured(), json.Deterministic(true), jsontext.AllowInvalidUTF8(true))
 	}
 }
 

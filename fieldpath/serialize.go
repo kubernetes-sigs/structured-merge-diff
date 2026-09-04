@@ -25,11 +25,11 @@ import (
 )
 
 func (s *Set) ToJSON() ([]byte, error) {
-	return json.Marshal((*setContentsV1)(s))
+	return json.Marshal((*setContentsV1)(s), allowInvalidUTF8)
 }
 
 func (s *Set) ToJSONStream(w io.Writer) error {
-	return json.MarshalWrite(w, (*setContentsV1)(s))
+	return json.MarshalWrite(w, (*setContentsV1)(s), allowInvalidUTF8)
 }
 
 var pool = sync.Pool{

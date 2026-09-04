@@ -113,7 +113,7 @@ func TestPathElementIgnoreUnknown(t *testing.T) {
 
 func TestInvalidUTF8(t *testing.T) {
 	nonUTF8Input := "\xff\xfe"
-	sanitizedOutput := "\\\\ufffd\\\\ufffd"
+	sanitizedOutput := "\ufffd\ufffd"
 
 	// roundTripCases exercise behavior reading invalid utf8 characters into a field set from json, then marshaling it back
 	roundTripCases := []struct {
@@ -123,7 +123,7 @@ func TestInvalidUTF8(t *testing.T) {
 	}{
 		{
 			inputPathElement:     `"f:` + nonUTF8Input + `"`,
-			marshaledPathElement: `"f:` + nonUTF8Input + `"`, // TODO: expect sanitizedOutput when switching to json/v2
+			marshaledPathElement: `"f:` + sanitizedOutput + `"`,
 		},
 		{
 			inputPathElement:     `"v:\"` + nonUTF8Input + `\""`,
@@ -131,7 +131,7 @@ func TestInvalidUTF8(t *testing.T) {
 		},
 		{
 			inputPathElement:     `"k:{\"1` + nonUTF8Input + `\":{}}"`,
-			marshaledPathElement: `"k:{\"1` + nonUTF8Input + `\":{}}"`, // TODO: expect sanitizedOutput when switching to json/v2
+			marshaledPathElement: `"k:{\"1` + sanitizedOutput + `\":{}}"`,
 		},
 		{
 			inputPathElement:     `"k:{\"2\":\"` + nonUTF8Input + `\"}"`,
@@ -174,7 +174,7 @@ func TestInvalidUTF8(t *testing.T) {
 	}{
 		{
 			pe:                   FieldNameElement(nonUTF8Input),
-			marshaledPathElement: `"f:` + nonUTF8Input + `"`, // TODO: expect sanitizedOutput when switching to json/v2
+			marshaledPathElement: `"f:` + sanitizedOutput + `"`,
 		},
 		{
 			pe:                   ValueElement(value.NewValueInterface(nonUTF8Input)),
@@ -182,7 +182,7 @@ func TestInvalidUTF8(t *testing.T) {
 		},
 		{
 			pe:                   KeyElement(value.Field{Name: "1" + nonUTF8Input, Value: value.NewValueInterface(map[string]any{})}),
-			marshaledPathElement: `"k:{\"1` + nonUTF8Input + `\":{}}"`, // TODO: expect sanitizedOutput when switching to json/v2
+			marshaledPathElement: `"k:{\"1` + sanitizedOutput + `\":{}}"`,
 		},
 		{
 			pe:                   KeyElement(value.Field{Name: "2", Value: value.NewValueInterface(nonUTF8Input)}),
