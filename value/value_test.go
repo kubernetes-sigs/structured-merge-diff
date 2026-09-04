@@ -181,9 +181,8 @@ func fromJSONCases(includeDuplicateCases bool) []fromJSONCase {
 		{"escapedLatin", `{"\u00c5":1}`, `{"Å":1}`},
 		{"escapedMultiBytePair", `{"\uD83D\uDE02":1}`, `{"😂":1}`},
 
-		// TODO: When we migrate to json/v2 we should use jsontext.AllowInvalidUTF8
-		// and change this test case to expect the bytes to be munged to U+FFFD.
-		{"byteOrderMark", "{\"\xff\xfe\": 1}", "{\"\xff\xfe\": 1}"},
+		// Invalid UTF-8 is tolerated; the offending bytes are munged to U+FFFD.
+		{"byteOrderMark", "{\"\xff\xfe\": 1}", "{\"��\": 1}"},
 	}
 
 	if includeDuplicateCases {

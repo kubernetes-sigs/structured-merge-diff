@@ -17,8 +17,15 @@ limitations under the License.
 package value
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+	"fmt"
+	"io"
+	"math"
 	"sort"
 	"strings"
+
+	internaljson "sigs.k8s.io/structured-merge-diff/v6/internal/json"
 )
 
 // Field is an individual key-value pair.
@@ -27,9 +34,114 @@ type Field struct {
 	Value Value
 }
 
+func ValueMarshalJSONTo(enc *jsontext.Encoder, v Value) error {
+	switch {
+	case v.IsNull():
+		return enc.WriteToken(jsontext.Null)
+	case v.IsFloat():
+		f := v.AsFloat()
+		if math.IsInf(f, 0) || math.IsNaN(f) {
+			return fmt.Errorf("unsupported value: %v", f)
+		}
+		return enc.WriteToken(jsontext.Float(f))
+	case v.IsInt():
+		return enc.WriteToken(jsontext.Int(v.AsInt()))
+	case v.IsString():
+		return enc.WriteToken(jsontext.String(v.AsString()))
+	case v.IsBool():
+		return enc.WriteToken(jsontext.Bool(v.AsBool()))
+	case v.IsList():
+		if err := enc.WriteToken(jsontext.BeginArray); err != nil {
+			return err
+		}
+		list := v.AsList()
+		for i := 0; i < list.Length(); i++ {
+			if err := ValueMarshalJSONTo(enc, list.At(i)); err != nil {
+				return err
+			}
+		}
+		return enc.WriteToken(jsontext.EndArray)
+	case v.IsMap():
+		// use the json marshaller to make sure the key ordering is deterministic
+		return json.MarshalEncode(enc, v.Unstructured(), json.Deterministic(true), jsontext.AllowInvalidUTF8(true))
+	default:
+		return fmt.Errorf("cannot marshal unknown value type to json")
+	}
+}
+
 // FieldList is a list of key-value pairs. Each field is expected to
 // have a different name.
 type FieldList []Field
+
+var _ json.MarshalerTo = (*FieldList)(nil)
+var _ json.UnmarshalerFrom = (*FieldList)(nil)
+
+func (fl *FieldList) MarshalJSONTo(enc *jsontext.Encoder) error {
+	if err := enc.WriteToken(jsontext.BeginObject); err != nil {
+		return err
+	}
+	for _, f := range *fl {
+		if err := enc.WriteToken(jsontext.String(f.Name)); err != nil {
+			return err
+		}
+		if err := ValueMarshalJSONTo(enc, f.Value); err != nil {
+			return err
+		}
+	}
+	if err := enc.WriteToken(jsontext.EndObject); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// FieldListFromJSON is a helper function for reading a JSON document.
+func (fl *FieldList) UnmarshalJSONFrom(parser *jsontext.Decoder) error {
+	objStart, err := parser.ReadToken()
+	if err != nil {
+		return fmt.Errorf("parsing JSON: %v", err)
+	}
+	switch objStart.Kind() {
+	case jsontext.BeginObject.Kind():
+		// Continue below.
+	case jsontext.Null.Kind():
+		// A null is equivalent to an empty object.
+		*fl = nil
+		return nil
+	default:
+		return fmt.Errorf("expected object")
+	}
+
+	var fields FieldList
+	for {
+		rawKey, err := parser.ReadToken()
+		if err == io.EOF {
+			return fmt.Errorf("unexpected EOF")
+		} else if err != nil {
+			return fmt.Errorf("parsing JSON: %v", err)
+		}
+
+		if rawKey.Kind() == jsontext.EndObject.Kind() {
+			break
+		}
+
+		k := rawKey.String()
+
+		v, err := internaljson.ReadValueToAnyMergingDuplicates(parser)
+		if err == io.EOF {
+			return fmt.Errorf("unexpected EOF")
+		} else if err != nil {
+			return fmt.Errorf("parsing JSON: %v", err)
+		}
+
+		fields = append(fields, Field{Name: k, Value: NewValueInterface(v)})
+	}
+
+	fields.Sort()
+	*fl = fields
+
+	return nil
+}
 
 // Copy returns a copy of the FieldList.
 // Values are not copied.
