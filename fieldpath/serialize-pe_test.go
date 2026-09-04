@@ -19,6 +19,7 @@ package fieldpath
 import (
 	"math"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -107,6 +108,108 @@ func TestPathElementIgnoreUnknown(t *testing.T) {
 	_, err := DeserializePathElement("r:Hello")
 	if err != ErrUnknownPathElementType {
 		t.Fatalf("Unknown qualifiers must not return an invalid path element")
+	}
+}
+
+func TestInvalidUTF8(t *testing.T) {
+	nonUTF8Input := "\xff\xfe"
+	sanitizedOutput := "\\\\ufffd\\\\ufffd"
+
+	// roundTripCases exercise behavior reading invalid utf8 characters into a field set from json, then marshaling it back
+	roundTripCases := []struct {
+		inputPathElement     string
+		err                  bool
+		marshaledPathElement string
+	}{
+		{
+			inputPathElement:     `"f:` + nonUTF8Input + `"`,
+			marshaledPathElement: `"f:` + nonUTF8Input + `"`, // TODO: expect sanitizedOutput when switching to json/v2
+		},
+		{
+			inputPathElement:     `"v:\"` + nonUTF8Input + `\""`,
+			marshaledPathElement: `"v:\"` + sanitizedOutput + `\""`,
+		},
+		{
+			inputPathElement:     `"k:{\"1` + nonUTF8Input + `\":{}}"`,
+			marshaledPathElement: `"k:{\"1` + nonUTF8Input + `\":{}}"`, // TODO: expect sanitizedOutput when switching to json/v2
+		},
+		{
+			inputPathElement:     `"k:{\"2\":\"` + nonUTF8Input + `\"}"`,
+			marshaledPathElement: `"k:{\"2\":\"` + sanitizedOutput + `\"}"`,
+		},
+		{
+			inputPathElement:     `"k:{\"3\":{\"` + nonUTF8Input + `\":{}}}"`,
+			marshaledPathElement: `"k:{\"3\":{\"` + sanitizedOutput + `\":{}}}"`,
+		},
+		{
+			inputPathElement:     `"k:{\"4\":{\"key\":\"` + nonUTF8Input + `\"}}"`,
+			marshaledPathElement: `"k:{\"4\":{\"key\":\"` + sanitizedOutput + `\"}}"`,
+		},
+	}
+
+	for _, tc := range roundTripCases {
+		t.Run("roundtrip/"+tc.inputPathElement, func(t *testing.T) {
+			input := `{` + tc.inputPathElement + `:{}}`
+			s := NewSet()
+			err := s.FromJSON(strings.NewReader(input))
+			if err != nil {
+				t.Log("input:", input)
+				t.Fatal(err)
+			}
+			output, err := s.ToJSON()
+			if err != nil {
+				t.Fatal(err)
+			}
+			expectedOutput := `{` + tc.marshaledPathElement + `:{}}`
+			if string(output) != expectedOutput {
+				t.Fatalf("didn't round-trip\nexpected: %v\ngot:      %v", expectedOutput, string(output))
+			}
+		})
+	}
+
+	// fromMemoryCases exercise constructing a field set in memory with invalid utf8 characters, then marshaling to json
+	fromMemoryCases := []struct {
+		pe                   PathElement
+		marshaledPathElement string
+	}{
+		{
+			pe:                   FieldNameElement(nonUTF8Input),
+			marshaledPathElement: `"f:` + nonUTF8Input + `"`, // TODO: expect sanitizedOutput when switching to json/v2
+		},
+		{
+			pe:                   ValueElement(value.NewValueInterface(nonUTF8Input)),
+			marshaledPathElement: `"v:\"` + sanitizedOutput + `\""`,
+		},
+		{
+			pe:                   KeyElement(value.Field{Name: "1" + nonUTF8Input, Value: value.NewValueInterface(map[string]any{})}),
+			marshaledPathElement: `"k:{\"1` + nonUTF8Input + `\":{}}"`, // TODO: expect sanitizedOutput when switching to json/v2
+		},
+		{
+			pe:                   KeyElement(value.Field{Name: "2", Value: value.NewValueInterface(nonUTF8Input)}),
+			marshaledPathElement: `"k:{\"2\":\"` + sanitizedOutput + `\"}"`,
+		},
+		{
+			pe:                   KeyElement(value.Field{Name: "3", Value: value.NewValueInterface(map[string]any{nonUTF8Input: ""})}),
+			marshaledPathElement: `"k:{\"3\":{\"` + sanitizedOutput + `\":\"\"}}"`,
+		},
+	}
+
+	for _, tc := range fromMemoryCases {
+		t.Run("memory/"+tc.pe.String(), func(t *testing.T) {
+			s := NewSet(Path{tc.pe})
+			output, err := s.ToJSON()
+			if err != nil {
+				t.Fatal(err)
+			}
+			expectedOutput := `{` + tc.marshaledPathElement + `:{}}`
+			if string(output) != expectedOutput {
+				t.Log("want:", expectedOutput)
+				t.Log("got: ", string(output))
+				t.Logf("want (bytes): %#v", expectedOutput)
+				t.Logf("got (bytes):  %#v", string(output))
+				t.Fatalf("unexpected marshal value\nexpected: %v\ngot:      %v", expectedOutput, string(output))
+			}
+		})
 	}
 }
 
