@@ -23,7 +23,7 @@ import (
 	"testing"
 
 	yaml "go.yaml.in/yaml/v2"
-	"sigs.k8s.io/structured-merge-diff/v6/typed"
+	"sigs.k8s.io/structured-merge-diff/v7/typed"
 )
 
 func testdata(file string) string {

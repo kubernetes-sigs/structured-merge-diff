@@ -24,7 +24,7 @@ import (
 
 	yaml "go.yaml.in/yaml/v2"
 
-	internaljson "sigs.k8s.io/structured-merge-diff/v6/internal/json"
+	internaljson "sigs.k8s.io/structured-merge-diff/v7/internal/json"
 )
 
 // A Value corresponds to an 'atom' in the schema. It should return true

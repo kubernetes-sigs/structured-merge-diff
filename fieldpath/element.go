@@ -22,7 +22,7 @@ import (
 	"slices"
 	"strings"
 
-	"sigs.k8s.io/structured-merge-diff/v6/value"
+	"sigs.k8s.io/structured-merge-diff/v7/value"
 )
 
 // PathElement describes how to select a child field given a containing object.

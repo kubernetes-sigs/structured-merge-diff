@@ -17,8 +17,8 @@ limitations under the License.
 package fieldpath_test
 
 import (
-	"sigs.k8s.io/structured-merge-diff/v6/fieldpath"
-	"sigs.k8s.io/structured-merge-diff/v6/value"
+	"sigs.k8s.io/structured-merge-diff/v7/fieldpath"
+	"sigs.k8s.io/structured-merge-diff/v7/value"
 )
 
 // Type and function aliases to avoid typing...

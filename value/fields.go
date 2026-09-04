@@ -25,7 +25,7 @@ import (
 	"sort"
 	"strings"
 
-	internaljson "sigs.k8s.io/structured-merge-diff/v6/internal/json"
+	internaljson "sigs.k8s.io/structured-merge-diff/v7/internal/json"
 )
 
 // Field is an individual key-value pair.

@@ -20,8 +20,8 @@ import (
 	"fmt"
 
 	yaml "go.yaml.in/yaml/v2"
-	"sigs.k8s.io/structured-merge-diff/v6/schema"
-	"sigs.k8s.io/structured-merge-diff/v6/value"
+	"sigs.k8s.io/structured-merge-diff/v7/schema"
+	"sigs.k8s.io/structured-merge-diff/v7/value"
 )
 
 // YAMLObject is an object encoded in YAML.

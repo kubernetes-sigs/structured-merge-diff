@@ -16,10 +16,10 @@ package merge_test
 import (
 	"testing"
 
-	"sigs.k8s.io/structured-merge-diff/v6/fieldpath"
-	. "sigs.k8s.io/structured-merge-diff/v6/internal/fixture"
-	"sigs.k8s.io/structured-merge-diff/v6/merge"
-	"sigs.k8s.io/structured-merge-diff/v6/typed"
+	"sigs.k8s.io/structured-merge-diff/v7/fieldpath"
+	. "sigs.k8s.io/structured-merge-diff/v7/internal/fixture"
+	"sigs.k8s.io/structured-merge-diff/v7/merge"
+	"sigs.k8s.io/structured-merge-diff/v7/typed"
 )
 
 // portListParser sets the default value of key "protocol" to "TCP"

@@ -25,8 +25,8 @@ import (
 	"strconv"
 	"strings"
 
-	internaljson "sigs.k8s.io/structured-merge-diff/v6/internal/json"
-	"sigs.k8s.io/structured-merge-diff/v6/value"
+	internaljson "sigs.k8s.io/structured-merge-diff/v7/internal/json"
+	"sigs.k8s.io/structured-merge-diff/v7/value"
 )
 
 var ErrUnknownPathElementType = errors.New("unknown path element type")
