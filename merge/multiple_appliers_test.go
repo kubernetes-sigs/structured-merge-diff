@@ -205,10 +205,12 @@ func TestMultipleAppliersSet(t *testing.T) {
 					`,
 				},
 			},
+			// Item "c" is removed even though apply-two claims it,
+			// because apply-one previously owned it and is now dropping
+			// it. Item "d" survives because apply-one never owned it.
 			Object: `
 				list:
 				- name: a
-				- name: c
 				- name: d
 			`,
 			APIVersion: "v1",
@@ -223,9 +225,7 @@ func TestMultipleAppliersSet(t *testing.T) {
 				),
 				"apply-two": fieldpath.NewVersionedSet(
 					_NS(
-						_P("list", _KBF("name", "c")),
 						_P("list", _KBF("name", "d")),
-						_P("list", _KBF("name", "c"), "name"),
 						_P("list", _KBF("name", "d"), "name"),
 					),
 					"v2",
@@ -238,6 +238,117 @@ func TestMultipleAppliersSet(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			if err := test.Test(associativeListParser); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+// associativeListMultiFieldParser defines list elements with three non-key
+// fields so we can test co-ownership where one applier owns a strict subset.
+var associativeListMultiFieldParser = func() Parser {
+	parser, err := typed.NewParser(`types:
+- name: type
+  map:
+    fields:
+      - name: list
+        type:
+          namedType: associativeList
+- name: associativeList
+  list:
+    elementType:
+      namedType: myElement
+    elementRelationship: associative
+    keys:
+    - name
+- name: myElement
+  map:
+    fields:
+    - name: name
+      type:
+        scalar: string
+    - name: value
+      type:
+        scalar: numeric
+    - name: extra
+      type:
+        scalar: string
+`)
+	if err != nil {
+		panic(err)
+	}
+	return SameVersionParser{T: parser.Type("type")}
+}()
+
+// TestMultipleAppliersSharedListItem tests scenarios where two appliers
+// co-own fields within the same associative list item.
+// Regression test for https://github.com/kubernetes-sigs/structured-merge-diff/issues/335
+func TestMultipleAppliersSharedListItem(t *testing.T) {
+	tests := map[string]TestCase{
+		"remove_item_with_co_owning_applier": {
+			// apply-one creates items "a" and "b". apply-two force-applies
+			// a subset of fields on item "a" (only "value", not "extra").
+			// When apply-one drops item "a", the item should be removed —
+			// consistent with how it works when the co-owning manager uses
+			// Update instead of Apply.
+			// BUG: the item is retained in a corrupt state (missing "extra")
+			// because ToFieldSet() auto-inserts the list item key into
+			// apply-two's field set, preventing removal.
+			Ops: []Operation{
+				Apply{
+					Manager:    "apply-one",
+					APIVersion: "v1",
+					Object: `
+						list:
+						- name: a
+						  value: 1
+						  extra: foo
+						- name: b
+						  value: 2
+					`,
+				},
+				ForceApply{
+					Manager:    "apply-two",
+					APIVersion: "v1",
+					Object: `
+						list:
+						- name: a
+						  value: 10
+					`,
+				},
+				Apply{
+					Manager:    "apply-one",
+					APIVersion: "v1",
+					Object: `
+						list:
+						- name: b
+						  value: 2
+					`,
+				},
+			},
+			Object: `
+				list:
+				- name: b
+				  value: 2
+			`,
+			APIVersion: "v1",
+			Managed: fieldpath.ManagedFields{
+				"apply-one": fieldpath.NewVersionedSet(
+					_NS(
+						_P("list", _KBF("name", "b")),
+						_P("list", _KBF("name", "b"), "name"),
+						_P("list", _KBF("name", "b"), "value"),
+					),
+					"v1",
+					false,
+				),
+			},
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			if err := test.Test(associativeListMultiFieldParser); err != nil {
 				t.Fatal(err)
 			}
 		})
@@ -669,12 +780,12 @@ func TestMultipleAppliersNestedType(t *testing.T) {
 					APIVersion: "v3",
 				},
 			},
+			// Item "b" is removed because apply-one previously owned it
+			// and is now dropping it. apply-two's auto-inserted key does
+			// not prevent removal.
 			Object: `
 				listOfLists:
 				- name: a
-				- name: b
-				  value:
-				  - d
 			`,
 			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
@@ -684,15 +795,6 @@ func TestMultipleAppliersNestedType(t *testing.T) {
 						_P("listOfLists", _KBF("name", "a"), "name"),
 					),
 					"v3",
-					false,
-				),
-				"apply-two": fieldpath.NewVersionedSet(
-					_NS(
-						_P("listOfLists", _KBF("name", "b")),
-						_P("listOfLists", _KBF("name", "b"), "name"),
-						_P("listOfLists", _KBF("name", "b"), "value", _V("d")),
-					),
-					"v2",
 					false,
 				),
 			},
@@ -742,13 +844,12 @@ func TestMultipleAppliersNestedType(t *testing.T) {
 					APIVersion: "v3",
 				},
 			},
+			// Item "b" is removed because apply-one previously owned
+			// it and is now dropping it — consistent with how updaters
+			// are handled.
 			Object: `
 				listOfLists:
 				- name: a
-				- name: b
-				  value:
-				  - d
-				  - e
 			`,
 			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
@@ -758,22 +859,6 @@ func TestMultipleAppliersNestedType(t *testing.T) {
 						_P("listOfLists", _KBF("name", "a"), "name"),
 					),
 					"v3",
-					false,
-				),
-				"apply-two": fieldpath.NewVersionedSet(
-					_NS(
-						_P("listOfLists", _KBF("name", "b")),
-						_P("listOfLists", _KBF("name", "b"), "name"),
-						_P("listOfLists", _KBF("name", "b"), "value", _V("d")),
-					),
-					"v2",
-					false,
-				),
-				"controller": fieldpath.NewVersionedSet(
-					_NS(
-						_P("listOfLists", _KBF("name", "b"), "value", _V("e")),
-					),
-					"v2",
 					false,
 				),
 			},
@@ -956,12 +1041,11 @@ func TestMultipleAppliersNestedType(t *testing.T) {
 					APIVersion: "v3",
 				},
 			},
+			// Item "b" is removed because apply-one previously owned
+			// it and is now dropping it.
 			Object: `
 				listOfLists:
 				- name: a
-				- name: b
-				  value:
-				  - d
 			`,
 			APIVersion: "v1",
 			Managed: fieldpath.ManagedFields{
@@ -971,15 +1055,6 @@ func TestMultipleAppliersNestedType(t *testing.T) {
 						_P("listOfLists", _KBF("name", "a"), "name"),
 					),
 					"v3",
-					false,
-				),
-				"apply-two": fieldpath.NewVersionedSet(
-					_NS(
-						_P("listOfLists", _KBF("name", "b")),
-						_P("listOfLists", _KBF("name", "b"), "name"),
-						_P("listOfLists", _KBF("name", "b"), "value", _V("d")),
-					),
-					"v2",
 					false,
 				),
 			},

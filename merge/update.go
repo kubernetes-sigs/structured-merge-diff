@@ -284,11 +284,18 @@ func (s *Updater) prune(merged *typed.TypedValue, managers fieldpath.ManagedFiel
 func (s *Updater) addBackOwnedItems(merged, pruned *typed.TypedValue, prunedVersion fieldpath.APIVersion, managedFields fieldpath.ManagedFields, applyingManager string) (*typed.TypedValue, error) {
 	var err error
 	managedAtVersion := map[fieldpath.APIVersion]*fieldpath.Set{}
-	for _, managerSet := range managedFields {
+	for manager, managerSet := range managedFields {
+		set := managerSet.Set()
+		// Strip auto-inserted list item keys from other appliers so they
+		// cannot prevent the applying manager from removing list items.
+		// Updaters never have these keys; this makes Apply consistent.
+		if manager != applyingManager && managerSet.Applied() {
+			set = removeListItemKeys(set)
+		}
 		if _, ok := managedAtVersion[managerSet.APIVersion()]; !ok {
 			managedAtVersion[managerSet.APIVersion()] = fieldpath.NewSet()
 		}
-		managedAtVersion[managerSet.APIVersion()] = managedAtVersion[managerSet.APIVersion()].Union(managerSet.Set())
+		managedAtVersion[managerSet.APIVersion()] = managedAtVersion[managerSet.APIVersion()].Union(set)
 	}
 	// Add back owned items at pruned version first to avoid conversion failure
 	// caused by pruned fields which are required for conversion.
@@ -392,4 +399,24 @@ func (s *Updater) reconcileManagedFieldsWithSchemaChanges(liveObject *typed.Type
 		}
 	}
 	return result, nil
+}
+
+// removeListItemKeys returns a copy of s with all associative list item
+// key members (PathElement.Key) removed at every level. Children under
+// those keys are preserved — only the membership itself is stripped.
+func removeListItemKeys(s *fieldpath.Set) *fieldpath.Set {
+	result := fieldpath.NewSet()
+	s.Members.Iterate(func(pe fieldpath.PathElement) {
+		if pe.Key == nil {
+			result.Members.Insert(pe)
+		}
+	})
+	s.Children.Iterate(func(pe fieldpath.PathElement) {
+		child, _ := s.Children.Get(pe)
+		cleaned := removeListItemKeys(child)
+		if !cleaned.Empty() {
+			*result.Children.Descend(pe) = *cleaned
+		}
+	})
+	return result
 }
