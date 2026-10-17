@@ -627,6 +627,13 @@ func TestReflectList(t *testing.T) {
 			expectedUnstructured: []interface{}{"converted1", "converted2"},
 			length:               2,
 		},
+		{
+			name:                 "stringArray",
+			val:                  [2]string{"value1", "value2"},
+			expectedIterate:      []interface{}{"value1", "value2"},
+			expectedUnstructured: []interface{}{"value1", "value2"},
+			length:               2,
+		},
 	}
 
 	for _, tc := range cases {
