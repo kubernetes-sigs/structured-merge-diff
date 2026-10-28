@@ -17,6 +17,7 @@ limitations under the License.
 package fieldpath
 
 import (
+	"fmt"
 	"testing"
 
 	"sigs.k8s.io/structured-merge-diff/v7/value"
@@ -189,6 +190,48 @@ func TestPathElementLess(t *testing.T) {
 			}
 			if tt.b.Less(tt.b) {
 				t.Errorf("oops, b < a: %#v (%v), %#v (%v)", tt.b, tt.b, tt.a, tt.a)
+			}
+		})
+	}
+}
+
+func makePathElementSet(prefix string, start, count int) *PathElementSet {
+	s := &PathElementSet{}
+	for i := 0; i < count; i++ {
+		s.Insert(FieldNameElement(fmt.Sprintf("%s-%06d", prefix, start+i)))
+	}
+	return s
+}
+
+func BenchmarkPathElementSetUnion(b *testing.B) {
+	sizes := []int{20, 100, 500}
+	for _, size := range sizes {
+		b.Run(fmt.Sprintf("identical-%d", size), func(b *testing.B) {
+			s1 := makePathElementSet("f", 0, size)
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				_ = s1.Union(s1)
+			}
+		})
+
+		b.Run(fmt.Sprintf("overlap50-%d", size), func(b *testing.B) {
+			s1 := makePathElementSet("f", 0, size)
+			s2 := makePathElementSet("f", size/2, size)
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				_ = s1.Union(s2)
+			}
+		})
+
+		b.Run(fmt.Sprintf("disjoint-%d", size), func(b *testing.B) {
+			s1 := makePathElementSet("f1", 0, size)
+			s2 := makePathElementSet("f2", 0, size)
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				_ = s1.Union(s2)
 			}
 		})
 	}

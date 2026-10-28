@@ -266,7 +266,19 @@ func (s *PathElementSet) Insert(pe PathElement) {
 
 // Union returns a set containing elements that appear in either s or s2.
 func (s *PathElementSet) Union(s2 *PathElementSet) *PathElementSet {
-	out := &PathElementSet{}
+	if len(s.members) == 0 && len(s2.members) == 0 {
+		return &PathElementSet{}
+	}
+	if len(s.members) == 0 {
+		return &PathElementSet{members: append(sortedPathElements(nil), s2.members...)}
+	}
+	if len(s2.members) == 0 {
+		return &PathElementSet{members: append(sortedPathElements(nil), s.members...)}
+	}
+
+	out := &PathElementSet{
+		members: make(sortedPathElements, 0, max(len(s.members), len(s2.members))),
+	}
 
 	i, j := 0, 0
 	for i < len(s.members) && j < len(s2.members) {
@@ -294,6 +306,9 @@ func (s *PathElementSet) Union(s2 *PathElementSet) *PathElementSet {
 // Intersection returns a set containing elements which appear in both s and s2.
 func (s *PathElementSet) Intersection(s2 *PathElementSet) *PathElementSet {
 	out := &PathElementSet{}
+	if len(s.members) == 0 || len(s2.members) == 0 {
+		return out
+	}
 
 	i, j := 0, 0
 	for i < len(s.members) && j < len(s2.members) {
@@ -301,6 +316,13 @@ func (s *PathElementSet) Intersection(s2 *PathElementSet) *PathElementSet {
 			i++
 		} else {
 			if !s2.members[j].Less(s.members[i]) {
+				if out.members == nil {
+					allocCap := len(s.members) - i
+					if l := len(s2.members) - j; l < allocCap {
+						allocCap = l
+					}
+					out.members = make(sortedPathElements, 0, allocCap)
+				}
 				out.members = append(out.members, s.members[i])
 				i++
 			}
@@ -313,11 +335,21 @@ func (s *PathElementSet) Intersection(s2 *PathElementSet) *PathElementSet {
 
 // Difference returns a set containing elements which appear in s but not in s2.
 func (s *PathElementSet) Difference(s2 *PathElementSet) *PathElementSet {
+	if len(s.members) == 0 {
+		return &PathElementSet{}
+	}
+	if len(s2.members) == 0 {
+		return &PathElementSet{members: append(sortedPathElements(nil), s.members...)}
+	}
+
 	out := &PathElementSet{}
 
 	i, j := 0, 0
 	for i < len(s.members) && j < len(s2.members) {
 		if s.members[i].Less(s2.members[j]) {
+			if out.members == nil {
+				out.members = make(sortedPathElements, 0, len(s.members)-i)
+			}
 			out.members = append(out.members, s.members[i])
 			i++
 		} else {
@@ -328,6 +360,9 @@ func (s *PathElementSet) Difference(s2 *PathElementSet) *PathElementSet {
 		}
 	}
 	if i < len(s.members) {
+		if out.members == nil {
+			out.members = make(sortedPathElements, 0, len(s.members)-i)
+		}
 		out.members = append(out.members, s.members[i:]...)
 	}
 	return out
