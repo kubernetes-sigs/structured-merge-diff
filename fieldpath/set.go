@@ -424,7 +424,9 @@ func (s *Set) WithPrefix(pe PathElement) *Set {
 // Leaves returns a set containing only the leaf paths
 // of a set.
 func (s *Set) Leaves() *Set {
-	leaves := PathElementSet{}
+	leaves := PathElementSet{
+		members: make(sortedPathElements, 0, len(s.Members.members)),
+	}
 	im := 0
 	ic := 0
 
@@ -546,7 +548,19 @@ func (s *SetNodeMap) Equals(s2 *SetNodeMap) bool {
 
 // Union returns a SetNodeMap with members that appear in either s or s2.
 func (s *SetNodeMap) Union(s2 *SetNodeMap) *SetNodeMap {
-	out := &SetNodeMap{}
+	if len(s.members) == 0 && len(s2.members) == 0 {
+		return &SetNodeMap{}
+	}
+	if len(s.members) == 0 {
+		return &SetNodeMap{members: append(sortedSetNode(nil), s2.members...)}
+	}
+	if len(s2.members) == 0 {
+		return &SetNodeMap{members: append(sortedSetNode(nil), s.members...)}
+	}
+
+	out := &SetNodeMap{
+		members: make(sortedSetNode, 0, max(len(s.members), len(s2.members))),
+	}
 
 	i, j := 0, 0
 	for i < len(s.members) && j < len(s2.members) {
@@ -576,6 +590,9 @@ func (s *SetNodeMap) Union(s2 *SetNodeMap) *SetNodeMap {
 // Intersection returns a SetNodeMap with members that appear in both s and s2.
 func (s *SetNodeMap) Intersection(s2 *SetNodeMap) *SetNodeMap {
 	out := &SetNodeMap{}
+	if len(s.members) == 0 || len(s2.members) == 0 {
+		return out
+	}
 
 	i, j := 0, 0
 	for i < len(s.members) && j < len(s2.members) {
@@ -585,6 +602,13 @@ func (s *SetNodeMap) Intersection(s2 *SetNodeMap) *SetNodeMap {
 			if !s2.members[j].pathElement.Less(s.members[i].pathElement) {
 				res := s.members[i].set.Intersection(s2.members[j].set)
 				if !res.Empty() {
+					if out.members == nil {
+						allocCap := len(s.members) - i
+						if l := len(s2.members) - j; l < allocCap {
+							allocCap = l
+						}
+						out.members = make(sortedSetNode, 0, allocCap)
+					}
 					out.members = append(out.members, setNode{pathElement: s.members[i].pathElement, set: res})
 				}
 				i++
@@ -597,11 +621,21 @@ func (s *SetNodeMap) Intersection(s2 *SetNodeMap) *SetNodeMap {
 
 // Difference returns a SetNodeMap with members that appear in s but not in s2.
 func (s *SetNodeMap) Difference(s2 *Set) *SetNodeMap {
+	if len(s.members) == 0 {
+		return &SetNodeMap{}
+	}
+	if len(s2.Children.members) == 0 {
+		return &SetNodeMap{members: append(sortedSetNode(nil), s.members...)}
+	}
+
 	out := &SetNodeMap{}
 
 	i, j := 0, 0
 	for i < len(s.members) && j < len(s2.Children.members) {
 		if s.members[i].pathElement.Less(s2.Children.members[j].pathElement) {
+			if out.members == nil {
+				out.members = make(sortedSetNode, 0, len(s.members)-i)
+			}
 			out.members = append(out.members, setNode{pathElement: s.members[i].pathElement, set: s.members[i].set})
 			i++
 		} else {
@@ -610,6 +644,9 @@ func (s *SetNodeMap) Difference(s2 *Set) *SetNodeMap {
 				diff := s.members[i].set.Difference(s2.Children.members[j].set)
 				// We aren't permitted to add nodes with no elements.
 				if !diff.Empty() {
+					if out.members == nil {
+						out.members = make(sortedSetNode, 0, len(s.members)-i)
+					}
 					out.members = append(out.members, setNode{pathElement: s.members[i].pathElement, set: diff})
 				}
 
@@ -620,6 +657,9 @@ func (s *SetNodeMap) Difference(s2 *Set) *SetNodeMap {
 	}
 
 	if i < len(s.members) {
+		if out.members == nil {
+			out.members = make(sortedSetNode, 0, len(s.members)-i)
+		}
 		out.members = append(out.members, s.members[i:]...)
 	}
 	return out
@@ -633,12 +673,19 @@ func (s *SetNodeMap) Difference(s2 *Set) *SetNodeMap {
 // For example, with s containing `a.b.c` and s2 containing `a.b`,
 // a RecursiveDifference will result in `a`, as the entire node `a.b` gets removed.
 func (s *SetNodeMap) RecursiveDifference(s2 *Set) *SetNodeMap {
+	if len(s.members) == 0 {
+		return &SetNodeMap{}
+	}
+
 	out := &SetNodeMap{}
 
 	i, j := 0, 0
 	for i < len(s.members) && j < len(s2.Children.members) {
 		if s.members[i].pathElement.Less(s2.Children.members[j].pathElement) {
 			if !s2.Members.Has(s.members[i].pathElement) {
+				if out.members == nil {
+					out.members = make(sortedSetNode, 0, len(s.members)-i)
+				}
 				out.members = append(out.members, setNode{pathElement: s.members[i].pathElement, set: s.members[i].set})
 			}
 			i++
@@ -647,6 +694,9 @@ func (s *SetNodeMap) RecursiveDifference(s2 *Set) *SetNodeMap {
 				if !s2.Members.Has(s.members[i].pathElement) {
 					diff := s.members[i].set.RecursiveDifference(s2.Children.members[j].set)
 					if !diff.Empty() {
+						if out.members == nil {
+							out.members = make(sortedSetNode, 0, len(s.members)-i)
+						}
 						out.members = append(out.members, setNode{pathElement: s.members[i].pathElement, set: diff})
 					}
 				}
@@ -659,6 +709,9 @@ func (s *SetNodeMap) RecursiveDifference(s2 *Set) *SetNodeMap {
 	if i < len(s.members) {
 		for _, c := range s.members[i:] {
 			if !s2.Members.Has(c.pathElement) {
+				if out.members == nil {
+					out.members = make(sortedSetNode, 0, len(s.members)-i)
+				}
 				out.members = append(out.members, c)
 			}
 		}
