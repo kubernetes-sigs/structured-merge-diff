@@ -17,6 +17,7 @@ import (
 	"fmt"
 
 	"sigs.k8s.io/structured-merge-diff/v7/fieldpath"
+	"sigs.k8s.io/structured-merge-diff/v7/schema"
 	"sigs.k8s.io/structured-merge-diff/v7/typed"
 	"sigs.k8s.io/structured-merge-diff/v7/value"
 )
@@ -283,12 +284,41 @@ func (s *Updater) prune(merged *typed.TypedValue, managers fieldpath.ManagedFiel
 // but other appliers or updaters (or the current applier's new config) claim to own.
 func (s *Updater) addBackOwnedItems(merged, pruned *typed.TypedValue, prunedVersion fieldpath.APIVersion, managedFields fieldpath.ManagedFields, applyingManager string) (*typed.TypedValue, error) {
 	var err error
+	// Cache of the root type per API version, so merged is converted at
+	// most once per version to resolve manager sets against their schema.
+	// A missing entry means not yet computed; a zero TypeRef means the
+	// version could not be resolved (stripping is then skipped).
+	typeByVersion := map[fieldpath.APIVersion]schema.TypeRef{}
+	rootType := func(version fieldpath.APIVersion) (schema.TypeRef, bool) {
+		if tr, cached := typeByVersion[version]; cached {
+			return tr, tr != schema.TypeRef{}
+		}
+		var tr schema.TypeRef
+		if converted, cerr := s.Converter.Convert(merged, version); cerr == nil {
+			tr = converted.TypeRef()
+		}
+		typeByVersion[version] = tr
+		return tr, tr != schema.TypeRef{}
+	}
+
 	managedAtVersion := map[fieldpath.APIVersion]*fieldpath.Set{}
-	for _, managerSet := range managedFields {
+	for manager, managerSet := range managedFields {
+		set := managerSet.Set()
+		// Strip auto-inserted list item keys from non-applying appliers
+		// that are only partial managers of the item (they do not own all
+		// required fields of the item's element type). The field set and
+		// the schema must be resolved at the same API version. If the
+		// version cannot be resolved, the set is left untouched (keys are
+		// kept, the safe non-deleting behavior).
+		if manager != applyingManager && managerSet.Applied() {
+			if tr, ok := rootType(managerSet.APIVersion()); ok {
+				set = removePartialManagerKeys(set, merged.Schema(), tr)
+			}
+		}
 		if _, ok := managedAtVersion[managerSet.APIVersion()]; !ok {
 			managedAtVersion[managerSet.APIVersion()] = fieldpath.NewSet()
 		}
-		managedAtVersion[managerSet.APIVersion()] = managedAtVersion[managerSet.APIVersion()].Union(managerSet.Set())
+		managedAtVersion[managerSet.APIVersion()] = managedAtVersion[managerSet.APIVersion()].Union(set)
 	}
 	// Add back owned items at pruned version first to avoid conversion failure
 	// caused by pruned fields which are required for conversion.
@@ -392,4 +422,94 @@ func (s *Updater) reconcileManagedFieldsWithSchemaChanges(liveObject *typed.Type
 		}
 	}
 	return result, nil
+}
+
+// removePartialManagerKeys walks s alongside the schema rooted at tr (which
+// must be the API version of s) and strips auto-inserted list item key
+// members for items whose element type has required fields that this manager
+// does not fully own. Such a manager is a partial item manager and must not
+// prevent a full item manager (one that owns all required fields) from
+// deleting the item.
+//
+// Full vs partial is defined by required-field ownership: full = owns every
+// required field of the item's element type; partial = owns only a subset of
+// required fields, or only optional/nested fields. An element type with no
+// required fields leaves every manager vacuously full, so such items' keys
+// are always preserved (an item survives while any manager claims it). When
+// a type cannot be resolved, keys are kept — the safe, non-deleting default.
+func removePartialManagerKeys(s *fieldpath.Set, sc *schema.Schema, tr schema.TypeRef) *fieldpath.Set {
+	a, _ := sc.Resolve(tr)
+	result := fieldpath.NewSet()
+	s.Members.Iterate(func(pe fieldpath.PathElement) {
+		if pe.Key == nil {
+			result.Members.Insert(pe)
+			return
+		}
+		// pe is a list item key member. Keep it iff this manager owns all
+		// required fields of the list's element type (i.e. is a full item
+		// manager). ownsAllRequiredFields returns true for non-map or
+		// unresolvable element types, so such keys are always kept.
+		keep := true
+		if a.List != nil {
+			if child, ok := s.Children.Get(pe); ok {
+				keep = ownsAllRequiredFields(child, sc, a.List.ElementType)
+			}
+		}
+		if keep {
+			result.Members.Insert(pe)
+		}
+	})
+	s.Children.Iterate(func(pe fieldpath.PathElement) {
+		child, _ := s.Children.Get(pe)
+		cleaned := removePartialManagerKeys(child, sc, childTypeRef(sc, a, pe))
+		if !cleaned.Empty() {
+			*result.Children.Descend(pe) = *cleaned
+		}
+	})
+	return result
+}
+
+// childTypeRef returns the type of the subtree reached by descending pe
+// from a node whose resolved atom is a. A zero TypeRef is returned when
+// the type cannot be determined (callers treat that as "keep as-is").
+func childTypeRef(sc *schema.Schema, a schema.Atom, pe fieldpath.PathElement) schema.TypeRef {
+	switch {
+	case a.Map != nil && pe.FieldName != nil:
+		if sf, ok := a.Map.FindField(*pe.FieldName); ok {
+			return sf.Type
+		}
+		return a.Map.ElementType
+	case a.List != nil && pe.Key != nil:
+		return a.List.ElementType
+	default:
+		return schema.TypeRef{}
+	}
+}
+
+// ownsAllRequiredFields reports whether itemSet (a manager's owned fields
+// for a single map item) covers every required field of the map type tr.
+// A required scalar or list field must be owned as a member. A required map
+// field is owned either as an (empty) member or by owning a subtree that
+// covers its own required subfields.
+func ownsAllRequiredFields(itemSet *fieldpath.Set, sc *schema.Schema, tr schema.TypeRef) bool {
+	a, ok := sc.Resolve(tr)
+	if !ok || a.Map == nil {
+		return true
+	}
+	for _, f := range a.Map.Fields {
+		if !f.Required {
+			continue
+		}
+		pe := fieldpath.PathElement{FieldName: &f.Name}
+		if itemSet.Members.Has(pe) {
+			continue
+		}
+		if fa, ok := sc.Resolve(f.Type); ok && fa.Map != nil {
+			if child, ok := itemSet.Children.Get(pe); ok && ownsAllRequiredFields(child, sc, f.Type) {
+				continue
+			}
+		}
+		return false
+	}
+	return true
 }

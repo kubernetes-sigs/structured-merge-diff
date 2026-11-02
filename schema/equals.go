@@ -176,6 +176,9 @@ func (a *StructField) Equals(b *StructField) bool {
 	if a.Name != b.Name {
 		return false
 	}
+	if a.Required != b.Required {
+		return false
+	}
 	if !reflect.DeepEqual(a.Default, b.Default) {
 		return false
 	}
