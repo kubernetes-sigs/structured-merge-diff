@@ -127,7 +127,7 @@ func (fl *FieldList) UnmarshalJSONFrom(parser *jsontext.Decoder) error {
 
 		k := rawKey.String()
 
-		v, err := internaljson.ReadValueToAnyMergingDuplicates(parser)
+		v, err := internaljson.ReadValueToAnyPreservingIntegers(parser)
 		if err == io.EOF {
 			return fmt.Errorf("unexpected EOF")
 		} else if err != nil {

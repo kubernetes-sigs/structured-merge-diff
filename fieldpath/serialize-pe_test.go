@@ -314,6 +314,49 @@ func TestEscapeHTML(t *testing.T) {
 	}
 }
 
+func TestLargeIntegersRoundTrip(t *testing.T) {
+	// 2^53+1 is the first integer a float64 cannot represent.
+	const big = "9007199254740993"
+	for _, in := range []string{
+		`k:{"id":` + big + `}`,
+		`k:{"id":-` + big + `}`,
+		`v:` + big,
+		`v:{"id":` + big + `}`,
+		`v:[` + big + `]`,
+		`v:9223372036854775807`,
+		`v:999999999999999`,
+		`k:{"id":1,"name":"12345678901234567890"}`,
+	} {
+		t.Run(in, func(t *testing.T) {
+			pe, err := DeserializePathElement(in)
+			if err != nil {
+				t.Fatalf("unexpected deserialize error: %v", err)
+			}
+			out, err := SerializePathElement(pe)
+			if err != nil {
+				t.Fatalf("unexpected serialize error: %v", err)
+			}
+			if out != in {
+				t.Errorf("round trip changed the element\nexpected: %s\ngot:      %s", in, out)
+			}
+		})
+	}
+}
+
+func TestLargeIntegerKeysStayDistinct(t *testing.T) {
+	a, err := DeserializePathElement(`k:{"id":9007199254740993}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := DeserializePathElement(`k:{"id":9007199254740992}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a.Equals(b) {
+		t.Errorf("distinct int64 keys compare equal")
+	}
+}
+
 func TestUnsupportedFloats(t *testing.T) {
 	testcases := []struct {
 		name   string

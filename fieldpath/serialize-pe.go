@@ -79,7 +79,7 @@ func DeserializePathElement(s string) (PathElement, error) {
 			FieldName: &str,
 		}, nil
 	case peValueSepBytes[0]:
-		v, err := internaljson.UnmarshalToAnyMergingDuplicates([]byte(s[2:]))
+		v, err := internaljson.UnmarshalToAnyPreservingIntegers([]byte(s[2:]))
 		if err != nil {
 			return PathElement{}, err
 		}
